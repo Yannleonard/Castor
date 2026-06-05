@@ -23,7 +23,7 @@ func (p *DockerProvider) Stats(ctx context.Context, id string) (<-chan provider.
 	out := make(chan provider.StatSample, 1)
 	go func() {
 		defer close(out)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		dec := json.NewDecoder(resp.Body)
 		for {

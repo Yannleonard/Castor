@@ -60,7 +60,7 @@ func (s *Server) PullImage(w http.ResponseWriter, r *http.Request) {
 	// cache watcher emits image events that the UI consumes.
 	go func() {
 		defer cancel()
-		defer rc.Close()
+		defer func() { _ = rc.Close() }()
 		buf := make([]byte, 32*1024)
 		for {
 			if _, rerr := rc.Read(buf); rerr != nil {

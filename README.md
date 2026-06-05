@@ -1,12 +1,14 @@
 <div align="center">
 
-# 🦫 Castor
+<img src="docs/brand/castor-logo.jpg" alt="Castor" width="300" height="300" />
+
+# Castor
 
 **Gérer · Déployer · Orchestrer**
 
 Open-source, self-hosted, multi-host container orchestration platform — **Docker · Docker Swarm · Kubernetes** under one modern dark UI.
 
-Edited by **GTEK-IT** · Apache-2.0 · ships as a single small Docker image (amd64 + arm64).
+Edited by **LEONARD-IT** · Apache-2.0 · ships as a single small Docker image (amd64 + arm64).
 
 </div>
 
@@ -230,4 +232,4 @@ and self-contained; it depends on no other repository.
 
 ## 📄 License
 
-[Apache-2.0](LICENSE) © 2026 GTEK-IT.
+[Apache-2.0](LICENSE) © 2026 LEONARD-IT.

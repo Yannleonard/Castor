@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
@@ -220,7 +221,7 @@ func mapNotFound(err error) error {
 	if err == nil {
 		return nil
 	}
-	if client.IsErrNotFound(err) {
+	if cerrdefs.IsNotFound(err) {
 		return provider.ErrNotFound
 	}
 	// Fallback string check for older/edge cases.
@@ -239,7 +240,7 @@ func mapResourceErr(err error) error {
 	if err == nil {
 		return nil
 	}
-	if client.IsErrNotFound(err) {
+	if cerrdefs.IsNotFound(err) {
 		return provider.ErrNotFound
 	}
 	msg := strings.ToLower(err.Error())

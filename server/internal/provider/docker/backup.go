@@ -35,7 +35,7 @@ func (p *DockerProvider) ensureHelperImage(ctx context.Context) error {
 	if perr != nil {
 		return fmt.Errorf("docker: pull helper image %s: %w", helperImage, perr)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	// Drain the progress stream so the pull runs to completion.
 	_, _ = io.Copy(io.Discard, rc)
 	return nil

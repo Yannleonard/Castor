@@ -77,7 +77,7 @@ func mapIngress(ing *networkingv1.Ingress) IngressInfo {
 		Hosts:     ingressHosts(ing),
 		Paths:     ingressPaths(ing),
 		Address:   ingressAddress(ing),
-		CreatedAt: ing.CreationTimestamp.Time.UTC(),
+		CreatedAt: ing.CreationTimestamp.UTC(),
 	}
 	return info
 }

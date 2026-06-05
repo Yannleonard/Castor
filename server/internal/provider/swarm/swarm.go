@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/swarm"
@@ -223,7 +224,7 @@ func (p *SwarmProvider) Stats(ctx context.Context, id string) (<-chan provider.S
 	out := make(chan provider.StatSample, 1)
 	go func() {
 		defer close(out)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		dec := json.NewDecoder(resp.Body)
 		for {
 			if ctx.Err() != nil {
@@ -254,7 +255,7 @@ func mapSwarmNotFound(err error) error {
 	if err == nil {
 		return nil
 	}
-	if client.IsErrNotFound(err) {
+	if cerrdefs.IsNotFound(err) {
 		return provider.ErrNotFound
 	}
 	if strings.Contains(strings.ToLower(err.Error()), "no such") {

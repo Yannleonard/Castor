@@ -48,7 +48,7 @@ func (s *Store) ListBindingsForUser(ctx context.Context, userID string) ([]*Bind
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*Binding
 	for rows.Next() {
 		var b Binding
@@ -73,7 +73,7 @@ func (s *Store) EffectiveRolesForUser(ctx context.Context, userID string) ([]Eff
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []EffectiveRole
 	for rows.Next() {
 		var er EffectiveRole
@@ -107,7 +107,7 @@ func (s *Store) RoleBindingsView(ctx context.Context) (map[string][]RoleBindingV
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := make(map[string][]RoleBindingView)
 	for rows.Next() {
 		var userID string

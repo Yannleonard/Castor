@@ -175,7 +175,7 @@ func (s *Store) ListUsers(ctx context.Context) ([]*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*User
 	for rows.Next() {
 		u, err := scanUser(rows)

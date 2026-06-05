@@ -133,7 +133,7 @@ services:
 		pos[svc] = i
 	}
 	// db and cache must come before api; api before web.
-	if !(pos["db"] < pos["api"] && pos["cache"] < pos["api"] && pos["api"] < pos["web"]) {
+	if pos["db"] >= pos["api"] || pos["cache"] >= pos["api"] || pos["api"] >= pos["web"] {
 		t.Fatalf("bad topological order: %v", order)
 	}
 	// Deterministic tie-break: db before cache (alphabetical) is not guaranteed by

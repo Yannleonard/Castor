@@ -47,7 +47,7 @@ func (s *Store) ListStacks(ctx context.Context, hostID string) ([]*Stack, error)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*Stack
 	for rows.Next() {
 		st, err := scanStack(rows)

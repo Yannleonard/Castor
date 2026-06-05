@@ -65,7 +65,7 @@ func (s *Store) ListCustomTemplates(ctx context.Context) ([]*CustomTemplate, err
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*CustomTemplate
 	for rows.Next() {
 		t, err := scanCustomTemplate(rows)

@@ -62,7 +62,7 @@ func (s *Server) Logs(w http.ResponseWriter, r *http.Request) {
 		writeMapped(w, r, err)
 		return
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 
 	// Demux into structured lines. Use the docker demuxer for docker/swarm
 	// (multiplexed stdcopy); k8s logs are already plain text.

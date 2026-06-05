@@ -5,7 +5,6 @@ import (
 	"context"
 	"os"
 	"regexp"
-	"strings"
 )
 
 // cgroupContainerID matches a 64-hex container id within a cgroup path line.
@@ -66,15 +65,10 @@ func scanForContainerID(path string) string {
 	if err != nil {
 		return ""
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		line := sc.Text()
-		// Ignore obvious non-container cgroup lines on the host.
-		if !strings.Contains(line, "docker") && !strings.Contains(line, "containerd") &&
-			!strings.Contains(line, "kubepods") && !strings.Contains(line, "/system.slice") {
-			// still try to match an id anywhere
-		}
 		if m := cgroupContainerID.FindString(line); m != "" {
 			return m
 		}

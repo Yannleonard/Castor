@@ -50,7 +50,7 @@ func (p *KubeProvider) ListDeployments(ctx context.Context, namespace string) ([
 			Ready:      d.Status.ReadyReplicas,
 			Available:  d.Status.AvailableReplicas,
 			Image:      image,
-			CreatedAt:  d.CreationTimestamp.Time.UTC(),
+			CreatedAt:  d.CreationTimestamp.UTC(),
 			Containers: containersResources(containers),
 			QosClass:   QosClassForContainers(containers),
 		})

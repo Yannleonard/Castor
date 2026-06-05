@@ -186,7 +186,7 @@ func (p *KubeProvider) mapPod(pod *corev1.Pod) provider.Workload {
 		Image:      image,
 		Ports:      podPorts(pod),
 		Labels:     podLabels(pod),
-		CreatedAt:  pod.CreationTimestamp.Time.UTC(),
+		CreatedAt:  pod.CreationTimestamp.UTC(),
 		Group:      ownerName(pod),
 		Protected:  false,
 	}

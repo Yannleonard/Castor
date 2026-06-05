@@ -60,7 +60,7 @@ func (s *Store) ListRoles(ctx context.Context) ([]*Role, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*Role
 	for rows.Next() {
 		r, err := scanRole(rows)

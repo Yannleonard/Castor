@@ -233,7 +233,7 @@ func (p *KubeProvider) ListNamespaces(ctx context.Context) ([]NamespaceInfo, err
 		out = append(out, NamespaceInfo{
 			Name:      n.Name,
 			Status:    string(n.Status.Phase),
-			CreatedAt: n.CreationTimestamp.Time.UTC(),
+			CreatedAt: n.CreationTimestamp.UTC(),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
@@ -374,7 +374,7 @@ func (p *KubeProvider) ListConfigMaps(ctx context.Context, namespace string) ([]
 			Namespace: c.Namespace,
 			Name:      c.Name,
 			Keys:      keys,
-			CreatedAt: c.CreationTimestamp.Time.UTC(),
+			CreatedAt: c.CreationTimestamp.UTC(),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -419,7 +419,7 @@ func (p *KubeProvider) ListSecrets(ctx context.Context, namespace string) ([]Sec
 			Name:      s.Name,
 			Type:      string(s.Type),
 			Keys:      keys,
-			CreatedAt: s.CreationTimestamp.Time.UTC(),
+			CreatedAt: s.CreationTimestamp.UTC(),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -476,12 +476,12 @@ func (p *KubeProvider) ListEvents(ctx context.Context, namespace string) ([]Even
 // then EventTime (events.k8s.io style), then the creation time, all in UTC.
 func eventLastSeen(e *corev1.Event) time.Time {
 	if !e.LastTimestamp.IsZero() {
-		return e.LastTimestamp.Time.UTC()
+		return e.LastTimestamp.UTC()
 	}
 	if !e.EventTime.IsZero() {
-		return e.EventTime.Time.UTC()
+		return e.EventTime.UTC()
 	}
-	return e.CreationTimestamp.Time.UTC()
+	return e.CreationTimestamp.UTC()
 }
 
 // itoa is a tiny strconv.FormatInt(.,10) wrapper kept local so the file's port/

@@ -29,7 +29,7 @@ func (s *Store) ListHosts(ctx context.Context) ([]*Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*Host
 	for rows.Next() {
 		h, err := scanHost(rows)

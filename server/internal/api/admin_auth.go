@@ -329,7 +329,7 @@ func (s *Server) TestAuthProvider(w http.ResponseWriter, r *http.Request) {
 			ok(w, authTestResult{OK: false, Message: sanitizeRegistryError(terr.Error())})
 			return
 		}
-		msg := "LDAP connection and service bind succeeded."
+		var msg string
 		if sampleUser != "" {
 			msg = "LDAP connection, bind and sample search succeeded."
 		} else {

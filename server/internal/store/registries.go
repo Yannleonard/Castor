@@ -53,7 +53,7 @@ func (s *Store) ListRegistries(ctx context.Context) ([]*Registry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*Registry
 	for rows.Next() {
 		rg, err := scanRegistry(rows)

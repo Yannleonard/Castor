@@ -52,19 +52,19 @@ func TestCapabilityStringsReadOnly(t *testing.T) {
 
 func TestReadOnlyMutationsReturnUnsupported(t *testing.T) {
 	var ro ReadOnlyMutations
-	if err := ro.Start(nil, "x"); err != ErrUnsupported {
+	if err := ro.Start(context.TODO(), "x"); err != ErrUnsupported {
 		t.Errorf("Start: got %v want ErrUnsupported", err)
 	}
-	if err := ro.Stop(nil, "x", nil); err != ErrUnsupported {
+	if err := ro.Stop(context.TODO(), "x", nil); err != ErrUnsupported {
 		t.Errorf("Stop: got %v want ErrUnsupported", err)
 	}
-	if err := ro.Restart(nil, "x", nil); err != ErrUnsupported {
+	if err := ro.Restart(context.TODO(), "x", nil); err != ErrUnsupported {
 		t.Errorf("Restart: got %v want ErrUnsupported", err)
 	}
-	if err := ro.Remove(nil, "x", RemoveOptions{}); err != ErrUnsupported {
+	if err := ro.Remove(context.TODO(), "x", RemoveOptions{}); err != ErrUnsupported {
 		t.Errorf("Remove: got %v want ErrUnsupported", err)
 	}
-	if _, err := ro.Exec(nil, "x", ExecOptions{}); err != ErrUnsupported {
+	if _, err := ro.Exec(context.TODO(), "x", ExecOptions{}); err != ErrUnsupported {
 		t.Errorf("Exec: got %v want ErrUnsupported", err)
 	}
 }

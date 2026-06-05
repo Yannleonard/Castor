@@ -377,7 +377,7 @@ func (wc *wsConn) subscribeLogs(env wsEnvelope, hostID string) {
 
 	go func() {
 		defer wc.removeSub(env.SubID)
-		defer rc.Close()
+		defer func() { _ = rc.Close() }()
 		ref := &wsRef{Kind: refKind(wl.Kind), ID: wl.ID}
 
 		emit := func(stream, line string) bool {
@@ -517,7 +517,7 @@ func (wc *wsConn) subscribeExec(env wsEnvelope, hostID string) {
 	go func() {
 		defer wc.removeSub(env.SubID)
 		defer wc.execStreams.Delete(env.SubID)
-		defer stream.Close()
+		defer func() { _ = stream.Close() }()
 
 		ref := &wsRef{Kind: refKind(wl.Kind), ID: wl.ID}
 		buf := make([]byte, 32*1024)

@@ -56,7 +56,7 @@ func (s *Store) ListRemoteCatalogs(ctx context.Context) ([]*RemoteCatalog, error
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*RemoteCatalog
 	for rows.Next() {
 		c, err := scanRemoteCatalog(rows)

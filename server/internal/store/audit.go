@@ -114,7 +114,7 @@ func (s *Store) ListAudit(ctx context.Context, f AuditFilter) ([]*AuditEntry, in
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var out []*AuditEntry
 	for rows.Next() {

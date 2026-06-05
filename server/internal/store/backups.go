@@ -67,7 +67,7 @@ func (s *Store) ListBackups(ctx context.Context, hostID string) ([]*Backup, erro
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*Backup
 	for rows.Next() {
 		b, err := scanBackup(rows)

@@ -123,7 +123,7 @@ func (s *Store) queryProviders(ctx context.Context, q string, args ...any) ([]*A
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*AuthProvider
 	for rows.Next() {
 		p, err := scanProvider(rows)
@@ -300,7 +300,7 @@ func (s *Store) ListGroupRoleMappings(ctx context.Context, providerID string) ([
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*GroupRoleMapping
 	for rows.Next() {
 		var m GroupRoleMapping

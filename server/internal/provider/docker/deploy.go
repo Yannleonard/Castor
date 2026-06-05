@@ -127,7 +127,7 @@ func (p *DockerProvider) ensureImage(ctx context.Context, ref string) error {
 	if err != nil {
 		return fmt.Errorf("docker: pull %q: %w", ref, err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	// Draining to EOF blocks until the pull completes (or errors mid-stream).
 	if _, err := io.Copy(io.Discard, rc); err != nil {
 		return fmt.Errorf("docker: pull %q: %w", ref, err)

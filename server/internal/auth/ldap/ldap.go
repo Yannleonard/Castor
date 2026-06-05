@@ -101,7 +101,7 @@ func Authenticate(cfg LDAPConfig, username, password string) (*ExternalIdentity,
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	conn.SetTimeout(operationTimeout)
 
 	// 1) Bind as the service account (or anonymously) to run the user search.
@@ -145,7 +145,7 @@ func Test(cfg LDAPConfig) (sampleUser string, err error) {
 	if err != nil {
 		return "", err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	conn.SetTimeout(operationTimeout)
 
 	if err := serviceBind(conn, cfg); err != nil {
@@ -215,7 +215,7 @@ func dial(cfg LDAPConfig) (*ldap.Conn, error) {
 			return nil, fmt.Errorf("%w: dial failed: %v", ErrConfig, err)
 		}
 		if err := conn.StartTLS(tlsCfg); err != nil {
-			conn.Close()
+			_ = conn.Close()
 			return nil, fmt.Errorf("%w: starttls failed: %v", ErrConfig, err)
 		}
 		return conn, nil

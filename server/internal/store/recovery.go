@@ -38,7 +38,7 @@ func (s *Store) ListUnusedRecoveryCodes(ctx context.Context, userID string) ([]R
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []RecoveryCode
 	for rows.Next() {
 		var rc RecoveryCode

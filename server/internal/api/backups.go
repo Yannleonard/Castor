@@ -189,7 +189,7 @@ func (s *Server) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 		authz.WriteError(w, r, authz.ErrNotFound)
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	info, err := f.Stat()
 	if err != nil {
 		authz.WriteError(w, r, authz.ErrInternal)
@@ -238,7 +238,7 @@ func (s *Server) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 		authz.WriteError(w, r, authz.ErrNotFound)
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	bgCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), backupMaxDuration)
 	defer cancel()
