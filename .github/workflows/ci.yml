@@ -99,9 +99,12 @@ jobs:
         run: go build -trimpath -ldflags="-s -w" ./...
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: latest
+          # Pin a release built with Go >= 1.25 (the module's targeted version).
+          # An older golangci-lint refuses to load with "Go language version
+          # (go1.24) ... lower than the targeted Go version (1.25.0)".
+          version: v2.5.0
           args: --timeout=5m
 
       - name: Test (race)
