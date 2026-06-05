@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0A2540" />
+
+  <!-- Primary SEO -->
+  <title>Castor — Docker, Swarm &amp; Kubernetes in One Open-Source UI</title>
+  <meta name="description" content="Castor is the open-source, self-hosted platform to manage, deploy and orchestrate Docker, Swarm &amp; Kubernetes from one modern UI. Helm, SSO, 2-min install." />
+  <meta name="keywords" content="container orchestration, docker UI, kubernetes dashboard, docker swarm management, portainer alternative, helm UI, self-hosted, open source, apache-2.0, kubernetes management" />
+  <meta name="author" content="LEONARD-IT" />
+  <link rel="canonical" href="https://castor.example.com/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Castor" />
+  <meta property="og:title" content="Castor — Docker, Swarm &amp; Kubernetes in One Open-Source UI" />
+  <meta property="og:description" content="Manage, deploy and orchestrate Docker, Swarm &amp; Kubernetes from one modern, self-hosted UI. Helm built in, 50+ app marketplace, enterprise SSO, security by default." />
+  <meta property="og:url" content="https://castor.example.com/" />
+  <meta property="og:image" content="https://castor.example.com/assets/castor-logo.jpg" />
+  <meta property="og:image:alt" content="Castor — the beaver mascot holding a stack of Docker, Kubernetes and Swarm containers." />
+  <meta property="og:locale" content="en" />
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Castor — Docker, Swarm &amp; Kubernetes in One Open-Source UI" />
+  <meta name="twitter:description" content="Open-source, self-hosted container orchestration for Docker, Swarm &amp; Kubernetes. Helm, marketplace, SSO, 2-minute install." />
+  <meta name="twitter:image" content="https://castor.example.com/assets/castor-logo.jpg" />
+  <meta name="twitter:image:alt" content="Castor beaver mascot holding a stack of three containers." />
+
+  <!-- Favicons (beaver logo) -->
+  <link rel="icon" type="image/jpeg" href="/assets/castor-logo.jpg" />
+  <link rel="apple-touch-icon" href="/assets/castor-logo.jpg" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/css/styles.css" />
+
+  <!-- Structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Castor",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Linux, Docker, Kubernetes",
+    "description": "Open-source, self-hosted platform to manage, deploy and orchestrate containers across Docker, Docker Swarm and Kubernetes from one modern UI.",
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "url": "https://castor.example.com/",
+    "author": { "@type": "Organization", "name": "LEONARD-IT" },
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+</head>
+<body id="top">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <!-- ===================== Announcement bar ===================== -->
+  <div class="announce" id="announce">
+    <div class="container announce__inner">
+      <span>🦫 Castor by Leonard It is open source under Apache-2.0 — one UI for Docker, Swarm &amp; Kubernetes.
+        <a href="https://github.com/Yannleonard/Castor" target="_blank" rel="noopener">Star us on GitHub →</a>
+      </span>
+      <button class="announce__close" id="announce-close" type="button" aria-label="Dismiss announcement">×</button>
+    </div>
+  </div>
+
+  <!-- ===================== Navbar ===================== -->
+  <header class="nav" id="nav">
+    <div class="container nav__inner">
+      <a class="brand" href="#top" aria-label="Castor — home">
+        <span class="brand__name">Castor</span>
+      </a>
+
+      <nav class="nav__links" id="nav-links" aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="#orchestrators">Orchestrators</a>
+        <a href="#compare">Compare</a>
+        <a href="#security">Security</a>
+        <a href="#install">Install</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+
+      <div class="nav__actions" id="nav-actions">
+        <a class="gh-star" href="https://github.com/Yannleonard/Castor" target="_blank" rel="noopener" aria-label="Star Castor on GitHub">
+          <span class="gh-star__label">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+            Star
+          </span>
+          <span class="gh-star__count">★ 2.4k</span>
+        </a>
+        <a class="btn btn--primary btn--sm" href="#install">Get started</a>
+      </div>
+
+      <button class="nav__toggle" id="nav-toggle" type="button" aria-label="Toggle menu" aria-expanded="false" aria-controls="nav-links">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ===================== Hero ===================== -->
+    <section class="hero">
+      <div class="hero__grid-bg" aria-hidden="true"></div>
+      <span class="hero__blob hero__blob--1" aria-hidden="true"></span>
+      <span class="hero__blob hero__blob--2" aria-hidden="true"></span>
+
+      <div class="container hero__inner hero__inner--grid">
+        <!-- Row 1, left: brand logo framed like the dashboard window -->
+        <figure class="brand-showcase hero__cell hero__cell--logo">
+          <div class="brand-showcase__bar" aria-hidden="true">
+            <span class="brand-showcase__dot"></span><span class="brand-showcase__dot"></span><span class="brand-showcase__dot"></span>
+            <span class="brand-showcase__url">castor — gérer · déployer · orchestrer</span>
+          </div>
+          <div class="brand-showcase__body">
+            <img class="brand-showcase__logo" src="/assets/castor-logo.jpg"
+                 alt="Castor logo — the beaver stacking Docker, Kubernetes and Docker Swarm containers, with the tagline Gérer · Déployer · Orchestrer"
+                 width="360" height="360" />
+          </div>
+        </figure>
+
+        <!-- Row 1, right: headline + paragraph -->
+        <div class="hero__cell hero__cell--headline">
+          <span class="hero__eyebrow">Open source · Self-hosted · Apache-2.0</span>
+          <h1>One UI for <span class="accent">Docker, Swarm,</span> and <span class="accent">Kubernetes.</span></h1>
+          <p class="hero__sub">
+            Castor is the open-source, self-hosted platform to <strong>manage, deploy, and orchestrate</strong>
+            containers across Docker, Docker Swarm, and Kubernetes — from a single modern interface.
+            Helm built in, a 50+ app marketplace, enterprise SSO, and security by default.
+            Up and running in under two minutes.
+          </p>
+        </div>
+
+        <!-- Row 2, left: CTAs + trust badges + quickstart -->
+        <div class="hero__copy hero__cell hero__cell--actions">
+          <div class="hero__cta">
+            <div class="btn-row">
+              <a class="btn btn--primary btn--lg" href="#install">
+                Get started
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </a>
+              <a class="btn btn--on-dark btn--lg" href="https://github.com/Yannleonard/Castor" target="_blank" rel="noopener">
+                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+                View on GitHub
+              </a>
+            </div>
+
+            <p class="hero__trust">
+              <span>Apache-2.0</span>
+              <span>~67 MB distroless image</span>
+              <span>runs as non-root</span>
+              <span>amd64 + arm64</span>
+            </p>
+          </div>
+
+          <!-- Hero copy-paste command chip -->
+          <div class="cmd-chip">
+            <div class="cmd-chip__bar" aria-hidden="true">
+              <span class="cmd-chip__dot"></span><span class="cmd-chip__dot"></span><span class="cmd-chip__dot"></span>
+              <span class="cmd-chip__title">quickstart</span>
+            </div>
+            <div class="cmd-chip__body">
+<pre><code id="hero-cmd"><span class="tok-cmd">docker</span> run -d <span class="tok-flag">-p</span> 8080:8080 \
+  <span class="tok-flag">-v</span> /var/run/docker.sock:/var/run/docker.sock:ro \
+  <span class="tok-flag">-e</span> CASTOR_SECRET_KEY=<span class="tok-str">$(openssl rand -hex 32)</span> \
+  <span class="tok-img">ghcr.io/yannleonard/castor:latest</span></code></pre>
+              <button class="copy-btn" type="button" data-copy-target="hero-cmd" aria-label="Copy command">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copy
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2, right: dashboard mockup -->
+        <div class="hero__visual reveal hero__cell hero__cell--visual">
+          <div class="dash" role="img" aria-label="Castor BI dashboard: KPI cards showing 7 running containers, 7.9% CPU, 951 MiB memory and 231 images; a container-states donut chart; and a top-by-CPU bar chart.">
+            <!-- Real screenshot drops in here; falls back to the CSS mockup below if absent. -->
+            <img class="dash__shot" src="/assets/screenshots/dashboard.png" alt="Castor dashboard screenshot"
+                 onerror="this.closest('.dash').classList.add('shot-missing'); this.remove();" />
+
+            <div class="dash__bar">
+              <span class="dash__dot dash__dot--r"></span>
+              <span class="dash__dot dash__dot--y"></span>
+              <span class="dash__dot dash__dot--g"></span>
+              <span class="dash__url">app.castor.local / dashboard</span>
+            </div>
+
+            <div class="dash__body">
+              <div class="dash__topline">
+                <span class="dash__title">Overview</span>
+                <span class="dash__live">Live</span>
+              </div>
+
+              <div class="kpis">
+                <div class="kpi kpi--teal">
+                  <span class="kpi__label"><span class="kpi__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>Running</span>
+                  <div class="kpi__val">7</div>
+                </div>
+                <div class="kpi kpi--blue">
+                  <span class="kpi__label"><span class="kpi__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg></span>CPU</span>
+                  <div class="kpi__val">7.9<small>%</small></div>
+                </div>
+                <div class="kpi kpi--navy">
+                  <span class="kpi__label"><span class="kpi__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 6v12M11 6v12M15 6v12"/></svg></span>Memory</span>
+                  <div class="kpi__val">951<small>MiB</small></div>
+                </div>
+                <div class="kpi kpi--brown">
+                  <span class="kpi__label"><span class="kpi__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg></span>Images</span>
+                  <div class="kpi__val">231</div>
+                </div>
+              </div>
+
+              <div class="dash__charts">
+                <div class="panel">
+                  <div class="panel__title">Container states</div>
+                  <div class="donut-wrap">
+                    <div class="donut" role="img" aria-label="78 percent of containers running">
+                      <span class="donut__center">
+                        <span class="donut__num">7/9</span>
+                        <span class="donut__lbl">up</span>
+                      </span>
+                    </div>
+                    <ul class="legend">
+                      <li><span class="dot dot--run"></span> Running <b>7</b></li>
+                      <li><span class="dot dot--stop"></span> Stopped <b>2</b></li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div class="panel">
+                  <div class="panel__title">Top by CPU</div>
+                  <div class="bars">
+                    <div class="bar"><span class="bar__name">postgres</span><span class="bar__track"><span class="bar__fill" data-w="86%"></span></span><span class="bar__val">3.1%</span></div>
+                    <div class="bar"><span class="bar__name">grafana</span><span class="bar__track"><span class="bar__fill" data-w="64%"></span></span><span class="bar__val">2.0%</span></div>
+                    <div class="bar"><span class="bar__name">redis</span><span class="bar__track"><span class="bar__fill" data-w="38%"></span></span><span class="bar__val">1.4%</span></div>
+                    <div class="bar"><span class="bar__name">nginx</span><span class="bar__track"><span class="bar__fill" data-w="22%"></span></span><span class="bar__val">0.9%</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Works-with strip ===================== -->
+    <section class="works section--soft">
+      <div class="container">
+        <p class="works__label">Works with the stack you already run</p>
+        <div class="works__row reveal">
+          <span class="works__item">
+            <img class="works__logo" src="/assets/tech/docker.svg" alt="Docker" width="30" height="30" loading="lazy" />
+            Docker
+          </span>
+          <span class="works__item">
+            <img class="works__logo" src="/assets/tech/docker-swarm.svg" alt="Docker Swarm" width="30" height="30" loading="lazy" />
+            Docker Swarm
+          </span>
+          <span class="works__item">
+            <img class="works__logo" src="/assets/tech/kubernetes.svg" alt="Kubernetes" width="30" height="30" loading="lazy" />
+            Kubernetes
+          </span>
+          <span class="works__item">
+            <img class="works__logo" src="/assets/tech/helm.svg" alt="Helm" width="30" height="30" loading="lazy" />
+            Helm
+          </span>
+        </div>
+        <p class="works__sub reveal">
+          Plus a <strong>50+ app marketplace</strong> — Postgres, MySQL, MariaDB, MongoDB, Redis, Nginx, Grafana,
+          and more — deployable in one click.
+        </p>
+      </div>
+    </section>
+
+    <!-- ===================== Features grid ===================== -->
+    <section class="section" id="features">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow eyebrow--center">Everything you need</p>
+          <h2 class="h2">Manage containers like it's 2026 — not 2016.</h2>
+          <p class="lead">Castor brings every orchestrator, every lifecycle action, and enterprise-grade security
+            into one coherent, real-time UI. No tab-hopping between three different tools.</p>
+        </div>
+
+        <div class="feature-grid">
+          <article class="card reveal">
+            <div class="card__ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="9" height="9" rx="1.5"/><rect x="13" y="3" width="9" height="9" rx="1.5"/><rect x="2" y="14" width="9" height="7" rx="1.5"/><rect x="13" y="14" width="9" height="7" rx="1.5"/></svg></div>
+            <h3>Three orchestrators, one tool</h3>
+            <p>Drive Docker, Docker Swarm, and Kubernetes from the same UI, with the same mental model. Stop switching products just to switch runtimes.</p>
+          </article>
+
+          <article class="card reveal" data-delay="1">
+            <div class="card__ic ic-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></div>
+            <h3>Modern BI dashboard</h3>
+            <p>A clean, light command center: KPI cards for running containers, CPU, memory, images, volumes, and networks, plus live donut and top-by-resource charts that update in real time.</p>
+          </article>
+
+          <article class="card reveal" data-delay="2">
+            <div class="card__ic ic-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m6 9 3 3-3 3M13 15h4"/></svg></div>
+            <h3>Live logs, stats &amp; exec terminal</h3>
+            <p>Stream container logs, watch live CPU/memory stats, and drop into an interactive shell — Docker <code>exec</code> and Kubernetes pod <code>exec</code> — straight from the browser.</p>
+          </article>
+
+          <article class="card reveal">
+            <div class="card__ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l9-4 9 4-9 4-9-4Z"/><path d="m3 12 9 4 9-4M3 18l9 4 9-4"/></svg></div>
+            <h3>Helm, built in</h3>
+            <p>Manage Helm end to end: add repos, search charts, install, upgrade, roll back, uninstall, inspect history and values. No CLI context-switch required.</p>
+          </article>
+
+          <article class="card reveal" data-delay="1">
+            <div class="card__ic ic-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h18l-1.5 10.5a2 2 0 0 1-2 1.5H6.5a2 2 0 0 1-2-1.5L3 9Z"/><path d="M3 9l2-5h14l2 5M9 13v4M15 13v4"/></svg></div>
+            <h3>Marketplace: 50+ one-click apps</h3>
+            <p>Deploy Postgres, Redis, Nginx, Grafana and 50+ more from curated templates with official logos. Add your own templates, point at remote catalogs, and pull from private registries with encrypted credentials.</p>
+          </article>
+
+          <article class="card reveal" data-delay="2">
+            <div class="card__ic ic-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10M6 20v-6M18 20V4"/><circle cx="12" cy="6" r="2"/><circle cx="6" cy="10" r="2"/><circle cx="18" cy="14" r="2" transform="translate(0 -14)"/></svg></div>
+            <h3>Resources &amp; QoS, made visible</h3>
+            <p>Set CPU/memory limits and reservations for Docker and Swarm, and see Kubernetes QoS classes — Guaranteed, Burstable, BestEffort — at a glance. Scale, drain nodes, and rolling-update without guesswork.</p>
+          </article>
+
+          <article class="card reveal">
+            <div class="card__ic ic-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+            <h3>Enterprise SSO, RBAC &amp; audit</h3>
+            <p>Local auth with TOTP 2FA, plus SSO via LDAP/LDAPS and Microsoft Entra ID (OIDC). Resource-scoped RBAC with admin/operator/viewer roles and an append-only audit log of every change.</p>
+          </article>
+
+          <article class="card reveal" data-delay="1">
+            <div class="card__ic ic-brown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></svg></div>
+            <h3>Backup &amp; restore</h3>
+            <p>Back up and restore Docker volumes from the UI, so your stateful workloads aren't a single <code>docker volume rm</code> away from disaster.</p>
+          </article>
+
+          <article class="card reveal" data-delay="2">
+            <div class="card__ic ic-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.5"/></svg></div>
+            <h3>Security by default</h3>
+            <p>Secrets sealed with AES-256-GCM, argon2id password hashing, protected containers, a host-mount guard, and per-route AAL step-up. Shipped as a distroless, non-root image. Secure out of the box — not after a hardening guide.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Orchestrators highlight ===================== -->
+    <section class="section section--soft" id="orchestrators">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow eyebrow--center">The difference</p>
+          <h2 class="h2">Three orchestrators. One coherent UX. <span class="text-grad">Not three products.</span></h2>
+          <p class="lead">Most tools force a choice: a Docker tool here, a Kubernetes tool there, Swarm as an
+            afterthought — each with its own UI, its own auth, its own learning curve. Castor unifies all three
+            behind one interface, one login, one permission model, and one real-time experience. Manage a homelab
+            Docker host and a production Kubernetes cluster in the same session.</p>
+        </div>
+
+        <div class="orch-cols">
+          <article class="orch orch--docker reveal">
+            <div class="orch__top">
+              <div class="orch__logo"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.6 10.7h2.3v2.1h-2.3v-2.1Zm-2.8 0h2.3v2.1h-2.3v-2.1Zm-2.8 0h2.3v2.1H8v-2.1Zm-2.8 0h2.3v2.1H5.2v-2.1Zm2.8-2.7h2.3v2.1H8V8Zm2.8 0h2.3v2.1h-2.3V8Zm2.8 0h2.3v2.1h-2.3V8Zm0-2.7h2.3v2.1h-2.3V5.3Zm9 3.4c-.5-.3-1.6-.5-2.4-.3-.1-.8-.5-1.4-1.2-2l-.4-.3-.3.4c-.4.5-.6 1.3-.5 2 0 .3.1.7.3 1-.4.2-1 .3-1.7.3H.8l-.1.5c-.2 1.6.1 3.3 1 4.6.9 1.4 2.4 2.1 4.4 2.1 4.3 0 7.5-2 9-5.6.6 0 1.9 0 2.5-1.2l.2-.3-.3-.2Z"/></svg></div>
+              <h3>Docker</h3>
+              <span class="orch__tag">Full lifecycle</span>
+            </div>
+            <ul class="orch__list">
+              <li><strong>Start, stop, restart, remove</strong> containers</li>
+              <li>Live logs and live stats</li>
+              <li>Interactive <strong>exec</strong> terminal</li>
+              <li>Manage images, networks, and volumes</li>
+              <li>Apply resource limits</li>
+              <li>Visual + YAML Compose with stack deploy</li>
+            </ul>
+          </article>
+
+          <article class="orch orch--swarm reveal" data-delay="1">
+            <div class="orch__top">
+              <div class="orch__logo"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 3 6.5v5c0 .4.2.7.5.9L12 17l8.5-4.6c.3-.2.5-.5.5-.9v-5L12 2Zm0 2.2 5.8 2.9L12 10 6.2 7.1 12 4.2Z"/><path d="m3.5 14 8 4.3c.3.2.7.2 1 0l8-4.3v3.5c0 .4-.2.7-.5.9L12 22l-8-4.6c-.3-.2-.5-.5-.5-.9V14Z"/></svg></div>
+              <h3>Docker Swarm</h3>
+              <span class="orch__tag">Service-grade control</span>
+            </div>
+            <ul class="orch__list">
+              <li><strong>Create, scale, update</strong> services</li>
+              <li>Rolling-restart and remove services</li>
+              <li>Drain nodes</li>
+              <li>Manage <strong>secrets and configs</strong></li>
+              <li>Set resource limits and reservations</li>
+              <li>Cluster-wide service control</li>
+            </ul>
+          </article>
+
+          <article class="orch orch--k8s reveal" data-delay="2">
+            <div class="orch__top">
+              <div class="orch__logo"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1.6 3 5.9l-2.2 9.6 6.2 7.6h10L23.2 15.5 21 5.9 12 1.6Zm0 9.2a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 0 1 0-4.4Z"/></svg></div>
+              <h3>Kubernetes</h3>
+              <span class="orch__tag">First-class, not bolted-on</span>
+            </div>
+            <ul class="orch__list">
+              <li>Pods, deployments, nodes, namespaces</li>
+              <li>Services, configmaps, secrets, events, <strong>Ingress</strong></li>
+              <li>Scale and <strong>rollout-restart</strong></li>
+              <li>Apply YAML <strong>server-side</strong>; pod <strong>exec</strong> terminal</li>
+              <li>Live metrics via metrics-server</li>
+              <li>PV/PVC/StorageClass, HPA, QoS classes</li>
+            </ul>
+          </article>
+        </div>
+
+        <p class="orch-closing reveal"><strong>Built from scratch, Apache-2.0, 100% self-hosted.</strong> Your clusters, your data, your rules.</p>
+      </div>
+    </section>
+
+    <!-- ===================== Comparison table ===================== -->
+    <section class="section" id="compare">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow eyebrow--center">How Castor compares</p>
+          <h2 class="h2">Why teams pick Castor</h2>
+          <p class="lead">An honest look at where Castor fits. Every tool below is good at something — Castor's edge is
+            doing all three orchestrators, with Helm and enterprise SSO, under a permissive license.</p>
+        </div>
+
+        <div class="table-wrap reveal">
+          <table class="cmp">
+            <caption class="sr-only">Capability comparison of Castor, Portainer, Lens and Rancher</caption>
+            <thead>
+              <tr>
+                <th scope="col">Capability</th>
+                <th scope="col" class="col-castor">Castor</th>
+                <th scope="col">Portainer</th>
+                <th scope="col">Lens</th>
+                <th scope="col">Rancher</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Docker management</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="no">—</span></td><td><span class="part">partial</span></td></tr>
+              <tr><th scope="row">Docker Swarm management</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="no">—</span></td><td><span class="no">—</span></td></tr>
+              <tr><th scope="row">Kubernetes management</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td></tr>
+              <tr><th scope="row">All three in one tool</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="part">partial<sup>1</sup></span></td><td><span class="no">—</span></td><td><span class="no">—</span></td></tr>
+              <tr><th scope="row">Helm built in</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="part">partial</span></td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td></tr>
+              <tr><th scope="row">App marketplace / templates</th><td class="col-castor"><span class="yes">✓</span> <span class="dim">(50+)</span></td><td><span class="yes">✓</span></td><td><span class="no">—</span></td><td><span class="yes">✓</span></td></tr>
+              <tr><th scope="row">Modern dark <em>and</em> light UI</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="dim">dated</span></td><td><span class="yes">✓</span></td><td><span class="dim">functional</span></td></tr>
+              <tr><th scope="row">Enterprise SSO (LDAP + Entra/OIDC)</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="part">paid tier</span></td><td><span class="no">—</span></td><td><span class="yes">✓</span></td></tr>
+              <tr><th scope="row">Resource-scoped RBAC</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="part">paid tier</span></td><td><span class="no">—</span></td><td><span class="yes">✓</span></td></tr>
+              <tr><th scope="row">Append-only audit log</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="part">paid tier</span></td><td><span class="no">—</span></td><td><span class="yes">✓</span></td></tr>
+              <tr><th scope="row">Self-hosted</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="dim">desktop app<sup>2</sup></span></td><td><span class="yes">✓</span></td></tr>
+              <tr><th scope="row">Single small image (~67 MB)</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="dim">n/a</span></td><td><span class="dim">heavy</span></td></tr>
+              <tr><th scope="row">License</th><td class="col-castor"><span class="badge-license">Apache-2.0</span></td><td><span class="dim">zlib/commercial</span></td><td><span class="dim">MIT/commercial</span></td><td><span class="dim">Apache-2.0</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="cmp-notes reveal">
+          <p><sup>1</sup> Portainer covers Docker + Swarm + K8s but RBAC, SSO, and audit sit behind the paid Business edition.</p>
+          <p><sup>2</sup> Lens is primarily a Kubernetes-only desktop client, not a self-hosted multi-orchestrator server.</p>
+          <p class="cmp-caption">Comparison reflects publicly documented capabilities at time of writing and is provided in good faith. Run your own evaluation — Castor is free.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Security ===================== -->
+    <section class="section section--soft" id="security">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow eyebrow--center">Security by default</p>
+          <h2 class="h2">A tool that controls your containers should be the hardest thing to break.</h2>
+          <p class="lead">Castor sits at a privileged spot in your infrastructure, so security isn't a checkbox — it's
+            the foundation. Authentication, authorization, secret handling, and the runtime image are all locked
+            down out of the box.</p>
+        </div>
+
+        <div class="sec-grid">
+          <div class="pillar reveal">
+            <div class="pillar__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+            <div><h3>SSO + 2FA</h3><p>Local accounts with TOTP two-factor, plus SSO via LDAP/LDAPS and Microsoft Entra ID (OIDC). Per-route AAL step-up for sensitive actions.</p></div>
+          </div>
+          <div class="pillar reveal" data-delay="1">
+            <div class="pillar__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 11l2 2 4-4"/></svg></div>
+            <div><h3>Resource-scoped RBAC</h3><p>Built-in admin, operator, and viewer roles; permissions scoped to resources so people see and touch only what they should.</p></div>
+          </div>
+          <div class="pillar reveal">
+            <div class="pillar__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg></div>
+            <div><h3>Append-only audit log</h3><p>Every mutating action writes exactly one immutable row. Know who did what, when — and prove it.</p></div>
+          </div>
+          <div class="pillar reveal" data-delay="1">
+            <div class="pillar__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/><circle cx="12" cy="16" r="1"/></svg></div>
+            <div><h3>AES-256-GCM secrets</h3><p>Sensitive data, including TOTP secrets and private registry credentials, is sealed with authenticated AES-256-GCM encryption at rest.</p></div>
+          </div>
+          <div class="pillar reveal">
+            <div class="pillar__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 12 2 2 4-4"/><path d="M12 3 4 6v6c0 5 3.5 7.5 8 9 4.5-1.5 8-4 8-9V6l-8-3Z"/></svg></div>
+            <div><h3>argon2id passwords</h3><p>Passwords are hashed with argon2id, a modern memory-hard function — no fast, crackable hashes.</p></div>
+          </div>
+          <div class="pillar reveal" data-delay="1">
+            <div class="pillar__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M12 8v4M12 16h.01"/></svg></div>
+            <div><h3>Protected containers &amp; host-mount guard</h3><p>Castor's own container and data volume can never be deleted from the UI, and a host-mount guard blocks risky bind mounts before they happen.</p></div>
+          </div>
+          <div class="pillar reveal">
+            <div class="pillar__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 14h4"/></svg></div>
+            <div><h3>Distroless, non-root image</h3><p>Ships on <code>distroless/static:nonroot</code> (uid 65532): no shell, no package manager, read-only root filesystem, all Linux capabilities dropped, <code>no-new-privileges</code>.</p></div>
+          </div>
+          <div class="pillar reveal" data-delay="1">
+            <div class="pillar__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></div>
+            <div><h3>Read-only by default</h3><p>Mount the Docker socket read-only to inspect safely; explicitly opt in to read-write for the full lifecycle. Least privilege, by design.</p></div>
+          </div>
+        </div>
+
+        <blockquote class="pull-quote reveal">Secrets sealed, roles scoped, every action logged, and a hardened runtime — before you write a single line of config.</blockquote>
+      </div>
+    </section>
+
+    <!-- ===================== Install / Quickstart ===================== -->
+    <section class="section" id="install">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow eyebrow--center">Quickstart</p>
+          <h2 class="h2">Running in under two minutes.</h2>
+          <p class="lead">One container, one port, one secret key. Castor talks to your local Docker engine over the
+            mounted socket and reads Kubernetes through a mounted kubeconfig.</p>
+        </div>
+
+        <div class="install-wrap">
+          <!-- Code column -->
+          <div class="reveal">
+            <div class="code-block">
+              <div class="tabs" role="tablist" aria-label="Install method">
+                <button class="tab" id="tab-run" role="tab" aria-selected="true" aria-controls="panel-run" type="button">docker run</button>
+                <button class="tab" id="tab-compose" role="tab" aria-selected="false" aria-controls="panel-compose" tabindex="-1" type="button">docker compose</button>
+              </div>
+
+              <!-- docker run -->
+              <div class="tab-panel is-active" id="panel-run" role="tabpanel" aria-labelledby="tab-run">
+                <div class="code-head">
+                  <span class="code-head__name">terminal</span>
+                  <button class="copy-btn" type="button" data-copy-target="code-run" aria-label="Copy docker run command">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy
+                  </button>
+                </div>
+<pre><code id="code-run"><span class="tok-cmd">docker</span> run -d <span class="tok-flag">--name</span> castor \
+  <span class="tok-flag">-p</span> 8080:8080 \
+  <span class="tok-flag">-e</span> CASTOR_SECRET_KEY=<span class="tok-str">$(openssl rand -hex 32)</span> \
+  <span class="tok-flag">-v</span> /var/run/docker.sock:/var/run/docker.sock:ro \
+  <span class="tok-flag">-v</span> castor-data:/data \
+  <span class="tok-flag">--group-add</span> <span class="tok-str">"$(getent group docker | cut -d: -f3)"</span> \
+  <span class="tok-flag">--read-only</span> <span class="tok-flag">--tmpfs</span> /tmp \
+  <span class="tok-flag">--security-opt</span> no-new-privileges:true <span class="tok-flag">--cap-drop</span> ALL \
+  <span class="tok-flag">--restart</span> unless-stopped \
+  <span class="tok-img">ghcr.io/yannleonard/castor:latest</span></code></pre>
+              </div>
+
+              <!-- docker compose -->
+              <div class="tab-panel" id="panel-compose" role="tabpanel" aria-labelledby="tab-compose" hidden>
+                <div class="code-head">
+                  <span class="code-head__name">compose.yaml</span>
+                  <button class="copy-btn" type="button" data-copy-target="code-compose" aria-label="Copy docker compose file">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy
+                  </button>
+                </div>
+<pre><code id="code-compose"><span class="tok-key">services:</span>
+  <span class="tok-key">castor:</span>
+    <span class="tok-key">image:</span> <span class="tok-img">ghcr.io/yannleonard/castor:latest</span>
+    <span class="tok-key">container_name:</span> castor
+    <span class="tok-key">restart:</span> unless-stopped
+    <span class="tok-key">ports:</span>
+      - <span class="tok-str">"8080:8080"</span>
+    <span class="tok-key">environment:</span>
+      <span class="tok-cmt"># REQUIRED — 32-byte key (64 hex chars): openssl rand -hex 32</span>
+      <span class="tok-key">CASTOR_SECRET_KEY:</span> <span class="tok-str">"${CASTOR_SECRET_KEY:?set CASTOR_SECRET_KEY first}"</span>
+    <span class="tok-key">volumes:</span>
+      - /var/run/docker.sock:/var/run/docker.sock:ro   <span class="tok-cmt"># :rw for full lifecycle</span>
+      - castor-data:/data
+    <span class="tok-key">group_add:</span>
+      - <span class="tok-str">"${DOCKER_GID:-999}"</span>          <span class="tok-cmt"># docker group GID — NOT root</span>
+    <span class="tok-key">read_only:</span> true
+    <span class="tok-key">tmpfs:</span> [/tmp]
+    <span class="tok-key">security_opt:</span> [<span class="tok-str">"no-new-privileges:true"</span>]
+    <span class="tok-key">cap_drop:</span> [ALL]
+
+<span class="tok-key">volumes:</span>
+  <span class="tok-key">castor-data:</span>
+    <span class="tok-key">name:</span> castor-data</code></pre>
+                <div class="code-foot">
+<pre><code id="code-compose-env"><span class="tok-cmd">export</span> CASTOR_SECRET_KEY=<span class="tok-str">$(openssl rand -hex 32)</span>        <span class="tok-cmt"># 64 hex chars = 32 bytes</span>
+<span class="tok-cmd">export</span> DOCKER_GID=<span class="tok-str">$(getent group docker | cut -d: -f3)</span>  <span class="tok-cmt"># socket access, not root</span>
+<span class="tok-cmd">docker</span> compose up -d</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Steps column -->
+          <div class="reveal" data-delay="1">
+            <ol class="steps">
+              <li>Open <strong>http://localhost:8080</strong></li>
+              <li>Create your first admin on the bootstrap screen.</li>
+              <li>Enable <strong>TOTP 2FA</strong> — strongly recommended.</li>
+              <li>(Optional) Add Kubernetes by mounting your kubeconfig with the Kubernetes overlay.</li>
+            </ol>
+
+            <div class="callout">
+              <span class="callout__ic" aria-hidden="true">🔑</span>
+              <p><strong>Keep <code>CASTOR_SECRET_KEY</code> safe.</strong> It must decode to exactly 32 bytes
+                (<code>openssl rand -hex 32</code> → 64 hex chars). Castor refuses to start otherwise, and losing
+                the key makes enrolled 2FA unrecoverable.</p>
+            </div>
+
+            <div class="doc-links">
+              <a href="#">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+                Full install &amp; operations guide
+                <svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </a>
+              <a href="#security">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+                Security &amp; threat model
+                <svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </a>
+              <a href="#">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                Build it yourself (no Go toolchain needed)
+                <svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Open source / community ===================== -->
+    <section class="section section--soft">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow eyebrow--center">Open source, for real</p>
+          <h2 class="h2">Free, permissive, and built in the open.</h2>
+          <p class="lead">Castor is licensed under <strong>Apache-2.0</strong> — permissive, patent-protected, and
+            friendly to commercial use. It's built and maintained by <strong>LEONARD-IT</strong>, 100% from scratch and
+            self-contained, with no hidden dependency on any other product. No "open core" bait-and-switch: the
+            features on this page are the free features.</p>
+        </div>
+
+        <div class="os-tiles">
+          <div class="os-tile reveal">
+            <span class="os-tile__badge">Apache-2.0</span>
+            <p>Use it, fork it, ship it. No per-node fees, no locked-away enterprise tier for SSO and audit.</p>
+          </div>
+          <div class="os-tile reveal" data-delay="1">
+            <span class="os-tile__badge">From scratch</span>
+            <p>A single static Go binary serving the API and the React UI. Pure-Go SQLite — no external database to run.</p>
+          </div>
+          <div class="os-tile reveal" data-delay="2">
+            <span class="os-tile__badge">Community-driven</span>
+            <p>Issues, PRs, and good first issues welcome. CI gates every change with linting, race-tested Go, UI tests, and vulnerability scanning.</p>
+          </div>
+        </div>
+
+        <div class="btn-row btn-row--center reveal">
+          <a class="btn btn--primary" href="https://github.com/Yannleonard/Castor" target="_blank" rel="noopener">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+            Star on GitHub
+          </a>
+          <a class="btn btn--ghost" href="#">Read the docs</a>
+          <a class="btn btn--ghost" href="https://github.com/Yannleonard/Castor/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contribute</a>
+        </div>
+        <p class="muted" style="text-align:center;margin:18px 0 0;font-size:.88rem;">Edited by LEONARD-IT · Apache-2.0 © 2026</p>
+      </div>
+    </section>
+
+    <!-- ===================== FAQ ===================== -->
+    <section class="section" id="faq">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow eyebrow--center">Questions</p>
+          <h2 class="h2">Frequently asked questions</h2>
+        </div>
+
+        <div class="faq">
+          <details class="faq__item">
+            <summary class="faq__q">Is Castor really free? <span class="faq__icon" aria-hidden="true"></span></summary>
+            <div class="faq__a"><p>Yes. Castor is open source under the Apache-2.0 license — free to use, modify, and self-host, including in commercial settings. There's no paywalled tier: SSO, RBAC, and the audit log are all included.</p></div>
+          </details>
+          <details class="faq__item">
+            <summary class="faq__q">Is it self-hosted? Where does my data go? <span class="faq__icon" aria-hidden="true"></span></summary>
+            <div class="faq__a"><p>Entirely self-hosted. Castor runs as a single container on your own infrastructure and stores its state in a local SQLite database on a volume you control. Live cluster state is fetched on demand and never sent anywhere — there is no cloud, no telemetry phone-home.</p></div>
+          </details>
+          <details class="faq__item">
+            <summary class="faq__q">Does it really manage all three orchestrators? <span class="faq__icon" aria-hidden="true"></span></summary>
+            <div class="faq__a"><p>Yes. Docker (full lifecycle, logs, stats, exec, images/networks/volumes), Docker Swarm (services, scaling, rolling updates, node drain, secrets/configs), and Kubernetes (pods, deployments, scale, rollout restart, server-side apply, pod exec, metrics, storage, HPA, Ingress, and more) — plus Helm — all from one UI.</p></div>
+          </details>
+          <details class="faq__item">
+            <summary class="faq__q">Is it production-ready? <span class="faq__icon" aria-hidden="true"></span></summary>
+            <div class="faq__a"><p>Castor is built for real workloads: a hardened distroless non-root image, security by default, an append-only audit log, automatic schema migrations on upgrade, and CI that race-tests the Go core and scans dependencies on every change. Start read-only, then opt into write access when you're ready.</p></div>
+          </details>
+          <details class="faq__item">
+            <summary class="faq__q">How do I install it? <span class="faq__icon" aria-hidden="true"></span></summary>
+            <div class="faq__a"><p>One <code>docker run</code> command or a short <code>docker compose</code> file — you'll be on the setup screen in under two minutes. You need Docker (with the Compose plugin) and <code>openssl</code> to generate the secret key. See the Quickstart above.</p></div>
+          </details>
+          <details class="faq__item">
+            <summary class="faq__q">How does it stay secure if it can control Docker? <span class="faq__icon" aria-hidden="true"></span></summary>
+            <div class="faq__a"><p>Defense in depth: the Docker socket is read-only by default, Castor runs as a non-root user (never root), secrets are sealed with AES-256-GCM, passwords use argon2id, access is gated by resource-scoped RBAC with optional 2FA and SSO, and its own container and data volume are protected from deletion. For hardened setups, you can front the socket with a scoped socket-proxy.</p></div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Closing CTA band ===================== -->
+    <section class="cta-band">
+      <div class="cta-band__grid" aria-hidden="true"></div>
+      <div class="container reveal">
+        <img class="cta-band__beaver" src="/assets/castor-logo.jpg" alt="Castor the beaver holding up a stack of Docker, Kubernetes and Swarm containers" width="104" height="104" />
+        <h2 class="h2">Take control of your containers.</h2>
+        <p>One UI for Docker, Swarm, and Kubernetes. Open source, self-hosted, secure by default — running in under two minutes.</p>
+        <div class="btn-row btn-row--center">
+          <a class="btn btn--cta btn--lg" href="#install">
+            Get started
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="btn btn--on-dark btn--lg" href="https://github.com/Yannleonard/Castor" target="_blank" rel="noopener">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__top">
+        <div class="footer__brand">
+          <a class="brand" href="#top">
+            <img class="brand__mark" src="/assets/castor-logo.jpg" width="38" height="38" alt="Castor beaver logo" />
+            <span class="brand__name">Castor</span>
+          </a>
+          <p class="footer__tag">Gérer · Déployer · Orchestrer</p>
+          <p class="footer__desc">Open-source, self-hosted container orchestration for Docker, Swarm &amp; Kubernetes.</p>
+        </div>
+
+        <nav class="footer__col" aria-label="Product">
+          <h4>Product</h4>
+          <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#orchestrators">Orchestrators</a></li>
+            <li><a href="#compare">Compare</a></li>
+            <li><a href="#security">Security</a></li>
+            <li><a href="#install">Install</a></li>
+          </ul>
+        </nav>
+
+        <nav class="footer__col" aria-label="Resources">
+          <h4>Resources</h4>
+          <ul>
+            <li><a href="#">Documentation</a></li>
+            <li><a href="#install">Install guide</a></li>
+            <li><a href="#security">Security &amp; threat model</a></li>
+            <li><a href="#">Changelog / Releases</a></li>
+          </ul>
+        </nav>
+
+        <nav class="footer__col" aria-label="Open source">
+          <h4>Open source</h4>
+          <ul>
+            <li><a href="https://github.com/Yannleonard/Castor" target="_blank" rel="noopener">GitHub</a></li>
+            <li><a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">Apache-2.0 License</a></li>
+            <li><a href="https://github.com/Yannleonard/Castor/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a></li>
+            <li><a href="https://github.com/Yannleonard/Castor/issues" target="_blank" rel="noopener">Report an issue</a></li>
+          </ul>
+        </nav>
+      </div>
+
+      <div class="footer__bottom">
+        <span>© 2026 LEONARD-IT. Castor is released under the Apache-2.0 License.</span>
+        <span>Made with 🦫 by LEONARD-IT.</span>
+        <span class="footer__social">
+          <a href="https://github.com/Yannleonard/Castor" target="_blank" rel="noopener" aria-label="Castor on GitHub">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          </a>
+        </span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+    <span id="toast-msg">Copied!</span>
+  </div>
+
+  <script src="/js/main.js" defer></script>
+</body>
+</html>

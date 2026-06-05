@@ -1,0 +1,100 @@
+/* ui/src/styles/tokens.css
+ * Castor design system tokens — LIGHT theme (BI dashboard style).
+ * Every component references var(--token), never a hardcoded hex.
+ *
+ * Palette is derived from the Castor logo:
+ *   navy #0A2540 (primary text / headings), Docker blue #2496ED (accent),
+ *   teal #13A688 (success / positive), beaver brown #8B5E3C (warm accent).
+ * Surfaces are white / very-light-blue-grey for a clean, modern analytics look.
+ */
+:root {
+  /* --- brand --- */
+  --castor-navy:        #0A2540;
+  --castor-blue:        #2496ED;
+  --castor-teal:        #13A688;
+  --castor-beaver:      #8B5E3C;
+
+  /* --- light surfaces (cool, near-white ladder) --- */
+  --bg-app:             #F4F7FB;   /* app background — soft blue-grey like the reference */
+  --bg-surface:         #FFFFFF;   /* cards / panels = white */
+  --bg-surface-2:       #F1F6FC;   /* raised / table header / subtle fill */
+  --bg-surface-3:       #E6EEF8;   /* hover / active row */
+  --bg-inset:           #0B2138;   /* code / log / terminal stays dark for readability */
+  --border:             #E2E9F2;   /* hairline borders */
+  --border-strong:      #CBD8E8;   /* stronger separators */
+  --overlay:            rgba(10, 37, 64, 0.40); /* modal scrim (navy tint) */
+
+  /* --- text (navy-derived, high contrast on light) --- */
+  --text-primary:       #0A2540;   /* brand navy — headings & key figures */
+  --text-secondary:     #44607C;   /* secondary copy */
+  --text-muted:         #7C93AC;   /* muted labels */
+  --text-on-accent:     #FFFFFF;   /* text on blue/teal buttons */
+  --text-link:          #1B7FD0;   /* Docker-blue link, AA on white */
+
+  /* --- accents / states --- */
+  --accent:             var(--castor-blue);
+  --accent-hover:       #1B82D6;
+  --accent-press:       #1670BE;
+  --accent-soft:        rgba(36,150,237,0.10); /* tinted fill for active chips/cards */
+  --success:            var(--castor-teal);
+  --success-bg:         rgba(19,166,136,0.12);
+  --warning:            #E08A00;
+  --warning-bg:         rgba(224,138,0,0.12);
+  --danger:             #E5484D;
+  --danger-bg:          rgba(229,72,77,0.10);
+  --info:               var(--castor-blue);
+  --info-bg:            rgba(36,150,237,0.10);
+  --warm:               var(--castor-beaver);
+
+  /* --- trend indicators (BI deltas) --- */
+  --trend-up:           var(--castor-teal);   /* positive delta ▲ */
+  --trend-down:         #E5484D;              /* negative delta ▼ */
+  --trend-flat:         #7C93AC;
+
+  /* --- workload state colors (map provider.WorkloadState) --- */
+  --state-running:      var(--castor-teal);
+  --state-stopped:      #93A6BC;
+  --state-paused:       var(--warning);
+  --state-restarting:   var(--castor-blue);
+  --state-pending:      #7C6BD0;
+  --state-unknown:      #93A6BC;
+  --state-protected:    var(--castor-beaver);
+
+  /* --- chart palette (Recharts series) --- */
+  --chart-1:            #2496ED;  /* Docker blue */
+  --chart-2:            #13A688;  /* teal */
+  --chart-3:            #326CE5;  /* kubernetes blue */
+  --chart-4:            #8B5E3C;  /* beaver */
+  --chart-5:            #7C6BD0;  /* violet */
+  --chart-6:            #E08A00;  /* amber */
+  --chart-grid:         #E8EEF6;  /* gridlines on light */
+  --chart-axis:         #7C93AC;  /* axis text */
+
+  /* --- orchestrator badges --- */
+  --orch-docker:        var(--castor-blue);
+  --orch-swarm:         #7C6BD0;
+  --orch-kubernetes:    #326CE5;
+
+  /* --- typography --- */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --fs-xs: 12px; --fs-sm: 13px; --fs-base: 14px; --fs-md: 16px; --fs-lg: 20px; --fs-xl: 26px; --fs-2xl: 34px;
+  --lh-tight: 1.25; --lh-base: 1.5;
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700;
+
+  /* --- spacing (4px base) --- */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px; --sp-10:40px; --sp-12:48px;
+
+  /* --- radius / shadow / motion (soft elevation for cards on light) --- */
+  --radius-sm:6px; --radius-md:10px; --radius-lg:14px; --radius-pill:999px;
+  --shadow-1: 0 1px 2px rgba(10,37,64,0.06), 0 1px 3px rgba(10,37,64,0.05);
+  --shadow-2: 0 4px 16px rgba(10,37,64,0.08);
+  --shadow-pop: 0 12px 32px rgba(10,37,64,0.16);
+  --dur-fast:120ms; --dur-base:200ms; --dur-slow:320ms;
+  --ease: cubic-bezier(0.2,0.7,0.2,1);
+
+  /* --- layout --- */
+  --sidebar-w: 300px; --topbar-h: 56px; --content-max: 1440px; --z-modal: 1000; --z-toast: 1100;
+
+  color-scheme: light;
+}

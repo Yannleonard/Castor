@@ -1,0 +1,339 @@
+/* ui/src/styles/dashboard.css
+ * BI dashboard layout — KPI cards + Recharts chart cards.
+ * Light "analytics" look. Tokens only (see tokens.css); no hardcoded colors.
+ * Imported from main.tsx after global.css.
+ */
+
+/* ---- KPI row: responsive auto-fit grid of metric tiles ---- */
+.dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--sp-4);
+}
+
+.dash-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-5);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  min-width: 0;
+  transition: box-shadow var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
+}
+.dash-kpi.is-click { cursor: pointer; }
+.dash-kpi.is-click:hover {
+  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
+}
+
+.dash-kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.dash-kpi-label {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.dash-kpi-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex: none;
+}
+.dash-kpi-value {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
+  line-height: 1.05;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.dash-kpi-value .unit {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+.dash-kpi-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  min-height: 18px;
+}
+.dash-kpi-sub .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  flex: none;
+}
+
+/* trend pill (▲ / ▼ / flat) */
+.dash-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.dash-trend.up { color: var(--trend-up); background: var(--success-bg); }
+.dash-trend.down { color: var(--trend-down); background: var(--danger-bg); }
+.dash-trend.flat { color: var(--trend-flat); background: var(--bg-surface-3); }
+
+/* ---- charts area ---- */
+.dash-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--sp-5);
+}
+/* a card that should span two columns when there's room */
+.dash-charts .span-2 { grid-column: span 2; }
+@media (max-width: 720px) {
+  .dash-charts .span-2 { grid-column: span 1; }
+}
+
+.dash-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  min-width: 0;
+  overflow: hidden;
+}
+.dash-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+}
+.dash-card-title {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.dash-card-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.dash-card-body {
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
+  flex: 1;
+  min-height: 0;
+}
+
+/* fixed-height chart frame so ResponsiveContainer has a box to fill */
+.dash-chart-frame {
+  width: 100%;
+  height: 240px;
+}
+.dash-chart-frame.tall { height: 280px; }
+
+/* recharts tooltip — restyle the default white box to match tokens */
+.dash-tip {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-xs);
+}
+.dash-tip-name {
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+  margin-bottom: 2px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-tip-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.dash-tip-row .swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+}
+
+/* legend under the donut */
+.dash-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  margin-top: var(--sp-3);
+  justify-content: center;
+}
+.dash-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.dash-legend-item .swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex: none;
+}
+.dash-legend-item b {
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* center label inside the donut */
+.dash-donut-wrap { position: relative; }
+.dash-donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.dash-donut-center .big {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.dash-donut-center .small {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+
+/* ---- resource gauges (CPU% / Mem%) ---- */
+.dash-gauges {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+.dash-gauge-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--sp-2);
+}
+.dash-gauge-label .name {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  font-weight: var(--fw-medium);
+}
+.dash-gauge-label .val {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.dash-gauge-track {
+  position: relative;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface-3);
+  overflow: hidden;
+}
+.dash-gauge-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: var(--radius-pill);
+  transition: width var(--dur-slow) var(--ease);
+}
+.dash-gauge-foot {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ---- orchestrators summary rows ---- */
+.dash-orch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.dash-orch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+.dash-orch-row:last-child { border-bottom: 0; }
+.dash-orch-count {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- recent activity list ---- */
+.dash-activity {
+  display: flex;
+  flex-direction: column;
+}
+.dash-activity-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+.dash-activity-row:last-child { border-bottom: 0; }
+.dash-activity-main {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-activity-main strong { color: var(--text-primary); font-weight: var(--fw-semibold); }
+.dash-activity-time {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* two-column section (orchestrators | activity), collapses on small screens */
+.dash-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: var(--sp-5);
+}
+@media (max-width: 880px) {
+  .dash-split { grid-template-columns: minmax(0, 1fr); }
+}

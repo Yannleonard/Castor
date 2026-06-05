@@ -1,0 +1,38 @@
+# =============================================================================
+# Castor marketing website — local preview
+#
+#   docker compose up -d --build      # build + run
+#   open http://localhost:8080
+#   docker compose down               # stop + remove
+#
+# Mirrors how the image runs on Azure (Nginx on :8080).
+# =============================================================================
+services:
+  castor-site:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: castor-website:local
+    container_name: castor-website
+    ports:
+      - "8080:8080"        # host:container — visit http://localhost:8080
+    restart: unless-stopped
+    read_only: true        # static site needs no writable root FS...
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run           # ...except scratch space for the nginx pid/cache
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN              # nginx master drops privileges to the worker user
+      - SETUID
+      - SETGID
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

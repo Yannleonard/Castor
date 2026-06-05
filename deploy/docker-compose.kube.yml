@@ -1,0 +1,35 @@
+# =============================================================================
+# Castor — Kubernetes (read-only) overlay.
+#
+# Adds a mounted kubeconfig so the read-only KubeProvider (pods/deployments/nodes
+# via client-go) can list cluster workloads. Compose merges this on top of the
+# base file:
+#
+#   export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
+#   export DOCKER_GID=$(getent group docker | cut -d: -f3)
+#   docker compose \
+#     -f deploy/docker-compose.yml \
+#     -f deploy/docker-compose.kube.yml \
+#     up -d
+#
+# Notes:
+#   * The base service runs as uid 65532 (distroless "nonroot", HOME=/home/nonroot).
+#     The kubeconfig is mounted read-only at that home and CASTOR_KUBECONFIG points
+#     to it. K8s is READ-ONLY in V1 (no mutations) — a read-scoped kubeconfig is
+#     sufficient and recommended.
+#   * If your kubeconfig references a cluster CA file or client cert/key by PATH
+#     (not inline base64), those files must ALSO be reachable inside the container
+#     at the same path — prefer a self-contained kubeconfig with embedded creds,
+#     or mount the whole ~/.kube directory.
+#   * If the kubeconfig points at 127.0.0.1 / localhost (e.g. kind/minikube), that
+#     loopback is the CONTAINER's loopback, not the host's. Point the server URL at
+#     a host-reachable address or use host networking for those local clusters.
+# =============================================================================
+
+services:
+  castor:
+    volumes:
+      # Read-only kubeconfig for the current user. Override $HOME if needed.
+      - ${HOME}/.kube/config:/home/nonroot/.kube/config:ro
+    environment:
+      CASTOR_KUBECONFIG: "/home/nonroot/.kube/config"

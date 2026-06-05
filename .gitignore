@@ -1,0 +1,67 @@
+# =============================================================================
+# Castor .gitignore
+# =============================================================================
+
+# --- Node / UI ---------------------------------------------------------------
+node_modules/
+ui/dist/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- Embedded UI output ------------------------------------------------------
+# The whole built UI tree is generated (vite -> ../server/web/dist) and must NOT
+# be committed — EXCEPT the placeholder index.html, which is required so that a
+# bare `go build` does not fail the `//go:embed dist` directive before the UI is
+# built. Keep that one file tracked.
+/server/web/dist/*
+!/server/web/dist/index.html
+
+# --- Go build artifacts ------------------------------------------------------
+/out/
+/bin/
+castor
+castor.exe
+*.exe
+*.test
+*.out
+coverage.txt
+coverage.html
+profile.cov
+
+# --- Local databases / runtime state ----------------------------------------
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+/data/
+
+# --- Generic build dir -------------------------------------------------------
+dist/
+
+# --- Env & secrets -----------------------------------------------------------
+.env
+.env.*
+!deploy/env.example
+*.pem
+*.key
+
+# --- Editor / OS -------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Local build/work artifacts & backups ------------------------------------
+.castor-build/
+*.pre-rebrand-*
+*.pre-*-[0-9]*Z
+*.bak
+*.orig
+workflow-output.json

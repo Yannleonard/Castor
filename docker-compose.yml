@@ -1,0 +1,80 @@
+# =============================================================================
+# Castor — root-level one-command deployment.
+#
+# This is the repo-root mirror of deploy/docker-compose.yml so that a bare
+#   docker compose up -d
+# from the repository root just works. The only difference from the deploy/ copy
+# is the local `build.context` (here it is "." — the repo root).
+#
+#   export CASTOR_SECRET_KEY=$(openssl rand -hex 32)        # 64 hex chars = 32 bytes
+#   export DOCKER_GID=$(getent group docker | cut -d: -f3)  # socket access, NOT root
+#   docker compose up -d
+#   # open http://localhost:8080  -> first-run "create admin" (bootstrap) screen
+#
+# SECURITY (see deploy/docker-compose.yml for the full notes):
+#   * Docker socket mounted :ro by default (list/inspect/logs/stats only). Switch
+#     to :rw for full start/stop/restart/remove/exec lifecycle, or front it with a
+#     scoped docker-socket-proxy and set CASTOR_DOCKER_HOST.
+#   * Runs as non-root (uid 65532); socket access via group_add to the docker GID.
+#   * Read-only rootfs; only /data (volume) and /tmp (tmpfs) are writable.
+# =============================================================================
+
+services:
+  castor:
+    # Pull the published multi-arch image…
+    image: ghcr.io/gtek-it/castor:latest
+    # …or build from this repo instead (uncomment, and comment out `image:`):
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   args:
+    #     VERSION: dev
+    #     COMMIT: local
+    container_name: castor
+    hostname: castor
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      # REQUIRED. 32-byte key (64 hex chars). Generate with: openssl rand -hex 32
+      CASTOR_SECRET_KEY: "${CASTOR_SECRET_KEY:?set CASTOR_SECRET_KEY (openssl rand -hex 32) before compose up}"
+      CASTOR_HTTP_ADDR: ":8080"
+      CASTOR_DB_PATH: "/data/castor.db"
+      CASTOR_TRUST_PROXY: ${CASTOR_TRUST_PROXY:-false}
+      CASTOR_SELF_CONTAINER_ID: ${CASTOR_SELF_CONTAINER_ID:-castor}
+      CASTOR_BOOTSTRAP_TOKEN: ${CASTOR_BOOTSTRAP_TOKEN:-}
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # - /var/run/docker.sock:/var/run/docker.sock:rw   # <- full read+write lifecycle
+      - castor-data:/data
+
+    group_add:
+      - "${DOCKER_GID:-999}"
+
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/castor", "healthcheck"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  castor-data:
+    name: castor-data

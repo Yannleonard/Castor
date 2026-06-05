@@ -1,0 +1,73 @@
+# =============================================================================
+# Castor .dockerignore
+# Keeps the build context tiny and deterministic. Anything the Dockerfile
+# rebuilds inside a stage MUST be excluded here so a stale host copy can never
+# leak into the image (esp. ui/node_modules and server/web/dist).
+# =============================================================================
+
+# --- VCS / tooling -----------------------------------------------------------
+.git
+.gitignore
+.gitattributes
+.github
+.vscode
+.idea
+*.swp
+*.swo
+
+# --- docs & markdown (not needed in the image; keep context small) ----------
+# NOTE: LICENSE has no extension and is intentionally NOT ignored — it can be
+# embedded/served if desired and is harmless in context.
+*.md
+docs/
+PLAN-ORCHESTRATION-CASTOR.md
+
+# --- Node / UI (rebuilt in stage 1) -----------------------------------------
+ui/node_modules
+ui/dist
+**/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- Embedded UI output (REBUILT in stage 1 -> copied in stage 2) -----------
+# Never ship a host-built dist; the node stage produces the authoritative one.
+# (The committed placeholder server/web/dist/index.html exists only so a bare
+#  host `go build` does not fail go:embed; the image always rebuilds it.)
+server/web/dist/
+
+# --- Go build artifacts / local caches --------------------------------------
+/out
+/bin
+castor
+castor.exe
+*.test
+*.out
+coverage.*
+
+# --- Local runtime state / databases ----------------------------------------
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+/data
+
+# --- Local env & secrets (never bake into an image) -------------------------
+.env
+.env.*
+!deploy/env.example
+*.pem
+*.key
+
+# --- OS noise ----------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# --- Packaging scripts not needed inside the build context -------------------
+build.sh
+build.ps1
+Makefile
+docker-compose.yml
+deploy/

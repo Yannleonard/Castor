@@ -1,0 +1,124 @@
+# =============================================================================
+# Castor release — multi-arch image build & push to GHCR on a version tag.
+#
+# Trigger: push a tag like  v0.1.0  (or run manually via workflow_dispatch).
+# Publishes linux/amd64 + linux/arm64 to:
+#   ghcr.io/gtek-it/castor:<version>   (e.g. v0.1.0 and 0.1.0)
+#   ghcr.io/gtek-it/castor:latest      (only for non-prerelease tags)
+#
+# The whole binary (incl. modernc.org/sqlite) is pure Go / CGO_ENABLED=0, so the
+# same Dockerfile cross-builds both arches with no C toolchain.
+# =============================================================================
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. v0.1.0). Defaults to the triggering tag."
+        required: false
+        type: string
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write   # push to GHCR
+  id-token: write   # provenance/attestations
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: gtek-it/castor
+  PLATFORMS: linux/amd64,linux/arm64
+
+jobs:
+  release:
+    name: Build & push multi-arch image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
+            VER="${{ inputs.version }}"
+          else
+            VER="${GITHUB_REF_NAME}"   # the tag, e.g. v0.1.0
+          fi
+          echo "version=${VER}" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          # Mark prereleases (e.g. v0.1.0-rc.1) so we DON'T move :latest onto them.
+          if echo "$VER" | grep -q -- '-'; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up QEMU (arm64 emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata (tags & labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.ver.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.ver.outputs.version }}
+            type=raw,value=latest,enable=${{ steps.ver.outputs.prerelease == 'false' }}
+          labels: |
+            org.opencontainers.image.title=Castor
+            org.opencontainers.image.description=Multi-host container orchestration platform (Docker, Swarm, Kubernetes) by GTEK-IT.
+            org.opencontainers.image.vendor=GTEK-IT
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.version=${{ steps.ver.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build & push (multi-arch)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          provenance: true
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.ver.outputs.version }}
+            COMMIT=${{ steps.ver.outputs.commit }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          {
+            echo "### Castor release ${{ steps.ver.outputs.version }}"
+            echo ""
+            echo "- Platforms: \`${{ env.PLATFORMS }}\`"
+            echo "- Digest: \`${{ steps.build.outputs.digest }}\`"
+            echo ""
+            echo "Pull:"
+            echo '```'
+            echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.ver.outputs.version }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

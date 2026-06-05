@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="14" fill="#0A2540"/>
+  <!-- stylized beaver head: brown rounded form with two teeth -->
+  <ellipse cx="32" cy="30" rx="18" ry="16" fill="#8B5E3C"/>
+  <ellipse cx="32" cy="33" rx="11" ry="9" fill="#A9763F"/>
+  <circle cx="24" cy="25" r="3.2" fill="#07192B"/>
+  <circle cx="40" cy="25" r="3.2" fill="#07192B"/>
+  <circle cx="25" cy="24" r="1" fill="#E6EEF6"/>
+  <circle cx="41" cy="24" r="1" fill="#E6EEF6"/>
+  <ellipse cx="32" cy="32" rx="2.4" ry="1.8" fill="#07192B"/>
+  <rect x="29.2" y="34" width="2.6" height="6" rx="1" fill="#E6EEF6"/>
+  <rect x="32.2" y="34" width="2.6" height="6" rx="1" fill="#E6EEF6"/>
+  <!-- teal accent ear caps -->
+  <circle cx="18" cy="18" r="4" fill="#13A688"/>
+  <circle cx="46" cy="18" r="4" fill="#13A688"/>
+</svg>

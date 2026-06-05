@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Docker Swarm">
+  <title>Docker Swarm</title>
+  <g fill="#2496ED">
+    <!-- swarm of hexagonal nodes (Docker Swarm cluster motif) -->
+    <path d="M24 4l6.06 3.5v7L24 18l-6.06-3.5v-7L24 4z"/>
+    <path d="M10.5 12l6.06 3.5v7L10.5 26l-6.06-3.5v-7L10.5 12z" opacity="0.85"/>
+    <path d="M37.5 12l6.06 3.5v7L37.5 26l-6.06-3.5v-7L37.5 12z" opacity="0.85"/>
+    <path d="M24 20l6.06 3.5v7L24 34l-6.06-3.5v-7L24 20z" opacity="0.7"/>
+    <path d="M10.5 28l6.06 3.5v7L10.5 42l-6.06-3.5v-7L10.5 28z" opacity="0.55"/>
+    <path d="M37.5 28l6.06 3.5v7L37.5 42l-6.06-3.5v-7L37.5 28z" opacity="0.55"/>
+  </g>
+</svg>

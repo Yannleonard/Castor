@@ -1,0 +1,335 @@
+/* ui/src/styles/shell.css — AppShell / Sidebar / TopBar layout. */
+
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ---- sidebar ---- */
+.sidebar {
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-brand {
+  display: block;
+  /* The logo art (square, with the Castor wordmark + tagline + the 3 orchestrator
+     badges) fills the FULL width of the sidebar header for maximum legibility.
+     No side padding so it spans edge-to-edge; the bottom border separates it
+     from the nav. */
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+  background: var(--bg-surface);
+}
+.sidebar-brand img {
+  /* Logo shown at the full sidebar width (300px), i.e. a 300x300 square minimum
+     since the artwork is square — large and legible. */
+  width: 100%;
+  min-width: 300px;
+  height: auto;
+  display: block;
+}
+.sidebar-brand .brand-name {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.sidebar-brand .brand-tag {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.sidebar-nav {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--sp-4) var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+.nav-group-label {
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0 var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+.nav-group { display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  position: relative;
+}
+.nav-item:hover { background: var(--bg-surface-2); color: var(--text-primary); text-decoration: none; }
+.nav-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+.nav-item .nav-icon { color: inherit; opacity: 0.9; display: inline-flex; }
+.nav-item.active .nav-icon { color: var(--accent); opacity: 1; }
+.nav-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-muted);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+  min-width: 20px;
+  text-align: center;
+}
+.sidebar-footer {
+  flex: 0 0 auto;
+  padding: var(--sp-3) var(--sp-5);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ---- main column ---- */
+.app-main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-app);
+}
+
+/* ---- topbar ---- */
+.topbar {
+  height: var(--topbar-h);
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-6);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+.topbar .crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  min-width: 0;
+}
+.topbar .crumbs .sep { color: var(--text-muted); }
+.topbar .crumbs .current { color: var(--text-primary); font-weight: var(--fw-semibold); }
+
+.host-switcher {
+  position: relative;
+}
+.host-switcher .host-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 34px;
+  padding: 0 var(--sp-3);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+}
+.host-switcher .host-btn:hover { border-color: var(--accent); }
+
+.menu-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+  padding: var(--sp-2);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  text-align: left;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+}
+.menu-item:hover { background: var(--bg-surface-3); color: var(--text-primary); }
+.menu-item.active { color: var(--text-primary); }
+.menu-divider { height: 1px; background: var(--border); margin: var(--sp-1) 0; }
+.menu-header { padding: var(--sp-2) var(--sp-3); }
+
+.user-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 34px;
+  padding: 0 var(--sp-2) 0 var(--sp-1);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+}
+.user-btn:hover { background: var(--bg-surface-2); border-color: var(--border); }
+.avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--castor-blue), var(--castor-teal));
+  color: var(--text-on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+}
+
+.degraded-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: 28px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning);
+}
+.ws-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ---- content area ---- */
+.app-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--sp-6);
+}
+.content-inner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ---- auth layout ---- */
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-6);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(36,150,237,0.12), transparent 60%),
+    radial-gradient(900px 500px at 110% 110%, rgba(19,166,136,0.10), transparent 55%),
+    var(--bg-app);
+}
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  padding: var(--sp-8);
+}
+.auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+  text-align: center;
+}
+.auth-brand .name { font-size: var(--fs-2xl); font-weight: var(--fw-bold); letter-spacing: -0.02em; }
+.auth-brand .tag { font-size: var(--fs-sm); color: var(--text-secondary); }
+.auth-form { display: flex; flex-direction: column; gap: var(--sp-4); }
+.auth-footnote { margin-top: var(--sp-5); text-align: center; font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* ---- SSO: divider + provider buttons on the login screen ---- */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ---- responsive: collapse sidebar on small screens ---- */
+@media (max-width: 920px) {
+  .app-shell { grid-template-columns: 64px 1fr; }
+  .sidebar-brand { padding: 0 var(--sp-3); justify-content: center; }
+  .sidebar-brand .brand-text { display: none; }
+  .nav-group-label { display: none; }
+  .nav-item { justify-content: center; padding: var(--sp-3); }
+  .nav-item .nav-label, .nav-badge { display: none; }
+  /* The brand attribution footer (.brandlock) stays VISIBLE even when collapsed
+     — it is the required, non-removable "Castor by Leonard" mark. We only shrink
+     it to fit the 64px rail (icon-less, stacked, smaller); we never hide it. A
+     plain .sidebar-footer without .brandlock (if any) may still collapse. */
+  .sidebar-footer:not(.brandlock) { display: none; }
+  .sidebar-footer.brandlock {
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--sp-2) 4px;
+    text-align: center;
+    font-size: 9px;
+    line-height: 1.2;
+    word-break: break-word;
+  }
+  .app-content { padding: var(--sp-4); }
+}

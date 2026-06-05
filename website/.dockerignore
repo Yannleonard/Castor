@@ -1,0 +1,30 @@
+# Keep the build context (and image) minimal: only the served static site
+# plus the Dockerfile/nginx.conf get used. Everything below is excluded.
+
+# Designer's original source copy of the assets — NOT the served root.
+public/
+
+# Tooling / editor / local-preview artifacts
+.claude/
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Authoring notes, not part of the shipped site
+CONTENT.md
+**/README.md
+**/.gitkeep
+
+# Docker & compose meta (not needed inside the image)
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.yaml
+compose.yml
+compose.yaml
+
+# OS cruft
+.DS_Store
+Thumbs.db
+*.log

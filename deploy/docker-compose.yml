@@ -1,0 +1,104 @@
+# =============================================================================
+# Castor — one-command deployment (the "< 2 minutes" path).
+#
+#   cd <repo>
+#   export CASTOR_SECRET_KEY=$(openssl rand -hex 32)        # 64 hex chars = 32 bytes
+#   export DOCKER_GID=$(getent group docker | cut -d: -f3)  # socket access, NOT root
+#   docker compose -f deploy/docker-compose.yml up -d
+#   # open http://localhost:8080  -> first-run "create admin" (bootstrap) screen
+#
+# A copy of this file is mirrored at the repo root (docker-compose.yml) so that a
+# bare `docker compose up -d` from the repo root also works.
+#
+# SECURITY — read before deploying:
+#   * The Docker socket is mounted read-only (:ro) by default. With :ro, Castor can
+#     list/inspect/logs/stats/events but CANNOT start/stop/restart/remove/exec —
+#     those need write access to the socket. For FULL Docker lifecycle (the V1
+#     promise), change the mount to :rw (see the commented line below) OR put a
+#     scoped docker-socket-proxy in front and point CASTOR_DOCKER_HOST at it.
+#   * Whoever can write to /var/run/docker.sock is effectively root on the host
+#     (ADR-003 §7, T1). Castor runs as non-root (uid 65532) and gets socket access
+#     via `group_add` to the docker GID rather than running as uid 0.
+#   * The rootfs is read-only; only /data (named volume) and /tmp (tmpfs) are
+#     writable. Castor's own container and the castor-data volume are
+#     self-protected from removal via the UI (ADR-003 §7.4).
+# =============================================================================
+
+services:
+  castor:
+    # Pull the published multi-arch image…
+    image: ghcr.io/gtek-it/castor:latest
+    # …or build locally instead (uncomment, and comment out `image:` above):
+    # build:
+    #   context: ..
+    #   dockerfile: Dockerfile
+    #   args:
+    #     VERSION: dev
+    #     COMMIT: local
+    container_name: castor
+    hostname: castor
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      # REQUIRED. 32-byte key for AES-256-GCM (TOTP secrets) + derived crypto.
+      # Generate exactly: openssl rand -hex 32  (-> 64 hex chars = 32 bytes).
+      # The backend refuses to start if this is unset or not 32 bytes.
+      CASTOR_SECRET_KEY: "${CASTOR_SECRET_KEY:?set CASTOR_SECRET_KEY (openssl rand -hex 32) before compose up}"
+      CASTOR_HTTP_ADDR: ":8080"
+      CASTOR_DB_PATH: "/data/castor.db"
+      # Honor X-Forwarded-Proto / X-Forwarded-For ONLY behind a trusted reverse
+      # proxy that terminates TLS. Leave false when exposed directly.
+      CASTOR_TRUST_PROXY: ${CASTOR_TRUST_PROXY:-false}
+      # Self-protection seed: Castor refuses to stop/remove its OWN container via
+      # the UI. The compose service `container_name` is "castor"; the backend also
+      # resolves its real container id at runtime from /proc/self/cgroup.
+      CASTOR_SELF_CONTAINER_ID: ${CASTOR_SELF_CONTAINER_ID:-castor}
+      # Optional one-time token to gate the bootstrap endpoint for unattended
+      # installs (leave unset for the interactive first-run screen).
+      CASTOR_BOOTSTRAP_TOKEN: ${CASTOR_BOOTSTRAP_TOKEN:-}
+
+    volumes:
+      # Docker engine socket. READ-ONLY by default (see SECURITY note above).
+      # For full container lifecycle, switch to the :rw line instead.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # - /var/run/docker.sock:/var/run/docker.sock:rw   # <- full read+write lifecycle
+      # SQLite database + app state. Persists across container recreation.
+      - castor-data:/data
+
+    # Grant access to the Docker socket WITHOUT running as root. Find the GID:
+    #   getent group docker | cut -d: -f3      (commonly 999 on Debian/Ubuntu)
+    # Override per host:  export DOCKER_GID=<gid>
+    group_add:
+      - "${DOCKER_GID:-999}"
+
+    # --- T7 container hardening (ADR-003 §7.4) -------------------------------
+    read_only: true                       # read-only root filesystem
+    tmpfs:
+      - /tmp                              # only writable scratch space the binary needs
+    security_opt:
+      - "no-new-privileges:true"          # cannot gain privileges via setuid binaries
+    cap_drop:
+      - ALL                               # drop every Linux capability (none required)
+
+    # Mirror the image HEALTHCHECK so compose-aware UIs show health. Distroless
+    # has no shell/curl, so the binary's own subcommand is used.
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/castor", "healthcheck"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  # Self-protected from UI removal; back this up by copying /data/castor.db.
+  castor-data:
+    name: castor-data

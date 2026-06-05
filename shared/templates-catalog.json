@@ -1,0 +1,1218 @@
+[
+  {
+    "name": "PostgreSQL",
+    "slug": "postgresql",
+    "category": "Database",
+    "image": "postgres:16",
+    "description": "Powerful open-source object-relational SQL database system.",
+    "ports": [
+      5432
+    ],
+    "env": [
+      {
+        "key": "POSTGRES_PASSWORD",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "POSTGRES_USER",
+        "value": "postgres",
+        "required": false
+      },
+      {
+        "key": "POSTGRES_DB",
+        "value": "postgres",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/var/lib/postgresql/data"
+    ],
+    "logoSlug": "postgresql",
+    "logo": "/templates/logos/postgresql.svg"
+  },
+  {
+    "name": "MySQL",
+    "slug": "mysql",
+    "category": "Database",
+    "image": "mysql:8",
+    "description": "World's most popular open-source relational database.",
+    "ports": [
+      3306
+    ],
+    "env": [
+      {
+        "key": "MYSQL_ROOT_PASSWORD",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "MYSQL_DATABASE",
+        "value": "",
+        "required": false
+      },
+      {
+        "key": "MYSQL_USER",
+        "value": "",
+        "required": false
+      },
+      {
+        "key": "MYSQL_PASSWORD",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/var/lib/mysql"
+    ],
+    "logoSlug": "mysql",
+    "logo": "/templates/logos/mysql.svg"
+  },
+  {
+    "name": "MariaDB",
+    "slug": "mariadb",
+    "category": "Database",
+    "image": "mariadb:11",
+    "description": "Community-developed, MySQL-compatible relational database.",
+    "ports": [
+      3306
+    ],
+    "env": [
+      {
+        "key": "MARIADB_ROOT_PASSWORD",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "MARIADB_DATABASE",
+        "value": "",
+        "required": false
+      },
+      {
+        "key": "MARIADB_USER",
+        "value": "",
+        "required": false
+      },
+      {
+        "key": "MARIADB_PASSWORD",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/var/lib/mysql"
+    ],
+    "logoSlug": "mariadb",
+    "logo": "/templates/logos/mariadb.svg"
+  },
+  {
+    "name": "MongoDB",
+    "slug": "mongodb",
+    "category": "Database",
+    "image": "mongo:7",
+    "description": "Document-oriented NoSQL database for high-volume data storage.",
+    "ports": [
+      27017
+    ],
+    "env": [
+      {
+        "key": "MONGO_INITDB_ROOT_USERNAME",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "MONGO_INITDB_ROOT_PASSWORD",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "MONGO_INITDB_DATABASE",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/data/db"
+    ],
+    "logoSlug": "mongodb",
+    "logo": "/templates/logos/mongodb.svg"
+  },
+  {
+    "name": "Redis",
+    "slug": "redis",
+    "category": "Cache",
+    "image": "redis:7",
+    "description": "In-memory data store used as a database, cache, and message broker.",
+    "ports": [
+      6379
+    ],
+    "env": [
+      {
+        "key": "REDIS_ARGS",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/data"
+    ],
+    "logoSlug": "redis",
+    "logo": "/templates/logos/redis.svg"
+  },
+  {
+    "name": "Memcached",
+    "slug": "memcached",
+    "category": "Cache",
+    "image": "memcached:1.6",
+    "description": "High-performance distributed memory object caching system.",
+    "ports": [
+      11211
+    ],
+    "env": [],
+    "volumes": [],
+    "logoSlug": null,
+    "logoNote": "Not in Simple Icons. Official logo at https://memcached.org/.",
+    "logo": null
+  },
+  {
+    "name": "Cassandra",
+    "slug": "cassandra",
+    "category": "Database",
+    "image": "cassandra:5",
+    "description": "Highly scalable distributed wide-column NoSQL database.",
+    "ports": [
+      9042,
+      7000
+    ],
+    "env": [
+      {
+        "key": "CASSANDRA_CLUSTER_NAME",
+        "value": "Test Cluster",
+        "required": false
+      },
+      {
+        "key": "CASSANDRA_DC",
+        "value": "datacenter1",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/var/lib/cassandra"
+    ],
+    "logoSlug": "apachecassandra",
+    "logo": "/templates/logos/cassandra.svg"
+  },
+  {
+    "name": "CouchDB",
+    "slug": "couchdb",
+    "category": "Database",
+    "image": "couchdb:3",
+    "description": "Document-oriented NoSQL database with an HTTP/JSON API.",
+    "ports": [
+      5984
+    ],
+    "env": [
+      {
+        "key": "COUCHDB_USER",
+        "value": "admin",
+        "required": true
+      },
+      {
+        "key": "COUCHDB_PASSWORD",
+        "value": "",
+        "required": true
+      }
+    ],
+    "volumes": [
+      "/opt/couchdb/data"
+    ],
+    "logoSlug": "apachecouchdb",
+    "logo": "/templates/logos/couchdb.svg"
+  },
+  {
+    "name": "InfluxDB",
+    "slug": "influxdb",
+    "category": "Database",
+    "image": "influxdb:2",
+    "description": "Time-series database for metrics, events, and real-time analytics.",
+    "ports": [
+      8086
+    ],
+    "env": [
+      {
+        "key": "DOCKER_INFLUXDB_INIT_MODE",
+        "value": "setup",
+        "required": false
+      },
+      {
+        "key": "DOCKER_INFLUXDB_INIT_USERNAME",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "DOCKER_INFLUXDB_INIT_PASSWORD",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "DOCKER_INFLUXDB_INIT_ORG",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "DOCKER_INFLUXDB_INIT_BUCKET",
+        "value": "",
+        "required": true
+      }
+    ],
+    "volumes": [
+      "/var/lib/influxdb2"
+    ],
+    "logoSlug": "influxdb",
+    "logo": "/templates/logos/influxdb.svg"
+  },
+  {
+    "name": "Nginx",
+    "slug": "nginx",
+    "category": "Web Server",
+    "image": "nginx:latest",
+    "description": "High-performance HTTP server, reverse proxy, and load balancer.",
+    "ports": [
+      80,
+      443
+    ],
+    "env": [],
+    "volumes": [
+      "/usr/share/nginx/html",
+      "/etc/nginx/conf.d"
+    ],
+    "logoSlug": "nginx",
+    "logo": "/templates/logos/nginx.svg"
+  },
+  {
+    "name": "Apache HTTP Server",
+    "slug": "httpd",
+    "category": "Web Server",
+    "image": "httpd:2.4",
+    "description": "The widely deployed Apache open-source HTTP web server.",
+    "ports": [
+      80,
+      443
+    ],
+    "env": [],
+    "volumes": [
+      "/usr/local/apache2/htdocs",
+      "/usr/local/apache2/conf"
+    ],
+    "logoSlug": "apache",
+    "logo": "/templates/logos/httpd.svg"
+  },
+  {
+    "name": "Caddy",
+    "slug": "caddy",
+    "category": "Web Server",
+    "image": "caddy:2",
+    "description": "Modern web server with automatic HTTPS via Let's Encrypt.",
+    "ports": [
+      80,
+      443,
+      2019
+    ],
+    "env": [],
+    "volumes": [
+      "/data",
+      "/config",
+      "/etc/caddy"
+    ],
+    "logoSlug": "caddy",
+    "logo": "/templates/logos/caddy.svg"
+  },
+  {
+    "name": "Traefik",
+    "slug": "traefik",
+    "category": "Proxy",
+    "image": "traefik:v3.1",
+    "description": "Cloud-native edge router and reverse proxy with auto service discovery.",
+    "ports": [
+      80,
+      443,
+      8080
+    ],
+    "env": [],
+    "volumes": [
+      "/etc/traefik",
+      "/var/run/docker.sock"
+    ],
+    "logoSlug": "traefikproxy",
+    "logo": "/templates/logos/traefik.svg"
+  },
+  {
+    "name": "HAProxy",
+    "slug": "haproxy",
+    "category": "Proxy",
+    "image": "haproxy:3.0",
+    "description": "Reliable, high-performance TCP/HTTP load balancer and proxy.",
+    "ports": [
+      80,
+      443,
+      8404
+    ],
+    "env": [],
+    "volumes": [
+      "/usr/local/etc/haproxy"
+    ],
+    "logoSlug": null,
+    "logoNote": "Not in Simple Icons. Official logo at https://www.haproxy.org/.",
+    "logo": "/templates/logos/haproxy.svg"
+  },
+  {
+    "name": "Node.js",
+    "slug": "node",
+    "category": "Dev Tools",
+    "image": "node:22",
+    "description": "JavaScript runtime built on Chrome's V8 engine for server-side apps.",
+    "ports": [
+      3000
+    ],
+    "env": [
+      {
+        "key": "NODE_ENV",
+        "value": "production",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/usr/src/app"
+    ],
+    "logoSlug": "nodedotjs",
+    "logo": "/templates/logos/node.svg"
+  },
+  {
+    "name": "Python",
+    "slug": "python",
+    "category": "Dev Tools",
+    "image": "python:3.12",
+    "description": "Official Python interpreter image for building and running apps.",
+    "ports": [
+      8000
+    ],
+    "env": [
+      {
+        "key": "PYTHONUNBUFFERED",
+        "value": "1",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/usr/src/app"
+    ],
+    "logoSlug": "python",
+    "logo": "/templates/logos/python.svg"
+  },
+  {
+    "name": "Go",
+    "slug": "golang",
+    "category": "Dev Tools",
+    "image": "golang:1.22",
+    "description": "Official Go toolchain image for compiling and running Go programs.",
+    "ports": [
+      8080
+    ],
+    "env": [
+      {
+        "key": "CGO_ENABLED",
+        "value": "0",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/go",
+      "/usr/src/app"
+    ],
+    "logoSlug": "go",
+    "logo": "/templates/logos/golang.svg"
+  },
+  {
+    "name": "Eclipse Temurin (OpenJDK)",
+    "slug": "eclipse-temurin",
+    "category": "Dev Tools",
+    "image": "eclipse-temurin:21-jre",
+    "description": "Production-ready OpenJDK Java runtime from the Adoptium project.",
+    "ports": [
+      8080
+    ],
+    "env": [
+      {
+        "key": "JAVA_OPTS",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/app"
+    ],
+    "logoSlug": "openjdk",
+    "logo": "/templates/logos/eclipse-temurin.svg"
+  },
+  {
+    "name": "Alpine Linux",
+    "slug": "alpine",
+    "category": "Dev Tools",
+    "image": "alpine:3.20",
+    "description": "Minimal, security-oriented Linux base image (~5MB).",
+    "ports": [],
+    "env": [],
+    "volumes": [],
+    "logoSlug": "alpinelinux",
+    "logo": "/templates/logos/alpine.svg"
+  },
+  {
+    "name": "Ubuntu",
+    "slug": "ubuntu",
+    "category": "Dev Tools",
+    "image": "ubuntu:24.04",
+    "description": "Popular general-purpose Linux distribution base image.",
+    "ports": [],
+    "env": [],
+    "volumes": [],
+    "logoSlug": "ubuntu",
+    "logo": "/templates/logos/ubuntu.svg"
+  },
+  {
+    "name": "Debian",
+    "slug": "debian",
+    "category": "Dev Tools",
+    "image": "debian:12",
+    "description": "Stable, universal Linux distribution base image.",
+    "ports": [],
+    "env": [],
+    "volumes": [],
+    "logoSlug": "debian",
+    "logo": "/templates/logos/debian.svg"
+  },
+  {
+    "name": "BusyBox",
+    "slug": "busybox",
+    "category": "Dev Tools",
+    "image": "busybox:latest",
+    "description": "Tiny single-binary image bundling common Unix utilities.",
+    "ports": [],
+    "env": [],
+    "volumes": [],
+    "logoSlug": null,
+    "logoNote": "Not in Simple Icons. Project logo at https://busybox.net/.",
+    "logo": null
+  },
+  {
+    "name": "RabbitMQ",
+    "slug": "rabbitmq",
+    "category": "Message Queue",
+    "image": "rabbitmq:3-management",
+    "description": "Robust open-source message broker supporting AMQP and more.",
+    "ports": [
+      5672,
+      15672
+    ],
+    "env": [
+      {
+        "key": "RABBITMQ_DEFAULT_USER",
+        "value": "guest",
+        "required": false
+      },
+      {
+        "key": "RABBITMQ_DEFAULT_PASS",
+        "value": "",
+        "required": true
+      }
+    ],
+    "volumes": [
+      "/var/lib/rabbitmq"
+    ],
+    "logoSlug": "rabbitmq",
+    "logo": "/templates/logos/rabbitmq.svg"
+  },
+  {
+    "name": "Apache Kafka",
+    "slug": "kafka",
+    "category": "Message Queue",
+    "image": "apache/kafka:3.8.0",
+    "description": "Distributed event streaming platform for high-throughput pipelines.",
+    "ports": [
+      9092,
+      9093
+    ],
+    "env": [
+      {
+        "key": "KAFKA_PROCESS_ROLES",
+        "value": "broker,controller",
+        "required": false
+      },
+      {
+        "key": "KAFKA_NODE_ID",
+        "value": "1",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/var/lib/kafka/data"
+    ],
+    "logoSlug": "apachekafka",
+    "logo": "/templates/logos/kafka.svg"
+  },
+  {
+    "name": "ZooKeeper",
+    "slug": "zookeeper",
+    "category": "Message Queue",
+    "image": "zookeeper:3.9",
+    "description": "Centralized service for configuration, naming, and coordination.",
+    "ports": [
+      2181,
+      2888,
+      3888
+    ],
+    "env": [
+      {
+        "key": "ZOO_MY_ID",
+        "value": "1",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/data",
+      "/datalog"
+    ],
+    "logoSlug": null,
+    "logoNote": "Not in Simple Icons. Apache project logo at https://zookeeper.apache.org/.",
+    "logo": null
+  },
+  {
+    "name": "Eclipse Mosquitto",
+    "slug": "mosquitto",
+    "category": "Message Queue",
+    "image": "eclipse-mosquitto:2",
+    "description": "Lightweight MQTT broker for IoT and pub/sub messaging.",
+    "ports": [
+      1883,
+      9001
+    ],
+    "env": [],
+    "volumes": [
+      "/mosquitto/config",
+      "/mosquitto/data",
+      "/mosquitto/log"
+    ],
+    "logoSlug": "eclipsemosquitto",
+    "logo": "/templates/logos/mosquitto.svg"
+  },
+  {
+    "name": "Elasticsearch",
+    "slug": "elasticsearch",
+    "category": "Search",
+    "image": "elasticsearch:8.15.0",
+    "description": "Distributed search and analytics engine for all types of data.",
+    "ports": [
+      9200,
+      9300
+    ],
+    "env": [
+      {
+        "key": "discovery.type",
+        "value": "single-node",
+        "required": false
+      },
+      {
+        "key": "ELASTIC_PASSWORD",
+        "value": "",
+        "required": true
+      }
+    ],
+    "volumes": [
+      "/usr/share/elasticsearch/data"
+    ],
+    "logoSlug": "elasticsearch",
+    "logo": "/templates/logos/elasticsearch.svg"
+  },
+  {
+    "name": "Kibana",
+    "slug": "kibana",
+    "category": "Analytics",
+    "image": "kibana:8.15.0",
+    "description": "Visualization and dashboard frontend for Elasticsearch data.",
+    "ports": [
+      5601
+    ],
+    "env": [
+      {
+        "key": "ELASTICSEARCH_HOSTS",
+        "value": "http://elasticsearch:9200",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/usr/share/kibana/data"
+    ],
+    "logoSlug": "kibana",
+    "logo": "/templates/logos/kibana.svg"
+  },
+  {
+    "name": "Logstash",
+    "slug": "logstash",
+    "category": "Analytics",
+    "image": "logstash:8.15.0",
+    "description": "Server-side data processing pipeline that ingests and transforms logs.",
+    "ports": [
+      5044,
+      9600
+    ],
+    "env": [
+      {
+        "key": "LS_JAVA_OPTS",
+        "value": "-Xms256m -Xmx256m",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/usr/share/logstash/pipeline"
+    ],
+    "logoSlug": "logstash",
+    "logo": "/templates/logos/logstash.svg"
+  },
+  {
+    "name": "Grafana",
+    "slug": "grafana",
+    "category": "Monitoring",
+    "image": "grafana/grafana:11.1.0",
+    "description": "Open observability platform for metrics, logs, and dashboards.",
+    "ports": [
+      3000
+    ],
+    "env": [
+      {
+        "key": "GF_SECURITY_ADMIN_PASSWORD",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "GF_SECURITY_ADMIN_USER",
+        "value": "admin",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/var/lib/grafana"
+    ],
+    "logoSlug": "grafana",
+    "logo": "/templates/logos/grafana.svg"
+  },
+  {
+    "name": "Prometheus",
+    "slug": "prometheus",
+    "category": "Monitoring",
+    "image": "prom/prometheus:v2.54.0",
+    "description": "Time-series monitoring system and alerting toolkit.",
+    "ports": [
+      9090
+    ],
+    "env": [],
+    "volumes": [
+      "/prometheus",
+      "/etc/prometheus"
+    ],
+    "logoSlug": "prometheus",
+    "logo": "/templates/logos/prometheus.svg"
+  },
+  {
+    "name": "Telegraf",
+    "slug": "telegraf",
+    "category": "Monitoring",
+    "image": "telegraf:1.31",
+    "description": "Plugin-driven agent for collecting and reporting metrics.",
+    "ports": [
+      8125,
+      8092,
+      8094
+    ],
+    "env": [
+      {
+        "key": "INFLUX_TOKEN",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/etc/telegraf"
+    ],
+    "logoSlug": null,
+    "logoNote": "Not in Simple Icons. InfluxData/TICK stack branding.",
+    "logo": "/templates/logos/telegraf.svg"
+  },
+  {
+    "name": "HashiCorp Vault",
+    "slug": "vault",
+    "category": "Security",
+    "image": "hashicorp/vault:1.17",
+    "description": "Secrets management, encryption, and identity-based access control.",
+    "ports": [
+      8200
+    ],
+    "env": [
+      {
+        "key": "VAULT_DEV_ROOT_TOKEN_ID",
+        "value": "",
+        "required": false
+      },
+      {
+        "key": "VAULT_ADDR",
+        "value": "http://0.0.0.0:8200",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/vault/file",
+      "/vault/config"
+    ],
+    "logoSlug": "vault",
+    "logo": "/templates/logos/vault.svg"
+  },
+  {
+    "name": "HashiCorp Consul",
+    "slug": "consul",
+    "category": "Networking",
+    "image": "hashicorp/consul:1.19",
+    "description": "Service mesh and service discovery with health checking and KV store.",
+    "ports": [
+      8500,
+      8600
+    ],
+    "env": [
+      {
+        "key": "CONSUL_BIND_INTERFACE",
+        "value": "eth0",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/consul/data"
+    ],
+    "logoSlug": "consul",
+    "logo": "/templates/logos/consul.svg"
+  },
+  {
+    "name": "Keycloak",
+    "slug": "keycloak",
+    "category": "Security",
+    "image": "quay.io/keycloak/keycloak:25.0",
+    "description": "Open-source identity and access management with SSO and OIDC/SAML.",
+    "ports": [
+      8080,
+      8443
+    ],
+    "env": [
+      {
+        "key": "KEYCLOAK_ADMIN",
+        "value": "admin",
+        "required": true
+      },
+      {
+        "key": "KEYCLOAK_ADMIN_PASSWORD",
+        "value": "",
+        "required": true
+      }
+    ],
+    "volumes": [
+      "/opt/keycloak/data"
+    ],
+    "logoSlug": "keycloak",
+    "logo": "/templates/logos/keycloak.svg"
+  },
+  {
+    "name": "Vaultwarden",
+    "slug": "vaultwarden",
+    "category": "Security",
+    "image": "vaultwarden/server:latest",
+    "description": "Lightweight, self-hosted Bitwarden-compatible password manager server.",
+    "ports": [
+      80
+    ],
+    "env": [
+      {
+        "key": "ADMIN_TOKEN",
+        "value": "",
+        "required": false
+      },
+      {
+        "key": "DOMAIN",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/data"
+    ],
+    "logoSlug": "vaultwarden",
+    "logo": "/templates/logos/vaultwarden.svg"
+  },
+  {
+    "name": "GitLab",
+    "slug": "gitlab",
+    "category": "CI/CD",
+    "image": "gitlab/gitlab-ce:latest",
+    "description": "Complete DevOps platform with Git repos, CI/CD, and issue tracking.",
+    "ports": [
+      80,
+      443,
+      22
+    ],
+    "env": [
+      {
+        "key": "GITLAB_OMNIBUS_CONFIG",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/etc/gitlab",
+      "/var/opt/gitlab",
+      "/var/log/gitlab"
+    ],
+    "logoSlug": "gitlab",
+    "logo": "/templates/logos/gitlab.svg"
+  },
+  {
+    "name": "Jenkins",
+    "slug": "jenkins",
+    "category": "CI/CD",
+    "image": "jenkins/jenkins:lts",
+    "description": "Leading open-source automation server for building CI/CD pipelines.",
+    "ports": [
+      8080,
+      50000
+    ],
+    "env": [
+      {
+        "key": "JAVA_OPTS",
+        "value": "-Djenkins.install.runSetupWizard=false",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/var/jenkins_home"
+    ],
+    "logoSlug": "jenkins",
+    "logo": "/templates/logos/jenkins.svg"
+  },
+  {
+    "name": "SonarQube",
+    "slug": "sonarqube",
+    "category": "CI/CD",
+    "image": "sonarqube:lts-community",
+    "description": "Continuous code-quality inspection and static security analysis.",
+    "ports": [
+      9000
+    ],
+    "env": [
+      {
+        "key": "SONAR_JDBC_URL",
+        "value": "",
+        "required": false
+      },
+      {
+        "key": "SONAR_JDBC_USERNAME",
+        "value": "",
+        "required": false
+      },
+      {
+        "key": "SONAR_JDBC_PASSWORD",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/opt/sonarqube/data",
+      "/opt/sonarqube/extensions"
+    ],
+    "logoSlug": "sonarqubeserver",
+    "logo": "/templates/logos/sonarqube.svg"
+  },
+  {
+    "name": "Sonatype Nexus",
+    "slug": "nexus",
+    "category": "CI/CD",
+    "image": "sonatype/nexus3:latest",
+    "description": "Universal artifact repository manager for builds and dependencies.",
+    "ports": [
+      8081
+    ],
+    "env": [
+      {
+        "key": "INSTALL4J_ADD_VM_PARAMS",
+        "value": "-Xms2703m -Xmx2703m",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/nexus-data"
+    ],
+    "logoSlug": null,
+    "logoNote": "Not in Simple Icons. Sonatype press kit at https://www.sonatype.com/.",
+    "logo": "/templates/logos/nexus.svg"
+  },
+  {
+    "name": "Gitea",
+    "slug": "gitea",
+    "category": "CI/CD",
+    "image": "gitea/gitea:1.22",
+    "description": "Lightweight self-hosted Git service with built-in CI/CD (Actions).",
+    "ports": [
+      3000,
+      22
+    ],
+    "env": [
+      {
+        "key": "GITEA__database__DB_TYPE",
+        "value": "sqlite3",
+        "required": false
+      },
+      {
+        "key": "GITEA__server__ROOT_URL",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/data"
+    ],
+    "logoSlug": "gitea",
+    "logo": "/templates/logos/gitea.svg"
+  },
+  {
+    "name": "Docker Registry",
+    "slug": "registry",
+    "category": "Storage",
+    "image": "registry:2",
+    "description": "Stateless, scalable server for storing and distributing Docker images.",
+    "ports": [
+      5000
+    ],
+    "env": [
+      {
+        "key": "REGISTRY_STORAGE_DELETE_ENABLED",
+        "value": "true",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/var/lib/registry"
+    ],
+    "logoSlug": "docker",
+    "logoNote": "No dedicated Registry icon; uses the official Docker mark.",
+    "logo": "/templates/logos/registry.svg"
+  },
+  {
+    "name": "MinIO",
+    "slug": "minio",
+    "category": "Storage",
+    "image": "minio/minio:latest",
+    "description": "High-performance, S3-compatible object storage server.",
+    "ports": [
+      9000,
+      9001
+    ],
+    "env": [
+      {
+        "key": "MINIO_ROOT_USER",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "MINIO_ROOT_PASSWORD",
+        "value": "",
+        "required": true
+      }
+    ],
+    "volumes": [
+      "/data"
+    ],
+    "logoSlug": "minio",
+    "logo": "/templates/logos/minio.svg"
+  },
+  {
+    "name": "Portainer",
+    "slug": "portainer",
+    "category": "Dev Tools",
+    "image": "portainer/portainer-ce:latest",
+    "description": "Lightweight web UI for managing Docker, Swarm, and Kubernetes.",
+    "ports": [
+      9443,
+      8000
+    ],
+    "env": [],
+    "volumes": [
+      "/data",
+      "/var/run/docker.sock"
+    ],
+    "logoSlug": "portainer",
+    "logo": "/templates/logos/portainer.svg"
+  },
+  {
+    "name": "Nextcloud",
+    "slug": "nextcloud",
+    "category": "Storage",
+    "image": "nextcloud:latest",
+    "description": "Self-hosted file sync, sharing, and collaboration platform.",
+    "ports": [
+      80
+    ],
+    "env": [
+      {
+        "key": "NEXTCLOUD_ADMIN_USER",
+        "value": "admin",
+        "required": true
+      },
+      {
+        "key": "NEXTCLOUD_ADMIN_PASSWORD",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "MYSQL_PASSWORD",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/var/www/html"
+    ],
+    "logoSlug": "nextcloud",
+    "logo": "/templates/logos/nextcloud.svg"
+  },
+  {
+    "name": "WordPress",
+    "slug": "wordpress",
+    "category": "CMS",
+    "image": "wordpress:latest",
+    "description": "World's most popular open-source CMS and blogging platform.",
+    "ports": [
+      80
+    ],
+    "env": [
+      {
+        "key": "WORDPRESS_DB_HOST",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "WORDPRESS_DB_USER",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "WORDPRESS_DB_PASSWORD",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "WORDPRESS_DB_NAME",
+        "value": "wordpress",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/var/www/html"
+    ],
+    "logoSlug": "wordpress",
+    "logo": "/templates/logos/wordpress.svg"
+  },
+  {
+    "name": "Adminer",
+    "slug": "adminer",
+    "category": "Dev Tools",
+    "image": "adminer:latest",
+    "description": "Full-featured database management tool in a single PHP file.",
+    "ports": [
+      8080
+    ],
+    "env": [
+      {
+        "key": "ADMINER_DEFAULT_SERVER",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [],
+    "logoSlug": "adminer",
+    "logo": "/templates/logos/adminer.svg"
+  },
+  {
+    "name": "phpMyAdmin",
+    "slug": "phpmyadmin",
+    "category": "Dev Tools",
+    "image": "phpmyadmin:latest",
+    "description": "Web-based administration tool for MySQL and MariaDB.",
+    "ports": [
+      80
+    ],
+    "env": [
+      {
+        "key": "PMA_HOST",
+        "value": "",
+        "required": true
+      },
+      {
+        "key": "PMA_PORT",
+        "value": "3306",
+        "required": false
+      }
+    ],
+    "volumes": [],
+    "logoSlug": "phpmyadmin",
+    "logo": "/templates/logos/phpmyadmin.svg"
+  },
+  {
+    "name": "Jellyfin",
+    "slug": "jellyfin",
+    "category": "Automation",
+    "image": "jellyfin/jellyfin:latest",
+    "description": "Free software media server for streaming your own media library.",
+    "ports": [
+      8096,
+      8920
+    ],
+    "env": [
+      {
+        "key": "JELLYFIN_PublishedServerUrl",
+        "value": "",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/config",
+      "/cache",
+      "/media"
+    ],
+    "logoSlug": "jellyfin",
+    "logo": "/templates/logos/jellyfin.svg"
+  },
+  {
+    "name": "Home Assistant",
+    "slug": "home-assistant",
+    "category": "Automation",
+    "image": "ghcr.io/home-assistant/home-assistant:stable",
+    "description": "Open-source home automation hub for controlling smart devices.",
+    "ports": [
+      8123
+    ],
+    "env": [
+      {
+        "key": "TZ",
+        "value": "UTC",
+        "required": false
+      }
+    ],
+    "volumes": [
+      "/config"
+    ],
+    "logoSlug": "homeassistant",
+    "logo": "/templates/logos/home-assistant.svg"
+  }
+]
