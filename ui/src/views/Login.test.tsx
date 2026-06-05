@@ -16,6 +16,10 @@ vi.mock("../lib/api", async (orig) => {
       ...actual.api,
       me: vi.fn().mockRejectedValue(new actual.ApiError(401, "unauthenticated", "no session", "req-test")),
       login: vi.fn(),
+      // Login probes bootstrap state on mount: a NON-required instance keeps the
+      // user on the login form (a required one would redirect to /bootstrap).
+      bootstrapStatus: vi.fn().mockResolvedValue({ required: false }),
+      authProviders: vi.fn().mockResolvedValue([]),
     },
   };
 });
@@ -44,15 +48,16 @@ describe("Login view", () => {
     expect(brand).toBeInTheDocument();
   });
 
-  it("renders username + password fields and a sign-in button", () => {
+  it("renders username + password fields and a sign-in button", async () => {
     renderLogin();
-    expect(screen.getByLabelText("Username")).toBeInTheDocument();
+    // The form appears once the bootstrap probe resolves (required:false).
+    expect(await screen.findByLabelText("Username")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
   });
 
-  it("offers a link to initialize Castor (bootstrap)", () => {
+  it("offers a link to initialize Castor (bootstrap)", async () => {
     renderLogin();
-    expect(screen.getByRole("link", { name: /initialize castor/i })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /initialize castor/i })).toBeInTheDocument();
   });
 });
