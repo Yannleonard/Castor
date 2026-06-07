@@ -8,7 +8,7 @@
 
 Open-source, self-hosted, multi-host container orchestration platform — **Docker · Docker Swarm · Kubernetes** under one modern dark UI.
 
-Edited by **LEONARD-IT** · Apache-2.0 · ships as a single small Docker image (amd64 + arm64).
+Edited by **LEONARD-IT/GTEK-IT** · Apache-2.0 · ships as a single small Docker image (amd64 + arm64).
 
 </div>
 
@@ -232,4 +232,4 @@ and self-contained; it depends on no other repository.
 
 ## 📄 License
 
-[Apache-2.0](LICENSE) © 2026 LEONARD-IT.
+[Apache-2.0](LICENSE) © 2026 LEONARD-IT/GTEK-IT.
