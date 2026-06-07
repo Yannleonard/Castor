@@ -68,3 +68,6 @@ Thumbs.db
 *.bak
 *.orig
 workflow-output.json
+
+# --- Claude Code session/internal files (never publish) ----------------------
+.claude/

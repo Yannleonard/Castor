@@ -7,7 +7,7 @@ This directory packages the site as a tiny, production-grade **Nginx** image tha
 listens on **port 8080** (non-root, Azure-friendly) and is ready for Azure App
 Service for Containers, Azure Container Instances, or any container host.
 
-- Editor: **GTEK-IT** · License: **Apache-2.0**
+- Editor: **LEONARD-IT/GTEK-IT** · License: **Apache-2.0**
 - Image base: `nginx:1.27-alpine` · final image **~49 MB** · multi-arch (amd64 + arm64)
 
 ---

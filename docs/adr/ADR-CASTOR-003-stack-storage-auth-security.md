@@ -12,7 +12,7 @@
 ## 1. Context
 
 Castor is a from-scratch, open-source (Apache-2.0), self-hosted, multi-host container
-orchestration UI by GTEK-IT. It manages **Docker** (full read+write), **Docker Swarm**
+orchestration UI by LEONARD-IT/GTEK-IT. It manages **Docker** (full read+write), **Docker Swarm**
 (read-only) and **Kubernetes** (read-only) under one modern dark UI.
 
 This ADR locks the **technology stack**, the **persistence layer & schema**, the

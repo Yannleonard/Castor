@@ -3,7 +3,7 @@
 > **Castor** — *Gérer • Déployer • Orchestrer*
 > Plateforme open-source de gestion & orchestration de conteneurs multi-hôtes
 > (Docker · Docker Swarm · Kubernetes). Distribuée en image Docker, gratuite,
-> communautaire. Éditée par **GTEK-IT**.
+> communautaire. Éditée par **LEONARD-IT/GTEK-IT**.
 >
 > Statut : **PLAN / cadrage** — aucun code produit. Document de pilotage.
 > Date : 2026-06-02
@@ -15,11 +15,11 @@
 | Axe | Décision |
 |---|---|
 | **Nature** | Produit **open-source autonome** (PAS un module de CGM). Repo séparé. |
-| **Licence** | **Apache-2.0** (permissif + clause brevets, adoption entreprise, copyright GTEK-IT, édition Business future possible) |
+| **Licence** | **Apache-2.0** (permissif + clause brevets, adoption entreprise, copyright LEONARD-IT/GTEK-IT, édition Business future possible) |
 | **Distribution** | **Image Docker** (`docker run` / `docker compose up` en < 2 min). Self-hosted. |
 | **Cible** | Homelabbers, PME, MSSP, équipes DevOps — quiconque gère des conteneurs sur 1..N serveurs |
 | **Promesse** | « Portainer en mieux » : multi-hôtes natif, design moderne, Docker **+ Swarm + Kubernetes** dès la V1 |
-| **Modèle communauté** | Gratuit, ouvert aux contributions, vitrine technique GTEK-IT. CGM pourra *optionnellement* consommer Castor plus tard (jamais l'inverse). |
+| **Modèle communauté** | Gratuit, ouvert aux contributions, vitrine technique LEONARD-IT/GTEK-IT. CGM pourra *optionnellement* consommer Castor plus tard (jamais l'inverse). |
 | **Ambition concurrentielle** | Portainer (Docker+K8s), Komodo (GPL), Dockge (compose only), Rancher (K8s only). Castor = les 3 orchestrateurs + UX supérieure + FOSS permissif. |
 
 ### Pourquoi « le mieux » se gagne sur (différenciateurs vs Portainer)
@@ -27,7 +27,7 @@
 2. **Design moderne** (dark, mascotte, temps réel fluide) vs UI Portainer datée.
 3. **3 orchestrateurs sous une seule UX cohérente** (Docker/Swarm/K8s) sans changer d'outil.
 4. **Installation triviale** + agent ultra-léger (Go).
-5. **Sécurité par défaut** (mTLS, RBAC, 2FA, audit) — héritage de l'ADN cyber GTEK-IT.
+5. **Sécurité par défaut** (mTLS, RBAC, 2FA, audit) — héritage de l'ADN cyber LEONARD-IT/GTEK-IT.
 6. **Templates/marketplace** d'apps en un clic (réutilise le catalogue Docker Apps de CGM).
 
 ---

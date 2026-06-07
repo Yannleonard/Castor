@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# Castor — multi-host container orchestration platform (GTEK-IT, Apache-2.0).
+# Castor — multi-host container orchestration platform (LEONARD-IT/GTEK-IT, Apache-2.0).
 # Single self-contained image: a pure-Go static binary that serves both the
 # JSON/WS API and the embedded React UI on one port (default :8080).
 #

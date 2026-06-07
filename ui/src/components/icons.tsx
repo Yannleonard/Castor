@@ -326,7 +326,7 @@ export const IconDirectory = (p: IconProps) => (
 );
 
 /**
- * The official Castor logo (the GTEK-IT beaver mascot stacking Docker / Swarm /
+ * The official Castor logo (the LEONARD-IT/GTEK-IT beaver mascot stacking Docker / Swarm /
  * Kubernetes containers). Served from /brand/castor-logo.webp (ui/public/brand).
  * Sized via `size` (square). Kept named BeaverMascot so existing call sites
  * (Sidebar, AuthBrand, NotFound) need no change.

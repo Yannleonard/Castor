@@ -134,6 +134,6 @@ Operator responsibilities:
 
 ## 8. Reporting a vulnerability
 
-**Do not open a public GitHub issue for security problems.** Email the GTEK-IT security contact (see
+**Do not open a public GitHub issue for security problems.** Email the LEONARD-IT/GTEK-IT security contact (see
 the org `SECURITY.md` / profile) with a description and reproduction. We coordinate a fix and
 responsible disclosure.

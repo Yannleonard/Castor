@@ -128,7 +128,7 @@ Conventional, imperative subject lines are appreciated (`feat:`, `fix:`, `docs:`
 
 ## Reporting security issues
 
-**Do not open a public issue for vulnerabilities.** Email the GTEK-IT security contact (see the
+**Do not open a public issue for vulnerabilities.** Email the LEONARD-IT/GTEK-IT security contact (see the
 repository's `SECURITY.md` / org profile) with details and a reproduction. We'll coordinate a fix and
 disclosure. See the threat model in [`docs/runbooks/security.md`](docs/runbooks/security.md).
 
