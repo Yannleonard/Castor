@@ -110,10 +110,13 @@ jobs:
       - name: Test (race)
         run: go test -race -count=1 ./...
 
-      - name: govulncheck
+      - name: govulncheck (gated)
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+          # Strict gate: fails on ANY reachable vulnerability except the small,
+          # explicitly-justified allow-list in scripts/govulncheck-gate (rationale
+          # in SECURITY.md). Newly-disclosed vulns still break the build.
+          govulncheck -format json ./... | go run ./scripts/govulncheck-gate
 
   # ---------------------------------------------------------------------------
   # Image: prove the multi-stage Dockerfile builds end to end (local arch).

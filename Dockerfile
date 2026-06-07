@@ -135,8 +135,15 @@ ENV CASTOR_HTTP_ADDR=":8080" \
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
     CMD ["/usr/local/bin/castor", "healthcheck"]
 
-# uid:gid nonroot:nonroot. Socket access is granted at run time via --group-add
-# (the docker GID), NOT by running as root.
-USER 65532:65532
-
-ENTRYPOINT ["/usr/local/bin/castor"]
+# The server runs as NON-ROOT (uid 65532). We deliberately do NOT set a fixed
+# `USER` here: the `castor entrypoint` starts as root ONLY to read the mounted
+# docker socket's group, then immediately drops to uid:gid 65532:65532 WITH that
+# group as a supplementary group and re-execs the server (the gosu/su-exec
+# pattern, implemented in pure Go for this shell-less distroless image). This is
+# what lets `docker run -v /var/run/docker.sock:... ghcr.io/.../castor` work with
+# NO `--group-add` while the actual server process stays unprivileged.
+#
+# Operators who prefer to pin the user can still run with
+# `--user 65532:65532 --group-add <docker-gid>`: the entrypoint sees it is
+# already non-root and simply runs the server without attempting to drop.
+ENTRYPOINT ["/usr/local/bin/castor", "entrypoint"]
