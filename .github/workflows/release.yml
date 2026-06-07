@@ -85,8 +85,8 @@ jobs:
             type=raw,value=latest,enable=${{ steps.ver.outputs.prerelease == 'false' }}
           labels: |
             org.opencontainers.image.title=Castor
-            org.opencontainers.image.description=Multi-host container orchestration platform (Docker, Swarm, Kubernetes) by GTEK-IT.
-            org.opencontainers.image.vendor=GTEK-IT
+            org.opencontainers.image.description=Multi-host container orchestration platform (Docker, Swarm, Kubernetes) by LEONARD-IT/GTEK-IT.
+            org.opencontainers.image.vendor=LEONARD-IT/GTEK-IT
             org.opencontainers.image.licenses=Apache-2.0
             org.opencontainers.image.version=${{ steps.ver.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
