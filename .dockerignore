@@ -38,10 +38,12 @@ yarn-error.log*
 server/web/dist/
 
 # --- Go build artifacts / local caches --------------------------------------
+# Anchor with a leading slash: a bare `castor` would also exclude the
+# server/cmd/castor/ package directory from the build context.
 /out
 /bin
-castor
-castor.exe
+/castor
+/castor.exe
 *.test
 *.out
 coverage.*

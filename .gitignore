@@ -21,10 +21,13 @@ yarn-error.log*
 !/server/web/dist/index.html
 
 # --- Go build artifacts ------------------------------------------------------
+# NB: anchor the binary names with a leading slash so they ONLY match the
+# compiled binary at the repo root — a bare `castor` would also ignore the
+# `server/cmd/castor/` PACKAGE DIRECTORY (which broke the CI image build).
 /out/
 /bin/
-castor
-castor.exe
+/castor
+/castor.exe
 *.exe
 *.test
 *.out
