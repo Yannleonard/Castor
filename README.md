@@ -35,16 +35,14 @@ protected/system containers, hardened distroless image). It runs as **one contai
 You need **Docker** (with the Compose plugin) and `openssl`.
 
 ```bash
-git clone https://github.com/gtek-it/castor.git
-cd castor
+git clone https://github.com/Yannleonard/Castor.git
+cd Castor
 
 # 1) Generate the required 32-byte secret key (64 hex chars).
 export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
 
-# 2) Grant the (non-root) container access to the Docker socket via its GID.
-export DOCKER_GID=$(getent group docker | cut -d: -f3)
-
-# 3) Up.
+# 2) Up. (No DOCKER_GID / --group-add needed: Castor's entrypoint detects the
+#    Docker socket's group and runs the server as a non-root user automatically.)
 docker compose up -d
 ```
 
@@ -60,11 +58,26 @@ admin. Enabling **TOTP 2FA** right after is strongly recommended.
 >   -e CASTOR_SECRET_KEY=$(openssl rand -hex 32) \
 >   -v /var/run/docker.sock:/var/run/docker.sock:ro \
 >   -v castor-data:/data \
->   --group-add "$(getent group docker | cut -d: -f3)" \
->   --read-only --tmpfs /tmp \
->   --security-opt no-new-privileges:true --cap-drop ALL \
 >   --restart unless-stopped \
->   ghcr.io/gtek-it/castor:latest
+>   ghcr.io/yannleonard/castor:latest
+> ```
+>
+> **No `--group-add`.** Castor's entrypoint starts as root only to read the mounted
+> socket's group, then drops to a non-root user (uid 65532) **with that group** and
+> re-execs the server. For a hardened run that keeps only the capabilities needed
+> to perform that drop:
+>
+> ```bash
+> docker run -d --name castor \
+>   -p 8080:8080 \
+>   -e CASTOR_SECRET_KEY=$(openssl rand -hex 32) \
+>   -v /var/run/docker.sock:/var/run/docker.sock:ro \
+>   -v castor-data:/data \
+>   --read-only --tmpfs /tmp \
+>   --security-opt no-new-privileges:true \
+>   --cap-drop ALL --cap-add SETUID --cap-add SETGID --cap-add DAC_OVERRIDE \
+>   --restart unless-stopped \
+>   ghcr.io/yannleonard/castor:latest
 > ```
 
 ### `CASTOR_SECRET_KEY` — generate it correctly
@@ -93,8 +106,9 @@ to the socket). For the full Docker lifecycle, switch the mount to `:rw` in
 ```
 
 > **Security reality (ADR-003 §7, T1):** write access to the Docker socket is **root-equivalent on
-> the host**. Castor runs as **non-root** (uid 65532) and gets socket access via `--group-add` (the
-> docker GID), never as root. For hardened deployments, front the socket with a scoped
+> the host**. Castor's server runs as **non-root** (uid 65532); its entrypoint reads the socket's
+> group at startup and drops to that non-root user with the group, so it reaches the socket without
+> running the server as root and without a manual `--group-add`. For hardened deployments, front the socket with a scoped
 > `docker-socket-proxy` and point `CASTOR_DOCKER_HOST` at it.
 
 ### Add Kubernetes (read-only)

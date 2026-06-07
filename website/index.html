@@ -543,11 +543,9 @@
   <span class="tok-flag">-e</span> CASTOR_SECRET_KEY=<span class="tok-str">$(openssl rand -hex 32)</span> \
   <span class="tok-flag">-v</span> /var/run/docker.sock:/var/run/docker.sock:ro \
   <span class="tok-flag">-v</span> castor-data:/data \
-  <span class="tok-flag">--group-add</span> <span class="tok-str">"$(getent group docker | cut -d: -f3)"</span> \
-  <span class="tok-flag">--read-only</span> <span class="tok-flag">--tmpfs</span> /tmp \
-  <span class="tok-flag">--security-opt</span> no-new-privileges:true <span class="tok-flag">--cap-drop</span> ALL \
   <span class="tok-flag">--restart</span> unless-stopped \
   <span class="tok-img">ghcr.io/yannleonard/castor:latest</span></code></pre>
+<p class="muted" style="margin:10px 2px 0;font-size:.82rem;">No <code>--group-add</code> needed: Castor detects the Docker socket's group and runs the server as a non-root user automatically. For a hardened run, see the Security tab.</p>
               </div>
 
               <!-- docker compose -->
@@ -572,19 +570,19 @@
     <span class="tok-key">volumes:</span>
       - /var/run/docker.sock:/var/run/docker.sock:ro   <span class="tok-cmt"># :rw for full lifecycle</span>
       - castor-data:/data
-    <span class="tok-key">group_add:</span>
-      - <span class="tok-str">"${DOCKER_GID:-999}"</span>          <span class="tok-cmt"># docker group GID — NOT root</span>
     <span class="tok-key">read_only:</span> true
     <span class="tok-key">tmpfs:</span> [/tmp]
     <span class="tok-key">security_opt:</span> [<span class="tok-str">"no-new-privileges:true"</span>]
+    <span class="tok-cmt"># Castor's entrypoint drops to a non-root user + the socket's group itself,</span>
+    <span class="tok-cmt"># so no group_add is needed. It only keeps the caps required to drop privileges:</span>
     <span class="tok-key">cap_drop:</span> [ALL]
+    <span class="tok-key">cap_add:</span> [SETUID, SETGID, DAC_OVERRIDE]
 
 <span class="tok-key">volumes:</span>
   <span class="tok-key">castor-data:</span>
     <span class="tok-key">name:</span> castor-data</code></pre>
                 <div class="code-foot">
 <pre><code id="code-compose-env"><span class="tok-cmd">export</span> CASTOR_SECRET_KEY=<span class="tok-str">$(openssl rand -hex 32)</span>        <span class="tok-cmt"># 64 hex chars = 32 bytes</span>
-<span class="tok-cmd">export</span> DOCKER_GID=<span class="tok-str">$(getent group docker | cut -d: -f3)</span>  <span class="tok-cmt"># socket access, not root</span>
 <span class="tok-cmd">docker</span> compose up -d</code></pre>
                 </div>
               </div>
