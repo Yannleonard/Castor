@@ -135,15 +135,22 @@ ENV CASTOR_HTTP_ADDR=":8080" \
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
     CMD ["/usr/local/bin/castor", "healthcheck"]
 
-# The server runs as NON-ROOT (uid 65532). We deliberately do NOT set a fixed
-# `USER` here: the `castor entrypoint` starts as root ONLY to read the mounted
-# docker socket's group, then immediately drops to uid:gid 65532:65532 WITH that
-# group as a supplementary group and re-execs the server (the gosu/su-exec
-# pattern, implemented in pure Go for this shell-less distroless image). This is
-# what lets `docker run -v /var/run/docker.sock:... ghcr.io/.../castor` work with
-# NO `--group-add` while the actual server process stays unprivileged.
+# The CONTAINER starts as root, but the SERVER runs as NON-ROOT (uid 65532).
+# `castor entrypoint` runs as root ONLY long enough to read the mounted docker
+# socket's group, then immediately drops to uid:gid 65532:65532 WITH that group as
+# a supplementary group and re-execs the server (the gosu/su-exec pattern, in pure
+# Go for this shell-less distroless image). This is what lets
+# `docker run -v /var/run/docker.sock:... ghcr.io/.../castor` work with NO
+# `--group-add` while the actual server process stays unprivileged.
+#
+# We must set USER 0 explicitly because the distroless :nonroot base defaults to
+# uid 65532 — without this the entrypoint could not read a root:docker socket and
+# the host would show "degraded". The drop to 65532 happens in-process; root is
+# never retained by the server.
 #
 # Operators who prefer to pin the user can still run with
-# `--user 65532:65532 --group-add <docker-gid>`: the entrypoint sees it is
-# already non-root and simply runs the server without attempting to drop.
+# `--user 65532:65532 --group-add <docker-gid>`: the entrypoint sees it is already
+# non-root and simply runs the server without attempting to drop.
+USER 0:0
+
 ENTRYPOINT ["/usr/local/bin/castor", "entrypoint"]
