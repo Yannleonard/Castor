@@ -1,4 +1,4 @@
-# 🦫 CASTOR — Plan d'orchestration multi-agents
+# CASTOR — Plan d'orchestration multi-agents
 
 > **Castor** — *Gérer • Déployer • Orchestrer*
 > Plateforme open-source de gestion & orchestration de conteneurs multi-hôtes

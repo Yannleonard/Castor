@@ -33,7 +33,7 @@
 - Primary button: **Get started** (`#install`)
 
 **Announcement bar (optional, dismissible), above nav:**
-> 🦫 Castor is open source under Apache-2.0 — one UI for Docker, Swarm & Kubernetes. **Star us on GitHub →**
+> Castor by Leonard It is open source under Apache-2.0 — one UI for Docker, Swarm & Kubernetes. **Star us on GitHub →**
 
 ---
 
@@ -382,7 +382,7 @@ One UI for Docker, Swarm, and Kubernetes. Open source, self-hosted, secure by de
 
 **Bottom bar:**
 - © 2026 GTEK-IT. Castor is released under the Apache-2.0 License.
-- Made with 🦫 by GTEK-IT.
+- Made with the Castor icon by LEONARD-IT.
 - (Right) small social/GitHub icon.
 
 ---
