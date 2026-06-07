@@ -6,7 +6,7 @@
 #
 # Three stages:
 #   1. ui    (node:24-alpine)            — build the React+Vite+TS UI to static assets.
-#   2. build (golang:1.25-alpine)        — embed the UI dist + compile a CGO-free static binary.
+#   2. build (golang:1.25.11-alpine)        — embed the UI dist + compile a CGO-free static binary.
 #   3. final (distroless/static:nonroot) — ship only the binary, non-root, no shell, no libc.
 #
 # Multi-arch (linux/amd64 + linux/arm64) is trivial because the whole binary —
@@ -47,7 +47,7 @@ RUN npm run build \
 # ============================================================================
 # STAGE 2 — Go build (embeds UI dist, fully static, CGO-free, trimmed)
 # ============================================================================
-FROM golang:1.25-alpine AS build
+FROM golang:1.25.11-alpine AS build
 WORKDIR /src
 
 # git: VCS stamping fallback; ca-certificates/tzdata: vendored for completeness
