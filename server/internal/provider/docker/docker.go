@@ -206,14 +206,44 @@ func (p *DockerProvider) Restart(ctx context.Context, id string, timeout *time.D
 }
 
 // Remove deletes a container, optionally forcing and removing anonymous volumes.
+// A non-forced delete of a RUNNING container is refused by the daemon (HTTP 409);
+// we map that to a clear provider.ErrConflict so the API returns an actionable
+// 409 ("stop it first, or remove with force") instead of an opaque 500.
 func (p *DockerProvider) Remove(ctx context.Context, id string, opts provider.RemoveOptions) error {
 	if err := p.cli.ContainerRemove(ctx, id, container.RemoveOptions{
 		Force:         opts.Force,
 		RemoveVolumes: opts.RemoveVolumes,
 	}); err != nil {
-		return mapNotFound(err)
+		return mapRemoveContainerErr(err)
 	}
 	return nil
+}
+
+// mapRemoveContainerErr translates a Docker container-remove error into the right
+// provider sentinel: ErrNotFound for unknown ids, and ErrConflict (with an
+// explanatory message) when the daemon refuses to remove a running container
+// without force. Other errors pass through unchanged.
+func mapRemoveContainerErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	if cerrdefs.IsNotFound(err) {
+		return provider.ErrNotFound
+	}
+	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "no such container") {
+		return provider.ErrNotFound
+	}
+	// Daemon 409: "You cannot remove a running container ... Stop the container
+	// before attempting removal or force remove".
+	if cerrdefs.IsConflict(err) ||
+		strings.Contains(msg, "cannot remove a running") ||
+		strings.Contains(msg, "stop the container before") ||
+		strings.Contains(msg, "force remove") ||
+		strings.Contains(msg, "conflict") {
+		return fmt.Errorf("%w: container is running — stop it first, or remove with force", provider.ErrConflict)
+	}
+	return err
 }
 
 // mapNotFound translates a Docker "not found" error into provider.ErrNotFound.
