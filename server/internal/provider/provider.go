@@ -30,6 +30,20 @@ var ErrNotFound = errors.New("provider: workload not found")
 // can surface a clear "resource in use" message instead of a generic error.
 var ErrConflict = errors.New("provider: operation conflicts with current resource state")
 
+// MsgContainerRunning is the user-facing 409 message for ErrContainerRunning. It
+// is the single source of truth the API surfaces to the client (the wrapped
+// ErrContainerRunning.Error() also carries the internal "provider: ..." prefix,
+// which must not leak to the UI).
+const MsgContainerRunning = "Container is running — stop it first, or remove with force."
+
+// ErrContainerRunning is the specific ErrConflict raised when a container removal
+// is refused because the container is still running and the caller did not force
+// it. It wraps ErrConflict so errors.Is(err, ErrConflict) is true and the API maps
+// it to HTTP 409 — but it carries an actionable message the UI can show verbatim
+// (and offer a force-remove on), instead of the opaque generic-500 the bare daemon
+// error used to produce.
+var ErrContainerRunning = fmt.Errorf("%w: %s", ErrConflict, MsgContainerRunning)
+
 // ErrForbidden is returned when a request is rejected by a server-side security
 // policy (not by missing RBAC, which is enforced earlier at the middleware). The
 // canonical case is ErrHostMountDenied below. The API maps it to HTTP 403.

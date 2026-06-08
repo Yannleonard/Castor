@@ -11,7 +11,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../lib/auth";
 import {
@@ -29,10 +29,22 @@ interface Pending {
   workload: Workload;
 }
 
+// isRunningConflict reports whether err is the backend's "container is running"
+// refusal (HTTP 409 conflict) — the one case a force-remove can resolve. It is
+// deliberately narrow: a protected_resource 409 from the guard is NOT included,
+// since forcing cannot bypass that.
+function isRunningConflict(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 409 && err.code === "conflict";
+}
+
 export function useWorkloadActions(hostId: string) {
   const queryClient = useQueryClient();
   const { permissions } = useAuth();
   const [pending, setPending] = useState<Pending | null>(null);
+  // forcePrompt is a second, independent dialog state: when a non-forced remove is
+  // refused with 409 (container running), we offer a one-click force-remove. It is
+  // kept separate from `pending` so closing the first dialog doesn't clobber it.
+  const [forcePrompt, setForcePrompt] = useState<Workload | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const isAdmin = permissions.includes("*");
@@ -61,6 +73,7 @@ export function useWorkloadActions(hostId: string) {
     setPending({ kind: w.protected ? "remove-protected" : "remove", workload: w });
 
   const closeDialog = () => setPending(null);
+  const closeForcePrompt = () => setForcePrompt(null);
 
   const confirmStop = async () => {
     if (!pending) return;
@@ -93,6 +106,27 @@ export function useWorkloadActions(hostId: string) {
     const w = pending.workload;
     try {
       await api.workloadRemove(hostId, w.id, { force: opts.force, volumes: opts.volumes });
+      toast.success("Removed", cleanName(w.name));
+      invalidate();
+    } catch (err) {
+      // A running container refused without force comes back as 409 conflict.
+      // Rather than dead-end on a toast, close this dialog and offer a one-click
+      // force-remove. (If the user already forced, fall through to the error.)
+      if (!opts.force && isRunningConflict(err)) {
+        setForcePrompt(w);
+        return; // let ConfirmDestructiveDialog close itself; forcePrompt is separate state
+      }
+      toastError("Remove failed", err);
+      throw err;
+    }
+  };
+
+  // confirmRemoveForced retries the remove with force after the 409 re-prompt.
+  const confirmRemoveForced = async (opts: DestructiveOptions) => {
+    if (!forcePrompt) return;
+    const w = forcePrompt;
+    try {
+      await api.workloadRemove(hostId, w.id, { force: true, volumes: opts.volumes });
       toast.success("Removed", cleanName(w.name));
       invalidate();
     } catch (err) {
@@ -171,6 +205,21 @@ export function useWorkloadActions(hostId: string) {
         showRemoveOptions
         onConfirm={confirmRemoveProtected}
         onClose={closeDialog}
+      />
+      <ConfirmDestructiveDialog
+        open={forcePrompt !== null}
+        title="Container is running"
+        variant="danger"
+        confirmLabel="Force remove"
+        description={
+          <>
+            <strong className="mono">{cleanName(forcePrompt?.name)}</strong> is still running, so it
+            can't be removed normally. Force removal will <strong>kill the container</strong> and then
+            remove it. This cannot be undone.
+          </>
+        }
+        onConfirm={confirmRemoveForced}
+        onClose={closeForcePrompt}
       />
     </>
   );

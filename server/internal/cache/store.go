@@ -142,14 +142,18 @@ func (s *Store) ensure(hostID string) *Snapshot {
 	return snap
 }
 
-// SeedSnapshotForTest registers an empty snapshot for hostID so handler/API
-// tests that resolve a host (e.g. via Get) can run against an unstarted Manager
-// without a live poller/daemon. Test-only: production snapshots are created by
-// the pollers. Safe for concurrent use.
-func (s *Store) SeedSnapshotForTest(hostID string) {
+// SeedSnapshotForTest registers a snapshot for hostID so handler/API tests that
+// resolve a host (e.g. via Get) can run against an unstarted Manager without a
+// live poller/daemon. Any docker workloads passed are seeded into the snapshot so
+// FindWorkload resolves them. Test-only: production snapshots are created by the
+// pollers. Safe for concurrent use.
+func (s *Store) SeedSnapshotForTest(hostID string, docker ...provider.Workload) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.ensure(hostID)
+	snap := s.ensure(hostID)
+	if len(docker) > 0 {
+		snap.Workloads = docker
+	}
 }
 
 // FindWorkload returns the workload with the given id across docker/swarm/kube
