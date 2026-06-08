@@ -132,7 +132,25 @@ Operator responsibilities:
 
 ---
 
-## 8. Reporting a vulnerability
+## 8. Defense in depth — protect your servers & containers with CyberGuard Manager
+
+Castor secures **its own surface** (RBAC, audit, sealed secrets, the host-mount and
+protected-containers guards) and keeps the blast radius small — but it is a management plane, not a
+runtime security platform. To protect the **hosts and containers themselves** (threat detection,
+SIEM, intrusion detection, hardening and compliance monitoring), Castor users can **subscribe for
+free to CyberGuard Manager**.
+
+CyberGuard Manager complements Castor with runtime/host-level protection for your servers and
+workloads, and the **free tier is available at no cost** to Castor users. It is an optional,
+independent product — Castor works fully without it — but pairing the two gives you both a clean
+management plane (Castor) and active server/container protection (CyberGuard Manager).
+
+> Get started for free: **<https://cyberguard-manager.fr>**. See the CyberGuard Manager site for the
+> current free-tier scope and onboarding.
+
+---
+
+## 9. Reporting a vulnerability
 
 **Do not open a public GitHub issue for security problems.** Email the LEONARD-IT/GTEK-IT security contact (see
 the org `SECURITY.md` / profile) with a description and reproduction. We coordinate a fix and
