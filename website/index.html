@@ -80,7 +80,7 @@
       <nav class="nav__links" id="nav-links" aria-label="Primary">
         <a href="#features">Features</a>
         <a href="#orchestrators">Orchestrators</a>
-        <a href="#compare">Compare</a>
+        <a href="#capabilities">Capabilities</a>
         <a href="#security">Security</a>
         <a href="#install">Install</a>
         <a href="#faq">FAQ</a>
@@ -413,49 +413,63 @@
     </section>
 
     <!-- ===================== Comparison table ===================== -->
-    <section class="section" id="compare">
+    <section class="section" id="capabilities">
       <div class="container">
         <div class="section-head">
-          <p class="eyebrow eyebrow--center">How Castor compares</p>
-          <h2 class="h2">Why teams pick Castor</h2>
-          <p class="lead">An honest look at where Castor fits. Every tool below is good at something — Castor's edge is
-            doing all three orchestrators, with Helm and enterprise SSO, under a permissive license.</p>
+          <p class="eyebrow eyebrow--center">Capabilities</p>
+          <h2 class="h2">Everything Castor does</h2>
+          <p class="lead">One self-hosted image, three orchestrators, and the full lifecycle — from a container's
+            logs to a Kubernetes HPA. Here is the complete feature set, grouped by area.</p>
         </div>
 
         <div class="table-wrap reveal">
-          <table class="cmp">
-            <caption class="sr-only">Capability comparison of Castor, Portainer, Lens and Rancher</caption>
+          <table class="cmp cmp--features">
+            <caption class="sr-only">Complete capability list of Castor, grouped by area</caption>
             <thead>
               <tr>
+                <th scope="col">Area</th>
                 <th scope="col">Capability</th>
-                <th scope="col" class="col-castor">Castor</th>
-                <th scope="col">Portainer</th>
-                <th scope="col">Lens</th>
-                <th scope="col">Rancher</th>
+                <th scope="col">What you get</th>
               </tr>
             </thead>
             <tbody>
-              <tr><th scope="row">Docker management</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="no">—</span></td><td><span class="part">partial</span></td></tr>
-              <tr><th scope="row">Docker Swarm management</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="no">—</span></td><td><span class="no">—</span></td></tr>
-              <tr><th scope="row">Kubernetes management</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td></tr>
-              <tr><th scope="row">All three in one tool</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="part">partial<sup>1</sup></span></td><td><span class="no">—</span></td><td><span class="no">—</span></td></tr>
-              <tr><th scope="row">Helm built in</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="part">partial</span></td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td></tr>
-              <tr><th scope="row">App marketplace / templates</th><td class="col-castor"><span class="yes">✓</span> <span class="dim">(50+)</span></td><td><span class="yes">✓</span></td><td><span class="no">—</span></td><td><span class="yes">✓</span></td></tr>
-              <tr><th scope="row">Modern dark <em>and</em> light UI</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="dim">dated</span></td><td><span class="yes">✓</span></td><td><span class="dim">functional</span></td></tr>
-              <tr><th scope="row">Enterprise SSO (LDAP + Entra/OIDC)</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="part">paid tier</span></td><td><span class="no">—</span></td><td><span class="yes">✓</span></td></tr>
-              <tr><th scope="row">Resource-scoped RBAC</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="part">paid tier</span></td><td><span class="no">—</span></td><td><span class="yes">✓</span></td></tr>
-              <tr><th scope="row">Append-only audit log</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="part">paid tier</span></td><td><span class="no">—</span></td><td><span class="yes">✓</span></td></tr>
-              <tr><th scope="row">Self-hosted</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="dim">desktop app<sup>2</sup></span></td><td><span class="yes">✓</span></td></tr>
-              <tr><th scope="row">Single small image (~67 MB)</th><td class="col-castor"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="dim">n/a</span></td><td><span class="dim">heavy</span></td></tr>
-              <tr><th scope="row">License</th><td class="col-castor"><span class="badge-license">Apache-2.0</span></td><td><span class="dim">zlib/commercial</span></td><td><span class="dim">MIT/commercial</span></td><td><span class="dim">Apache-2.0</span></td></tr>
+              <tr><th scope="row" rowspan="4">Docker</th><td>Container lifecycle</td><td>Start, stop, restart, remove — with confirmation guards on protected/system containers.</td></tr>
+              <tr><td>Live logs, stats &amp; exec</td><td>Stream logs, watch live CPU/memory, and open an interactive <code>exec</code> shell in the browser.</td></tr>
+              <tr><td>Images, networks &amp; volumes</td><td>Pull/delete images, manage networks and volumes, all from one view.</td></tr>
+              <tr><td>Compose stacks</td><td>Visual builder + raw YAML editor, deploy and tear down stacks.</td></tr>
+
+              <tr><th scope="row" rowspan="2">Docker Swarm</th><td>Service lifecycle</td><td>Create, scale, rolling-update, rolling-restart and remove services; drain nodes.</td></tr>
+              <tr><td>Secrets &amp; configs</td><td>Manage Swarm secrets and configs (values are write-only, never shown).</td></tr>
+
+              <tr><th scope="row" rowspan="6">Kubernetes</th><td>Workloads</td><td>Pods, deployments and nodes — scale, rollout-restart, delete.</td></tr>
+              <tr><td>Apply manifests</td><td>Server-side apply of raw YAML with field-manager tracking.</td></tr>
+              <tr><td>Cluster objects</td><td>Namespaces, services, configmaps, secrets, events and Ingress.</td></tr>
+              <tr><td>Storage</td><td>PersistentVolumes, PVCs and StorageClasses; create/delete PVCs.</td></tr>
+              <tr><td>Autoscaling &amp; QoS</td><td>HorizontalPodAutoscalers, plus visible QoS classes (Guaranteed / Burstable / BestEffort).</td></tr>
+              <tr><td>Live metrics &amp; pod exec</td><td>Node/pod metrics via metrics-server and an interactive pod <code>exec</code> terminal.</td></tr>
+
+              <tr><th scope="row" rowspan="2">Helm</th><td>Repositories &amp; charts</td><td>Add/update/remove repos, search charts across cached indexes.</td></tr>
+              <tr><td>Release lifecycle</td><td>Install, upgrade, roll back, uninstall; inspect history and values.</td></tr>
+
+              <tr><th scope="row" rowspan="2">Marketplace</th><td>50+ one-click apps</td><td>Postgres, MySQL, MariaDB, MongoDB, Redis, Nginx, Grafana and more — with official logos.</td></tr>
+              <tr><td>Custom &amp; private sources</td><td>Add your own templates, point at remote catalogs, pull from private registries with encrypted credentials.</td></tr>
+
+              <tr><th scope="row" rowspan="2">Observability</th><td>BI dashboard</td><td>KPI cards (running, CPU, memory, images, volumes, networks) + live donut and top-by-resource charts.</td></tr>
+              <tr><td>Host metrics</td><td>Per-host CPU, RAM, disk and engine info at a glance.</td></tr>
+
+              <tr><th scope="row" rowspan="2">Resources</th><td>Limits &amp; reservations</td><td>Set CPU/memory limits and reservations for Docker and Swarm workloads.</td></tr>
+              <tr><td>Backup &amp; restore</td><td>Back up and restore Docker volumes straight from the UI.</td></tr>
+
+              <tr><th scope="row" rowspan="4">Security &amp; access</th><td>Authentication</td><td>Local auth + TOTP 2FA, plus SSO via LDAP/LDAPS and Microsoft Entra ID (OIDC).</td></tr>
+              <tr><td>RBAC &amp; audit</td><td>Resource-scoped RBAC (admin / operator / viewer) and an append-only audit log of every change.</td></tr>
+              <tr><td>Sealed secrets</td><td>Secrets sealed with AES-256-GCM; argon2id password hashing; secret values never returned by the API.</td></tr>
+              <tr><td>Hardened runtime</td><td>Distroless, non-root (uid 65532) image; host-mount guard; protected containers; per-route AAL step-up.</td></tr>
+
+              <tr><th scope="row" rowspan="3">Platform</th><td>Single small image</td><td>~67 MB distroless, multi-arch (amd64 + arm64), one container, one port.</td></tr>
+              <tr><td>First-run bootstrap</td><td>Boots straight to admin creation — no default account, zero seeded data.</td></tr>
+              <tr><td>Open source</td><td>Apache-2.0, built 100% from scratch, self-hosted — your clusters, your data.</td></tr>
             </tbody>
           </table>
-        </div>
-
-        <div class="cmp-notes reveal">
-          <p><sup>1</sup> Portainer covers Docker + Swarm + K8s but RBAC, SSO, and audit sit behind the paid Business edition.</p>
-          <p><sup>2</sup> Lens is primarily a Kubernetes-only desktop client, not a self-hosted multi-orchestrator server.</p>
-          <p class="cmp-caption">Comparison reflects publicly documented capabilities at time of writing and is provided in good faith. Run your own evaluation — Castor is free.</p>
         </div>
       </div>
     </section>
@@ -634,9 +648,7 @@
           <p class="eyebrow eyebrow--center">Open source, for real</p>
           <h2 class="h2">Free, permissive, and built in the open.</h2>
           <p class="lead">Castor is licensed under <strong>Apache-2.0</strong> — permissive, patent-protected, and
-            friendly to commercial use. It's built and maintained by <strong>LEONARD-IT</strong>, 100% from scratch and
-            self-contained, with no hidden dependency on any other product. No "open core" bait-and-switch: the
-            features on this page are the free features.</p>
+            friendly to commercial use. It's built and maintained by <strong>LEONARD-IT</strong>.</p>
         </div>
 
         <div class="os-tiles">
@@ -742,7 +754,7 @@
           <ul>
             <li><a href="#features">Features</a></li>
             <li><a href="#orchestrators">Orchestrators</a></li>
-            <li><a href="#compare">Compare</a></li>
+            <li><a href="#capabilities">Capabilities</a></li>
             <li><a href="#security">Security</a></li>
             <li><a href="#install">Install</a></li>
           </ul>
