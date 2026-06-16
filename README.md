@@ -1,5 +1,7 @@
 <div align="center">
 
+🇬🇧 **English** · <a href="README.fr.md">🇫🇷 Français</a>
+
 <img src="docs/brand/castor-logo.jpg" alt="Castor" width="300" height="300" />
 
 # Castor
@@ -182,7 +184,7 @@ The image is a **three-stage** build:
 
 ```
 ui    (node:24-alpine)            ── vite build ──▶  /server/web/dist  (React static assets)
-build (golang:1.23-alpine)        ── copies dist into the embed path, then
+build (golang:1.25-alpine)        ── copies dist into the embed path, then
                                      CGO_ENABLED=0 go build ──▶ /usr/local/bin/castor
 final (distroless/static:nonroot) ── ships only the binary; non-root; no shell; no libc
 ```
@@ -214,7 +216,7 @@ make verify           # golangci-lint + go test -race + govulncheck
 ```
 
 Multi-arch images (`linux/amd64`, `linux/arm64`) are published to
-`ghcr.io/gtek-it/castor` by [`.github/workflows/release.yml`](.github/workflows/release.yml) on a
+`ghcr.io/yannleonard/castor` by [`.github/workflows/release.yml`](.github/workflows/release.yml) on a
 `v*.*.*` tag.
 
 ---
