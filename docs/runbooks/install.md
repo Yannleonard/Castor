@@ -1,3 +1,5 @@
+> 🇬🇧 **English** · [🇫🇷 Français](install.fr.md)
+
 # Castor — Install & Operations Runbook
 
 Castor runs as **one container**: a single static Go binary that serves both the API and the
@@ -19,7 +21,7 @@ through a mounted kubeconfig.
 ## 2. Fastest install (compose, < 2 minutes)
 
 ```bash
-git clone https://github.com/gtek-it/castor.git
+git clone https://github.com/Yannleonard/Castor.git
 cd castor
 
 export CASTOR_SECRET_KEY=$(openssl rand -hex 32)        # 64 hex chars = 32 bytes (REQUIRED)
@@ -51,7 +53,7 @@ docker run -d --name castor \
   --read-only --tmpfs /tmp \
   --security-opt no-new-privileges:true --cap-drop ALL \
   --restart unless-stopped \
-  ghcr.io/gtek-it/castor:latest
+  ghcr.io/yannleonard/castor:latest
 ```
 
 ---

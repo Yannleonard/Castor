@@ -1,3 +1,5 @@
+> 🇬🇧 **English** · [🇫🇷 Français](ADR-CASTOR-003-stack-storage-auth-security.fr.md)
+
 # ADR-CASTOR-003 — Stack, Storage, Auth & Security Model
 
 - **Status:** Accepted

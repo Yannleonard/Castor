@@ -1,3 +1,5 @@
+> 🇬🇧 **English** · [🇫🇷 Français](security.fr.md)
+
 # Castor — Security & Threat Model (summary)
 
 This runbook summarizes Castor's security posture for operators. The authoritative design is

@@ -1,3 +1,5 @@
+> 🇬🇧 **English** · [🇫🇷 Français](SECURITY.fr.md)
+
 # Security Policy
 
 Castor is built **security-first**. This document describes how we handle
