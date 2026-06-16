@@ -6,15 +6,21 @@
 
 **Gérer · Déployer · Orchestrer**
 
-Open-source, self-hosted, multi-host container orchestration platform — **Docker · Docker Swarm · Kubernetes** under one modern dark UI.
+Open-source, self-hosted, multi-host container orchestration platform — **Docker · Docker Swarm · Kubernetes** under one modern UI.
 
 Edited by **LEONARD-IT/GTEK-IT** · Apache-2.0 · ships as a single small Docker image (amd64 + arm64).
 
 </div>
 
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Castor dashboard — live BI overview with KPI cards, container-state donut, top-by-CPU/memory charts, orchestrators panel and recent-activity audit feed" width="100%" />
+</p>
+
+<p align="center"><em>The Castor dashboard: live KPIs, container states, per-resource charts, the three orchestrators, and a real-time audit feed — all in one view.</em></p>
+
 ---
 
-Castor is "Portainer, but better": three orchestrators in V1, a modern dark interface, real-time
+Castor is "Portainer, but better": three orchestrators in V1, a modern interface, real-time
 stats, and **security by default** (local auth + TOTP 2FA, resource-scoped RBAC, full audit log,
 protected/system containers, hardened distroless image). It runs as **one container**, talks to the
 **local Docker engine** over the mounted socket, and reads Kubernetes through a mounted kubeconfig.
