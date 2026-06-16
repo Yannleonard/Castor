@@ -1,3 +1,5 @@
+> 🇬🇧 **English** · [🇫🇷 Français](CONTRIBUTING.fr.md)
+
 # Contributing to Castor
 
 Thanks for your interest in Castor — the open-source, multi-host container orchestration platform
@@ -55,11 +57,11 @@ A placeholder `server/web/dist/index.html` is committed so a bare `go build` nev
 ## Development setup
 
 You need **Docker** (with Compose). For local (non-Docker) backend/UI dev you additionally need
-**Go 1.23+** and **Node 24+**.
+**Go 1.25+** and **Node 24+**.
 
 ```bash
-git clone https://github.com/gtek-it/castor.git
-cd castor
+git clone https://github.com/Yannleonard/Castor.git
+cd Castor
 
 # Fast path — build & run the real image (no local Go needed):
 export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
@@ -89,7 +91,7 @@ export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
 
 **Go**
 
-- Target **Go 1.23**, `CGO_ENABLED=0` always. **`modernc.org/sqlite`** only — `mattn/go-sqlite3`
+- Target **Go 1.25**, `CGO_ENABLED=0` always. **`modernc.org/sqlite`** only — `mattn/go-sqlite3`
   (cgo) is **forbidden** (it breaks the distroless/scratch final stage and arm64 cross-compile).
 - `gofmt`/`goimports` clean; `golangci-lint run ./...` must pass; new code carries tests.
 - Never import the Docker or Kubernetes SDK outside `internal/provider/...`. The API layer talks to
