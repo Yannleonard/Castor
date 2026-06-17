@@ -90,11 +90,33 @@ admin. Enabling **TOTP 2FA** right after is strongly recommended.
 
 ### `CASTOR_SECRET_KEY` — generate it correctly
 
-It is a **32-byte** key (AES-256-GCM, used to seal TOTP secrets). Encode it as **64 hex characters**:
+It is a **32-byte** key (AES-256-GCM, used to seal TOTP secrets). Encode it as **64 hex characters**.
+Pick the snippet for your platform:
+
+**Linux / macOS (bash/zsh)** — `openssl` is preinstalled:
 
 ```bash
-openssl rand -hex 32      # ✅ 64 hex chars  = 32 bytes
+export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
 ```
+
+**Windows — PowerShell** (no `openssl` needed; uses .NET's secure RNG):
+
+```powershell
+$bytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$env:CASTOR_SECRET_KEY = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+$env:CASTOR_SECRET_KEY   # show it — copy it into your .env / compose
+```
+
+**Windows — Git Bash** (ships with `openssl`, same as Linux):
+
+```bash
+export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
+```
+
+> **Docker Desktop (Windows/macOS):** generate the key with one of the snippets above, then pass it
+> to the container — either inline (`-e CASTOR_SECRET_KEY=<the 64-hex value>`) or via a `.env` file
+> next to your compose. The value must be the same every time you recreate the container.
 
 > ⚠️ `openssl rand -hex 16` gives only 16 bytes (32 chars) — **wrong**. Castor refuses to start if
 > the key doesn't decode to exactly 32 bytes. Keep this key safe: **losing it makes enrolled 2FA

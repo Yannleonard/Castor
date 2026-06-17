@@ -93,11 +93,33 @@ administrateur. Activer le **2FA TOTP** juste après est fortement recommandé.
 ### `CASTOR_SECRET_KEY` — la générer correctement
 
 C'est une clé de **32 octets** (AES-256-GCM, utilisée pour sceller les secrets TOTP). Encodez-la en
-**64 caractères hexadécimaux** :
+**64 caractères hexadécimaux**. Choisissez l'extrait adapté à votre plateforme :
+
+**Linux / macOS (bash/zsh)** — `openssl` est préinstallé :
 
 ```bash
-openssl rand -hex 32      # ✅ 64 caractères hex = 32 octets
+export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
 ```
+
+**Windows — PowerShell** (pas besoin d'`openssl` ; utilise le RNG sécurisé de .NET) :
+
+```powershell
+$bytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$env:CASTOR_SECRET_KEY = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+$env:CASTOR_SECRET_KEY   # l'afficher — à copier dans votre .env / compose
+```
+
+**Windows — Git Bash** (fournit `openssl`, comme sous Linux) :
+
+```bash
+export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
+```
+
+> **Docker Desktop (Windows/macOS) :** générez la clé avec l'un des extraits ci-dessus, puis
+> transmettez-la au conteneur — soit en ligne (`-e CASTOR_SECRET_KEY=<la valeur de 64 car. hex>`),
+> soit via un fichier `.env` à côté de votre compose. La valeur doit être la même à chaque
+> recréation du conteneur.
 
 > ⚠️ `openssl rand -hex 16` ne donne que 16 octets (32 caractères) — **incorrect**. Castor refuse de
 > démarrer si la clé ne fait pas exactement 32 octets. Conservez-la précieusement : **la perdre rend
