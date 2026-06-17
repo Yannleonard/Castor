@@ -46,7 +46,7 @@ function Resolve-GitCommit {
     return 'none'
 }
 
-$Image       = if ($env:CASTOR_IMAGE)     { $env:CASTOR_IMAGE }     else { 'ghcr.io/gtek-it/castor' }
+$Image       = if ($env:CASTOR_IMAGE)     { $env:CASTOR_IMAGE }     else { 'ghcr.io/yannleonard/castor' }
 $Version     = if ($env:CASTOR_VERSION)   { $env:CASTOR_VERSION }   else { Resolve-GitDescribe }
 $Commit      = if ($env:CASTOR_COMMIT)    { $env:CASTOR_COMMIT }    else { Resolve-GitCommit }
 $Platforms   = if ($env:CASTOR_PLATFORMS) { $env:CASTOR_PLATFORMS } else { 'linux/amd64,linux/arm64' }

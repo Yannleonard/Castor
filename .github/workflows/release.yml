@@ -3,8 +3,8 @@
 #
 # Trigger: push a tag like  v0.1.0  (or run manually via workflow_dispatch).
 # Publishes linux/amd64 + linux/arm64 to:
-#   ghcr.io/gtek-it/castor:<version>   (e.g. v0.1.0 and 0.1.0)
-#   ghcr.io/gtek-it/castor:latest      (only for non-prerelease tags)
+#   ghcr.io/yannleonard/castor:<version>   (e.g. v0.1.0 and 0.1.0)
+#   ghcr.io/yannleonard/castor:latest      (only for non-prerelease tags)
 #
 # The whole binary (incl. modernc.org/sqlite) is pure Go / CGO_ENABLED=0, so the
 # same Dockerfile cross-builds both arches with no C toolchain.
@@ -33,7 +33,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: gtek-it/castor
+  IMAGE_NAME: yannleonard/castor
   PLATFORMS: linux/amd64,linux/arm64
 
 jobs:

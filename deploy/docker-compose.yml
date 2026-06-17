@@ -3,9 +3,12 @@
 #
 #   cd <repo>
 #   export CASTOR_SECRET_KEY=$(openssl rand -hex 32)        # 64 hex chars = 32 bytes
-#   export DOCKER_GID=$(getent group docker | cut -d: -f3)  # socket access, NOT root
 #   docker compose -f deploy/docker-compose.yml up -d
 #   # open http://localhost:8080  -> first-run "create admin" (bootstrap) screen
+#
+# No DOCKER_GID / group_add is needed: Castor's entrypoint starts as root only to
+# read the mounted socket's group, then drops to the non-root uid 65532 WITH that
+# group and re-execs the server.
 #
 # A copy of this file is mirrored at the repo root (docker-compose.yml) so that a
 # bare `docker compose up -d` from the repo root also works.
@@ -17,8 +20,9 @@
 #     promise), change the mount to :rw (see the commented line below) OR put a
 #     scoped docker-socket-proxy in front and point CASTOR_DOCKER_HOST at it.
 #   * Whoever can write to /var/run/docker.sock is effectively root on the host
-#     (ADR-003 §7, T1). Castor runs as non-root (uid 65532) and gets socket access
-#     via `group_add` to the docker GID rather than running as uid 0.
+#     (ADR-003 §7, T1). Castor's server runs as non-root (uid 65532); the entrypoint
+#     reads the socket's group at startup and drops to that user with the group,
+#     rather than running the server as uid 0.
 #   * The rootfs is read-only; only /data (named volume) and /tmp (tmpfs) are
 #     writable. Castor's own container and the castor-data volume are
 #     self-protected from removal via the UI (ADR-003 §7.4).
@@ -27,7 +31,7 @@
 services:
   castor:
     # Pull the published multi-arch image…
-    image: ghcr.io/gtek-it/castor:latest
+    image: ghcr.io/yannleonard/castor:latest
     # …or build locally instead (uncomment, and comment out `image:` above):
     # build:
     #   context: ..
@@ -68,20 +72,19 @@ services:
       # SQLite database + app state. Persists across container recreation.
       - castor-data:/data
 
-    # Grant access to the Docker socket WITHOUT running as root. Find the GID:
-    #   getent group docker | cut -d: -f3      (commonly 999 on Debian/Ubuntu)
-    # Override per host:  export DOCKER_GID=<gid>
-    group_add:
-      - "${DOCKER_GID:-999}"
-
     # --- T7 container hardening (ADR-003 §7.4) -------------------------------
+    # No group_add: the entrypoint detects the docker socket's group itself.
     read_only: true                       # read-only root filesystem
     tmpfs:
       - /tmp                              # only writable scratch space the binary needs
     security_opt:
-      - "no-new-privileges:true"          # cannot gain privileges via setuid binaries
+      - "no-new-privileges:true"          # no privilege escalation beyond the entrypoint's drop
     cap_drop:
-      - ALL                               # drop every Linux capability (none required)
+      - ALL                               # drop everything…
+    cap_add:                              # …except the caps the entrypoint needs to drop
+      - SETUID                            #   root -> uid 65532
+      - SETGID                            #   set the non-root gid + the socket's group
+      - DAC_OVERRIDE                      #   read the root:docker socket during startup
 
     # Mirror the image HEALTHCHECK so compose-aware UIs show health. Distroless
     # has no shell/curl, so the binary's own subcommand is used.

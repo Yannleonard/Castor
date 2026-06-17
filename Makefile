@@ -9,7 +9,7 @@
 # =============================================================================
 
 # ---- configuration ----------------------------------------------------------
-IMAGE        ?= ghcr.io/gtek-it/castor
+IMAGE        ?= ghcr.io/yannleonard/castor
 VERSION      ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT       ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 PLATFORMS    ?= linux/amd64,linux/arm64

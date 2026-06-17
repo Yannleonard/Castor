@@ -7,22 +7,25 @@
 # is the local `build.context` (here it is "." — the repo root).
 #
 #   export CASTOR_SECRET_KEY=$(openssl rand -hex 32)        # 64 hex chars = 32 bytes
-#   export DOCKER_GID=$(getent group docker | cut -d: -f3)  # socket access, NOT root
 #   docker compose up -d
 #   # open http://localhost:8080  -> first-run "create admin" (bootstrap) screen
+#
+# No DOCKER_GID / group_add is needed: Castor's entrypoint reads the socket's group
+# at startup and drops to the non-root uid 65532 with it.
 #
 # SECURITY (see deploy/docker-compose.yml for the full notes):
 #   * Docker socket mounted :ro by default (list/inspect/logs/stats only). Switch
 #     to :rw for full start/stop/restart/remove/exec lifecycle, or front it with a
 #     scoped docker-socket-proxy and set CASTOR_DOCKER_HOST.
-#   * Runs as non-root (uid 65532); socket access via group_add to the docker GID.
+#   * The server runs as non-root (uid 65532); the entrypoint reaches the socket via
+#     the socket's group, not by running as uid 0.
 #   * Read-only rootfs; only /data (volume) and /tmp (tmpfs) are writable.
 # =============================================================================
 
 services:
   castor:
     # Pull the published multi-arch image…
-    image: ghcr.io/gtek-it/castor:latest
+    image: ghcr.io/yannleonard/castor:latest
     # …or build from this repo instead (uncomment, and comment out `image:`):
     # build:
     #   context: .
@@ -51,9 +54,7 @@ services:
       # - /var/run/docker.sock:/var/run/docker.sock:rw   # <- full read+write lifecycle
       - castor-data:/data
 
-    group_add:
-      - "${DOCKER_GID:-999}"
-
+    # No group_add: the entrypoint detects the docker socket's group itself.
     read_only: true
     tmpfs:
       - /tmp
@@ -61,6 +62,10 @@ services:
       - "no-new-privileges:true"
     cap_drop:
       - ALL
+    cap_add:                  # caps the entrypoint needs to drop root -> 65532
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
 
     healthcheck:
       test: ["CMD", "/usr/local/bin/castor", "healthcheck"]

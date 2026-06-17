@@ -16,7 +16,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-IMAGE="${IMAGE:-ghcr.io/gtek-it/castor}"
+IMAGE="${IMAGE:-ghcr.io/yannleonard/castor}"
 VERSION="${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo dev)}"
 COMMIT="${COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo none)}"
 PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
