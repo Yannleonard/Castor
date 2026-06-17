@@ -43,12 +43,23 @@ function Ok($m)   { Write-Host " OK  $m" -ForegroundColor Green }
 function Warn($m) { Write-Host "  !  $m" -ForegroundColor Yellow }
 function Die($m)  { Write-Host " X  $m" -ForegroundColor Red; exit 1 }
 
+# Run `docker <args>` swallowing ALL output (incl. stderr WARNINGs like
+# "DOCKER_INSECURE_NO_IPTABLES_RAW is set"). Locally forcing ErrorActionPreference
+# to Continue is the one approach that works across PowerShell 5.1 → 7.5 and inside
+# `iex`, regardless of $PSNativeCommandUseErrorActionPreference. Returns the exit
+# code; never throws on stderr.
+function Invoke-Docker {
+  $eap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try { & docker @args 2>&1 | Out-Null } catch { } finally { $ErrorActionPreference = $eap }
+  return $LASTEXITCODE
+}
+
 # --- Docker reachable? -------------------------------------------------------
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
   Die "Docker is not installed. Install Docker Desktop: https://www.docker.com/products/docker-desktop/"
 }
-docker info 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) { Die "Cannot reach the Docker daemon. Is Docker Desktop running?" }
+if ((Invoke-Docker info) -ne 0) { Die "Cannot reach the Docker daemon. Is Docker Desktop running?" }
 Ok "Docker is available."
 
 # --- secret key: reuse > saved file > generate -------------------------------
@@ -81,34 +92,37 @@ Ok "Will expose Castor on host port $Port."
 
 # --- pull + (re)create -------------------------------------------------------
 Info "Pulling $Image ..."
-docker pull $Image 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) { Die "Failed to pull $Image (is it public / are you online?)." }
+if ((Invoke-Docker pull $Image) -ne 0) { Die "Failed to pull $Image (is it public / are you online?)." }
 Ok "Image pulled."
 
-$exists = docker ps -a --format '{{.Names}}' | Where-Object { $_ -eq $Name }
+$ErrorActionPreference = 'Continue'
+$exists = (& docker ps -a --format '{{.Names}}' 2>$null) | Where-Object { $_ -eq $Name }
+$ErrorActionPreference = 'Stop'
 if ($exists) {
   Warn "A container named '$Name' already exists - replacing it (the '$Data' volume is kept)."
-  docker rm -f $Name 2>&1 | Out-Null
+  Invoke-Docker rm -f $Name | Out-Null
 }
 
 Info "Starting Castor..."
-docker run -d --name $Name `
+$code = Invoke-Docker run -d --name $Name `
   -p "${Port}:8080" `
   -e "CASTOR_SECRET_KEY=$Key" `
   -v "/var/run/docker.sock:/var/run/docker.sock:$SocketMode" `
   -v "${Data}:/data" `
   --restart unless-stopped `
-  $Image 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) { Die "docker run failed." }
+  $Image
+if ($code -ne 0) { Die "docker run failed." }
 
 # --- wait for health ---------------------------------------------------------
 Info "Waiting for Castor to become healthy..."
+$ErrorActionPreference = 'Continue'   # docker may still emit stderr WARNINGs here
 for ($i = 0; $i -lt 30; $i++) {
-  $status = docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $Name 2>$null
+  $status = (& docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $Name 2>$null | Select-Object -Last 1)
   if ($status -eq 'healthy') { Ok "Castor is healthy."; break }
-  if ($status -eq 'exited' -or $status -eq 'dead') { docker logs --tail 20 $Name; Die "Castor exited unexpectedly (see logs above)." }
+  if ($status -eq 'exited' -or $status -eq 'dead') { & docker logs --tail 20 $Name 2>&1; Die "Castor exited unexpectedly (see logs above)." }
   Start-Sleep -Seconds 2
 }
+$ErrorActionPreference = 'Stop'
 
 # --- done --------------------------------------------------------------------
 Write-Host ""
