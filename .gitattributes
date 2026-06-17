@@ -1,0 +1,19 @@
+# Normalize line endings so cross-platform contributors don't break things.
+# Default: let Git decide, but force LF on files that MUST be LF at runtime.
+* text=auto
+
+# Shell scripts and Dockerfiles must keep LF even when checked out on Windows —
+# a CRLF in a .sh breaks the shebang ("bad interpreter") and `curl … | sh`.
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+*.dockerfile text eol=lf
+Makefile    text eol=lf
+
+# PowerShell is fine with either, but keep it consistent.
+*.ps1       text eol=crlf
+
+# Treat images and the SQLite placeholder as binary (no EOL munging).
+*.png  binary
+*.jpg  binary
+*.webp binary
+*.ico  binary
