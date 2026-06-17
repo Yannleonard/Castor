@@ -37,7 +37,7 @@ la **2FA TOTP** immédiatement après.
 
 ```bash
 cp deploy/env.example .env
-# éditez .env : définissez CASTOR_SECRET_KEY (et DOCKER_GID s'il n'est pas 999)
+# éditez .env : définissez CASTOR_SECRET_KEY (l'entrypoint gère le groupe du socket docker)
 docker compose --env-file .env up -d
 ```
 
@@ -61,10 +61,24 @@ docker run -d --name castor \
 ## 3. La clé secrète (`CASTOR_SECRET_KEY`)
 
 - **Quoi :** une clé de **32 octets** utilisée pour AES-256-GCM (chiffrement au repos des secrets TOTP) et la cryptographie dérivée.
-- **Comment :** encodez 32 octets sous forme de **64 caractères hexadécimaux** :
+- **Comment :** encodez 32 octets sous forme de **64 caractères hexadécimaux**. Choisissez l'extrait adapté à votre plateforme :
+
+  **Linux / macOS / Git Bash** (`openssl` disponible) :
   ```bash
-  openssl rand -hex 32
+  export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
   ```
+
+  **Windows — PowerShell** (pas besoin d'`openssl` ; RNG sécurisé .NET) :
+  ```powershell
+  $bytes = New-Object byte[] 32
+  [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+  $env:CASTOR_SECRET_KEY = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+  $env:CASTOR_SECRET_KEY   # l'afficher — à copier dans votre .env / compose
+  ```
+
+  > **Docker Desktop (Windows/macOS) :** générez avec l'un des extraits ci-dessus, puis transmettez la
+  > valeur au conteneur en ligne (`-e CASTOR_SECRET_KEY=<64-hex>`) ou via un fichier `.env`. Utilisez la
+  > **même** valeur à chaque recréation.
 - **Validation :** Castor **refuse de démarrer** si la clé est absente ou ne se décode pas en exactement 32
   octets. (`openssl rand -hex 16` ne fait que 16 octets — incorrect.)
 - **Responsabilité de sauvegarde :** stockez-la dans votre gestionnaire de secrets. **La perdre rend les secrets 2FA

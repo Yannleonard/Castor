@@ -37,7 +37,7 @@ Browse to **<http://localhost:8080>** and complete the **bootstrap** (create the
 
 ```bash
 cp deploy/env.example .env
-# edit .env: set CASTOR_SECRET_KEY (and DOCKER_GID if not 999)
+# edit .env: set CASTOR_SECRET_KEY (the entrypoint handles the docker socket group)
 docker compose --env-file .env up -d
 ```
 
@@ -61,10 +61,24 @@ docker run -d --name castor \
 ## 3. The secret key (`CASTOR_SECRET_KEY`)
 
 - **What:** a **32-byte** key used for AES-256-GCM (sealing TOTP secrets at rest) and derived crypto.
-- **How:** encode 32 bytes as **64 hexadecimal characters**:
+- **How:** encode 32 bytes as **64 hexadecimal characters**. Pick the snippet for your platform:
+
+  **Linux / macOS / Git Bash** (`openssl` available):
   ```bash
-  openssl rand -hex 32
+  export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
   ```
+
+  **Windows — PowerShell** (no `openssl` needed; .NET secure RNG):
+  ```powershell
+  $bytes = New-Object byte[] 32
+  [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+  $env:CASTOR_SECRET_KEY = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+  $env:CASTOR_SECRET_KEY   # show it — copy into your .env / compose
+  ```
+
+  > **Docker Desktop (Windows/macOS):** generate with one of the above, then pass the value to the
+  > container inline (`-e CASTOR_SECRET_KEY=<64-hex>`) or via a `.env` file. Use the **same** value on
+  > every recreation.
 - **Validation:** Castor **refuses to start** if the key is unset or does not decode to exactly 32
   bytes. (`openssl rand -hex 16` is only 16 bytes — wrong.)
 - **Backup responsibility:** store it in your secret manager. **Losing it makes enrolled 2FA secrets
