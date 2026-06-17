@@ -26,6 +26,11 @@
 # =============================================================================
 #Requires -Version 5.1
 $ErrorActionPreference = 'Stop'
+# Native commands (docker) may write WARNINGs to stderr (e.g.
+# "DOCKER_INSECURE_NO_IPTABLES_RAW is set"). On PowerShell 7.4+ stderr from a
+# native command can otherwise be promoted to a terminating error and abort the
+# script; we judge success by the exit code instead. Harmless on 5.1 / older 7.x.
+$PSNativeCommandUseErrorActionPreference = $false
 
 $Image      = if ($env:CASTOR_IMAGE)       { $env:CASTOR_IMAGE }       else { 'ghcr.io/yannleonard/castor:latest' }
 $Name       = if ($env:CASTOR_NAME)        { $env:CASTOR_NAME }        else { 'castor' }
@@ -42,7 +47,7 @@ function Die($m)  { Write-Host " X  $m" -ForegroundColor Red; exit 1 }
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
   Die "Docker is not installed. Install Docker Desktop: https://www.docker.com/products/docker-desktop/"
 }
-docker info *> $null
+docker info 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) { Die "Cannot reach the Docker daemon. Is Docker Desktop running?" }
 Ok "Docker is available."
 
@@ -76,14 +81,14 @@ Ok "Will expose Castor on host port $Port."
 
 # --- pull + (re)create -------------------------------------------------------
 Info "Pulling $Image ..."
-docker pull $Image *> $null
+docker pull $Image 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) { Die "Failed to pull $Image (is it public / are you online?)." }
 Ok "Image pulled."
 
 $exists = docker ps -a --format '{{.Names}}' | Where-Object { $_ -eq $Name }
 if ($exists) {
   Warn "A container named '$Name' already exists - replacing it (the '$Data' volume is kept)."
-  docker rm -f $Name *> $null
+  docker rm -f $Name 2>&1 | Out-Null
 }
 
 Info "Starting Castor..."
@@ -93,7 +98,7 @@ docker run -d --name $Name `
   -v "/var/run/docker.sock:/var/run/docker.sock:$SocketMode" `
   -v "${Data}:/data" `
   --restart unless-stopped `
-  $Image *> $null
+  $Image 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) { Die "docker run failed." }
 
 # --- wait for health ---------------------------------------------------------
