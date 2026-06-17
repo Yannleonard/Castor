@@ -22,13 +22,15 @@ through a mounted kubeconfig.
 
 ```bash
 git clone https://github.com/Yannleonard/Castor.git
-cd castor
+cd Castor
 
 export CASTOR_SECRET_KEY=$(openssl rand -hex 32)        # 64 hex chars = 32 bytes (REQUIRED)
-export DOCKER_GID=$(getent group docker | cut -d: -f3)  # socket access without running as root
 
 docker compose up -d
 ```
+
+> No `DOCKER_GID` / `--group-add` is needed: Castor's entrypoint starts as root only to read the
+> mounted socket's group, then drops to the non-root uid 65532 with that group and re-execs the server.
 
 Browse to **<http://localhost:8080>** and complete the **bootstrap** (create the first admin). Enable
 **TOTP 2FA** immediately afterwards.
@@ -49,12 +51,16 @@ docker run -d --name castor \
   -e CASTOR_SECRET_KEY=$(openssl rand -hex 32) \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -v castor-data:/data \
-  --group-add "$(getent group docker | cut -d: -f3)" \
   --read-only --tmpfs /tmp \
-  --security-opt no-new-privileges:true --cap-drop ALL \
+  --security-opt no-new-privileges:true \
+  --cap-drop ALL --cap-add SETUID --cap-add SETGID --cap-add DAC_OVERRIDE \
   --restart unless-stopped \
   ghcr.io/yannleonard/castor:latest
 ```
+
+> No `--group-add`: the entrypoint detects the socket's group. The kept capabilities
+> (`SETUID`/`SETGID`/`DAC_OVERRIDE`) are exactly what the in-process root→65532 drop needs — dropping
+> *all* caps would make the container fail to start.
 
 ---
 
@@ -109,14 +115,13 @@ then `docker compose up -d`.
 > uid 65532, capability drop, no-new-privileges, the protected-resource guard, RBAC + audit), but you
 > are still trusting Castor with host-level power. For hardened setups, see §8 (socket proxy).
 
-### Finding the docker GID
+### Docker socket group (handled automatically)
 
-```bash
-getent group docker | cut -d: -f3     # commonly 999 on Debian/Ubuntu
-```
-
-Set `DOCKER_GID` to that value (the compose default is `999`). On hosts using rootless Docker or a
-non-standard socket, set `CASTOR_DOCKER_HOST` and adjust the mount accordingly.
+You normally **don't** need to set anything: the entrypoint reads the mounted socket's group at
+startup and adds it to the non-root server process. On hosts using rootless Docker or a non-standard
+socket, set `CASTOR_DOCKER_HOST` and adjust the mount accordingly. (You can still pin the user
+explicitly with `--user 65532:65532 --group-add "$(getent group docker | cut -d: -f3)"` if you
+prefer — the entrypoint then sees it is already non-root and skips the drop.)
 
 ---
 
@@ -222,7 +227,7 @@ See the full threat model in [`security.md`](security.md).
 |---|---|
 | Container exits immediately, log mentions the secret key | `CASTOR_SECRET_KEY` unset or not 32 bytes → `export CASTOR_SECRET_KEY=$(openssl rand -hex 32)`. |
 | UI loads, but start/stop/remove fail | Socket mounted read-only → switch to `:rw` (see §4). |
-| "permission denied" on `/var/run/docker.sock` | `DOCKER_GID` wrong → set it to `getent group docker | cut -d: -f3`. |
+| "permission denied" on `/var/run/docker.sock` | The mounted socket has an unusual group. Pin it: `--user 65532:65532 --group-add "$(getent group docker | cut -d: -f3)"`, or front it with a socket-proxy via `CASTOR_DOCKER_HOST`. |
 | Health shows `unhealthy` | Inspect logs: `docker logs castor`. The server may still be starting (`start_period` 10s). |
 | Kubernetes view empty / connection refused | kubeconfig path/credentials or loopback issue → see §5 caveats. |
 | Bootstrap screen never appears / returns 409 | Bootstrap already completed; log in instead. For unattended installs use `CASTOR_BOOTSTRAP_TOKEN`. |

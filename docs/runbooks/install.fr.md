@@ -22,13 +22,16 @@ via un kubeconfig monté.
 
 ```bash
 git clone https://github.com/Yannleonard/Castor.git
-cd castor
+cd Castor
 
 export CASTOR_SECRET_KEY=$(openssl rand -hex 32)        # 64 caractères hex = 32 octets (REQUIS)
-export DOCKER_GID=$(getent group docker | cut -d: -f3)  # accès au socket sans s'exécuter en root
 
 docker compose up -d
 ```
+
+> Aucun `DOCKER_GID` / `--group-add` n'est nécessaire : l'entrypoint de Castor démarre en root
+> uniquement pour lire le groupe du socket monté, puis se rabaisse à l'uid non-root 65532 avec ce
+> groupe et ré-exécute le serveur.
 
 Ouvrez **<http://localhost:8080>** et terminez le **bootstrap** (création du premier administrateur). Activez
 la **2FA TOTP** immédiatement après.
@@ -49,12 +52,16 @@ docker run -d --name castor \
   -e CASTOR_SECRET_KEY=$(openssl rand -hex 32) \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -v castor-data:/data \
-  --group-add "$(getent group docker | cut -d: -f3)" \
   --read-only --tmpfs /tmp \
-  --security-opt no-new-privileges:true --cap-drop ALL \
+  --security-opt no-new-privileges:true \
+  --cap-drop ALL --cap-add SETUID --cap-add SETGID --cap-add DAC_OVERRIDE \
   --restart unless-stopped \
   ghcr.io/yannleonard/castor:latest
 ```
+
+> Pas de `--group-add` : l'entrypoint détecte le groupe du socket. Les capabilities conservées
+> (`SETUID`/`SETGID`/`DAC_OVERRIDE`) sont exactement celles dont le rabaissement root→65532 a besoin —
+> tout retirer (`cap_drop ALL` seul) ferait échouer le démarrage du conteneur.
 
 ---
 
@@ -109,14 +116,13 @@ puis `docker compose up -d`.
 > 65532, suppression des capabilities, no-new-privileges, le garde-fou des ressources protégées, RBAC + audit), mais vous
 > faites tout de même confiance à Castor avec des pouvoirs de niveau hôte. Pour des configurations durcies, voir §8 (proxy de socket).
 
-### Trouver le GID docker
+### Groupe du socket Docker (géré automatiquement)
 
-```bash
-getent group docker | cut -d: -f3     # couramment 999 sur Debian/Ubuntu
-```
-
-Définissez `DOCKER_GID` sur cette valeur (la valeur par défaut de compose est `999`). Sur les hôtes utilisant Docker rootless ou un
-socket non standard, définissez `CASTOR_DOCKER_HOST` et ajustez le montage en conséquence.
+En général, vous **n'avez rien à définir** : l'entrypoint lit le groupe du socket monté au démarrage
+et l'ajoute au processus serveur non-root. Sur les hôtes utilisant Docker rootless ou un socket non
+standard, définissez `CASTOR_DOCKER_HOST` et ajustez le montage en conséquence. (Vous pouvez aussi
+fixer explicitement l'utilisateur avec `--user 65532:65532 --group-add "$(getent group docker | cut -d: -f3)"`
+si vous préférez — l'entrypoint voit alors qu'il est déjà non-root et saute le rabaissement.)
 
 ---
 
@@ -221,7 +227,7 @@ Consultez le modèle de menaces complet dans [`security.md`](security.md).
 |---|---|
 | Le conteneur s'arrête immédiatement, le journal mentionne la clé secrète | `CASTOR_SECRET_KEY` absente ou pas de 32 octets → `export CASTOR_SECRET_KEY=$(openssl rand -hex 32)`. |
 | L'interface se charge, mais start/stop/remove échouent | Socket monté en lecture seule → passez en `:rw` (voir §4). |
-| « permission denied » sur `/var/run/docker.sock` | `DOCKER_GID` incorrect → définissez-le sur `getent group docker | cut -d: -f3`. |
+| « permission denied » sur `/var/run/docker.sock` | Le socket monté a un groupe inhabituel. Fixez-le : `--user 65532:65532 --group-add "$(getent group docker | cut -d: -f3)"`, ou placez un socket-proxy devant via `CASTOR_DOCKER_HOST`. |
 | La santé affiche `unhealthy` | Inspectez les journaux : `docker logs castor`. Le serveur est peut-être encore en cours de démarrage (`start_period` 10s). |
 | La vue Kubernetes est vide / connexion refusée | Problème de chemin/identifiants du kubeconfig ou de boucle locale → voir les précautions du §5. |
 | L'écran de bootstrap n'apparaît jamais / renvoie 409 | Le bootstrap est déjà terminé ; connectez-vous plutôt. Pour des installations sans surveillance, utilisez `CASTOR_BOOTSTRAP_TOKEN`. |
