@@ -40,7 +40,35 @@ protected/system containers, hardened distroless image). It runs as **one contai
 
 ## ⏱️ Quickstart — running in under 2 minutes
 
-You need **Docker** (with the Compose plugin) and `openssl`.
+### Easiest — one-line installer
+
+The installer checks Docker, generates & saves your secret key, picks a free port, pulls the image
+and starts Castor. You only need **Docker** installed and running.
+
+**Linux / macOS:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.sh | sh
+```
+
+**Windows (PowerShell, Docker Desktop):**
+
+```powershell
+irm https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.ps1 | iex
+```
+
+> **Prefer to read before you run?** (recommended — never pipe an unread script into a shell.)
+> Download, inspect, then run:
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.sh -o install.sh
+> less install.sh && sh install.sh           # Windows: irm …/install.ps1 -OutFile install.ps1; notepad install.ps1; ./install.ps1
+> ```
+> The scripts live in [`scripts/`](scripts/) and are tiny on purpose. When done, the installer prints
+> the URL — open it and create your admin account (then enable **TOTP 2FA**).
+
+### Manual — clone & compose
+
+Prefer to do it by hand? You need **Docker** (with the Compose plugin) and `openssl`.
 
 ```bash
 git clone https://github.com/Yannleonard/Castor.git

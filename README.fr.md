@@ -42,7 +42,35 @@ monté, et lit Kubernetes au travers d'un kubeconfig monté.
 
 ## ⏱️ Démarrage rapide — opérationnel en moins de 2 minutes
 
-Il vous faut **Docker** (avec le plugin Compose) et `openssl`.
+### Le plus simple — installeur en une ligne
+
+L'installeur vérifie Docker, génère et sauvegarde votre clé secrète, choisit un port libre, récupère
+l'image et démarre Castor. Vous avez seulement besoin de **Docker** installé et démarré.
+
+**Linux / macOS :**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.sh | sh
+```
+
+**Windows (PowerShell, Docker Desktop) :**
+
+```powershell
+irm https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.ps1 | iex
+```
+
+> **Vous préférez lire avant d'exécuter ?** (recommandé — ne pipez jamais un script non lu dans un
+> shell.) Téléchargez, inspectez, puis exécutez :
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.sh -o install.sh
+> less install.sh && sh install.sh           # Windows : irm …/install.ps1 -OutFile install.ps1; notepad install.ps1; ./install.ps1
+> ```
+> Les scripts sont dans [`scripts/`](scripts/) et sont volontairement minimaux. À la fin, l'installeur
+> affiche l'URL — ouvrez-la et créez votre compte admin (puis activez la **2FA TOTP**).
+
+### Manuel — clone & compose
+
+Vous préférez le faire à la main ? Il vous faut **Docker** (avec le plugin Compose) et `openssl`.
 
 ```bash
 git clone https://github.com/Yannleonard/Castor.git
