@@ -5,7 +5,6 @@
 public/
 
 # Tooling / editor / local-preview artifacts
-.claude/
 .git/
 .gitignore
 .vscode/
