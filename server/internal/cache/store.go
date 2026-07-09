@@ -32,6 +32,11 @@ type Snapshot struct {
 	KubeDeployments []kube.DeploymentInfo `json:"kubeDeployments"`
 	KubeNodes       []kube.NodeInfo       `json:"kubeNodes"`
 
+	KubeStatefulSets []kube.StatefulSetInfo `json:"kubeStatefulSets"`
+	KubeDaemonSets   []kube.DaemonSetInfo   `json:"kubeDaemonSets"`
+	KubeJobs         []kube.JobInfo         `json:"kubeJobs"`
+	KubeCronJobs     []kube.CronJobInfo     `json:"kubeCronJobs"`
+
 	// Engine holds host capacity + inventory from `docker info` (CPU/RAM/OS/engine).
 	// nil until the first successful info poll.
 	Engine *docker.EngineInfo `json:"engine,omitempty"`
@@ -95,14 +100,27 @@ func (s *Store) replaceSwarm(hostID string, tasks []provider.Workload, services 
 	snap.UpdatedAt = time.Now().UTC()
 }
 
+// KubeKinds bundles the workload controller-kind slices a kube poll produces
+// beyond pods/deployments/nodes, keeping replaceKube's signature bounded.
+type KubeKinds struct {
+	StatefulSets []kube.StatefulSetInfo
+	DaemonSets   []kube.DaemonSetInfo
+	Jobs         []kube.JobInfo
+	CronJobs     []kube.CronJobInfo
+}
+
 // replaceKube atomically swaps the k8s portion of a host snapshot.
-func (s *Store) replaceKube(hostID string, pods []provider.Workload, deps []kube.DeploymentInfo, nodes []kube.NodeInfo) {
+func (s *Store) replaceKube(hostID string, pods []provider.Workload, deps []kube.DeploymentInfo, nodes []kube.NodeInfo, kinds KubeKinds) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	snap := s.ensure(hostID)
 	snap.Kube = pods
 	snap.KubeDeployments = deps
 	snap.KubeNodes = nodes
+	snap.KubeStatefulSets = kinds.StatefulSets
+	snap.KubeDaemonSets = kinds.DaemonSets
+	snap.KubeJobs = kinds.Jobs
+	snap.KubeCronJobs = kinds.CronJobs
 	snap.UpdatedAt = time.Now().UTC()
 }
 
@@ -154,6 +172,20 @@ func (s *Store) SeedSnapshotForTest(hostID string, docker ...provider.Workload) 
 	if len(docker) > 0 {
 		snap.Workloads = docker
 	}
+}
+
+// SeedKubeKindsForTest seeds the k8s controller-kind slices for hostID so API
+// read-handler tests can exercise the snapshot filters without a live poller.
+// Test-only: production snapshots are written by pollKube. Safe for concurrent
+// use.
+func (s *Store) SeedKubeKindsForTest(hostID string, kinds KubeKinds) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	snap := s.ensure(hostID)
+	snap.KubeStatefulSets = kinds.StatefulSets
+	snap.KubeDaemonSets = kinds.DaemonSets
+	snap.KubeJobs = kinds.Jobs
+	snap.KubeCronJobs = kinds.CronJobs
 }
 
 // FindWorkload returns the workload with the given id across docker/swarm/kube

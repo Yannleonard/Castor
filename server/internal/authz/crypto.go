@@ -73,9 +73,27 @@ func RandomToken(n int) (string, error) {
 
 // HashSessionID returns the hex SHA-256 of a raw session id. The raw id lives
 // only in the cookie; we store its hash so a DB leak does not yield live ids.
+// Personal access tokens reuse the same hashing (api_tokens.id).
 func HashSessionID(rawID string) string {
 	sum := sha256.Sum256([]byte(rawID))
 	return hex.EncodeToString(sum[:])
+}
+
+// APITokenPrefix is the fixed prefix of a personal access token (PAT). A full
+// token is APITokenPrefix + 64 hex chars (32 random bytes); only its SHA-256
+// (HashSessionID) is persisted, mirroring session ids.
+const APITokenPrefix = "castor_pat_"
+
+// GenerateAPIToken mints a raw PAT plus the short prefix stored for UI
+// identification (first 8 chars of the random hex part). The caller persists
+// HashSessionID(raw) as the token id; the raw value is shown once and dropped.
+func GenerateAPIToken() (raw, uiPrefix string, err error) {
+	b := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
+		return "", "", err
+	}
+	random := hex.EncodeToString(b)
+	return APITokenPrefix + random, random[:8], nil
 }
 
 // GenerateRecoveryCodes returns n human-friendly recovery codes (groups of

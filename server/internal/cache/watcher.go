@@ -102,10 +102,11 @@ func (m *Manager) handleEvent(ctx context.Context, ev docker.StateEvent) {
 	}
 
 	m.broker.Publish(StateEvent{
-		HostID: HostID,
-		Action: ev.Action,
-		Kind:   ev.Kind,
-		ID:     ev.ID,
+		HostID:   HostID,
+		Action:   ev.Action,
+		Kind:     ev.Kind,
+		ID:       ev.ID,
+		ExitCode: ev.ExitCode,
 	})
 }
 

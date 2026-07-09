@@ -1,11 +1,13 @@
 package kube
 
 // write.go adds the mutating surface of the Kubernetes provider: scale a
-// Deployment, rollout-restart a Deployment, delete a Pod/Deployment, and apply
-// a (multi-document) YAML manifest via server-side apply. These are reached
-// through dedicated API endpoints (api/k8s_write.go), NOT the generic Provider
-// mutation interface (Start/Stop/... remain ErrUnsupported via the embedded
-// ReadOnlyMutations — those are container verbs that do not map to k8s objects).
+// Deployment/StatefulSet, rollout-restart a Deployment/StatefulSet/DaemonSet,
+// delete a Pod/Deployment/StatefulSet/DaemonSet/Job/CronJob, trigger or suspend
+// a CronJob, and apply a (multi-document) YAML manifest via server-side apply.
+// These are reached through dedicated API endpoints (api/k8s_write.go), NOT the
+// generic Provider mutation interface (Start/Stop/... remain ErrUnsupported via
+// the embedded ReadOnlyMutations — those are container verbs that do not map to
+// k8s objects).
 //
 // Errors are normalized to provider.ErrNotFound / provider.ErrConflict where the
 // apiserver reports "not found" / "already exists" so the API layer maps them to
@@ -17,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	batchv1 "k8s.io/api/batch/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -60,13 +63,69 @@ func (p *KubeProvider) RolloutRestart(ctx context.Context, ns, name string) erro
 	if ns == "" || name == "" {
 		return provider.ErrNotFound
 	}
+	_, err := p.clientset.AppsV1().Deployments(ns).Patch(
+		ctx, name, types.StrategicMergePatchType, restartedAtPatch(), metav1.PatchOptions{},
+	)
+	if err != nil {
+		return mapKubeWriteErr(err)
+	}
+	return nil
+}
+
+// restartedAtPatch is the strategic-merge patch stamping the standard kubectl
+// restartedAt annotation on a workload's pod template, shared by the
+// Deployment / StatefulSet / DaemonSet rollout-restart methods.
+func restartedAtPatch() []byte {
 	now := time.Now().UTC().Format(time.RFC3339)
-	patch := fmt.Sprintf(
+	return []byte(fmt.Sprintf(
 		`{"spec":{"template":{"metadata":{"annotations":{"kubectl.kubernetes.io/restartedAt":%q}}}}}`,
 		now,
+	))
+}
+
+// ScaleStatefulSet sets a StatefulSet's replica count via the /scale
+// subresource, mirroring ScaleDeployment.
+func (p *KubeProvider) ScaleStatefulSet(ctx context.Context, ns, name string, replicas int32) error {
+	if ns == "" || name == "" {
+		return provider.ErrNotFound
+	}
+	if replicas < 0 {
+		return provider.ErrConflict
+	}
+	sc, err := p.clientset.AppsV1().StatefulSets(ns).GetScale(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return mapKubeWriteErr(err)
+	}
+	sc.Spec.Replicas = replicas
+	if _, err := p.clientset.AppsV1().StatefulSets(ns).UpdateScale(ctx, name, sc, metav1.UpdateOptions{}); err != nil {
+		return mapKubeWriteErr(err)
+	}
+	return nil
+}
+
+// RolloutRestartStatefulSet triggers a rolling restart of a StatefulSet via the
+// restartedAt annotation patch, exactly as RolloutRestart does for Deployments.
+func (p *KubeProvider) RolloutRestartStatefulSet(ctx context.Context, ns, name string) error {
+	if ns == "" || name == "" {
+		return provider.ErrNotFound
+	}
+	_, err := p.clientset.AppsV1().StatefulSets(ns).Patch(
+		ctx, name, types.StrategicMergePatchType, restartedAtPatch(), metav1.PatchOptions{},
 	)
-	_, err := p.clientset.AppsV1().Deployments(ns).Patch(
-		ctx, name, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{},
+	if err != nil {
+		return mapKubeWriteErr(err)
+	}
+	return nil
+}
+
+// RolloutRestartDaemonSet triggers a rolling restart of a DaemonSet via the
+// restartedAt annotation patch, exactly as RolloutRestart does for Deployments.
+func (p *KubeProvider) RolloutRestartDaemonSet(ctx context.Context, ns, name string) error {
+	if ns == "" || name == "" {
+		return provider.ErrNotFound
+	}
+	_, err := p.clientset.AppsV1().DaemonSets(ns).Patch(
+		ctx, name, types.StrategicMergePatchType, restartedAtPatch(), metav1.PatchOptions{},
 	)
 	if err != nil {
 		return mapKubeWriteErr(err)
@@ -92,6 +151,123 @@ func (p *KubeProvider) DeleteDeployment(ctx context.Context, ns, name string) er
 		return provider.ErrNotFound
 	}
 	if err := p.clientset.AppsV1().Deployments(ns).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
+		return mapKubeWriteErr(err)
+	}
+	return nil
+}
+
+// DeleteStatefulSet deletes a StatefulSet (its Pods follow via the default
+// cascade; PVCs created from volumeClaimTemplates are retained by Kubernetes).
+func (p *KubeProvider) DeleteStatefulSet(ctx context.Context, ns, name string) error {
+	if ns == "" || name == "" {
+		return provider.ErrNotFound
+	}
+	if err := p.clientset.AppsV1().StatefulSets(ns).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
+		return mapKubeWriteErr(err)
+	}
+	return nil
+}
+
+// DeleteDaemonSet deletes a DaemonSet (and its owned Pods via the default cascade).
+func (p *KubeProvider) DeleteDaemonSet(ctx context.Context, ns, name string) error {
+	if ns == "" || name == "" {
+		return provider.ErrNotFound
+	}
+	if err := p.clientset.AppsV1().DaemonSets(ns).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
+		return mapKubeWriteErr(err)
+	}
+	return nil
+}
+
+// DeleteJob deletes a Job. The propagation policy is set to Background
+// explicitly: the batch/v1 legacy default is Orphan, which would leave the
+// Job's Pods behind (kubectl delete job uses background cascading too).
+func (p *KubeProvider) DeleteJob(ctx context.Context, ns, name string) error {
+	if ns == "" || name == "" {
+		return provider.ErrNotFound
+	}
+	prop := metav1.DeletePropagationBackground
+	if err := p.clientset.BatchV1().Jobs(ns).Delete(ctx, name, metav1.DeleteOptions{PropagationPolicy: &prop}); err != nil {
+		return mapKubeWriteErr(err)
+	}
+	return nil
+}
+
+// DeleteCronJob deletes a CronJob (its owned Jobs/Pods follow via the garbage
+// collector's background cascade).
+func (p *KubeProvider) DeleteCronJob(ctx context.Context, ns, name string) error {
+	if ns == "" || name == "" {
+		return provider.ErrNotFound
+	}
+	prop := metav1.DeletePropagationBackground
+	if err := p.clientset.BatchV1().CronJobs(ns).Delete(ctx, name, metav1.DeleteOptions{PropagationPolicy: &prop}); err != nil {
+		return mapKubeWriteErr(err)
+	}
+	return nil
+}
+
+// TriggerCronJob creates a one-off Job from a CronJob's jobTemplate, exactly as
+// `kubectl create job --from=cronjob/<name>` does: the template's labels and
+// annotations are carried over and the manual-instantiation marker annotation is
+// added. Like kubectl, no ownerReference is set: a controller reference would
+// make the CronJob controller adopt the manual Job (counted in .status.active,
+// garbage-collected under successful/failedJobsHistoryLimit). The created Job's
+// name is returned.
+func (p *KubeProvider) TriggerCronJob(ctx context.Context, ns, name string) (string, error) {
+	if ns == "" || name == "" {
+		return "", provider.ErrNotFound
+	}
+	cj, err := p.clientset.BatchV1().CronJobs(ns).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return "", mapKubeWriteErr(err)
+	}
+
+	// "<cron>-manual-<unixts>", truncating the base so the job name stays a
+	// valid label value (<= 63 chars): the job controller stamps it into the
+	// pods' job-name label.
+	suffix := fmt.Sprintf("-manual-%d", time.Now().Unix())
+	base := name
+	if max := 63 - len(suffix); len(base) > max {
+		base = base[:max]
+	}
+	jobName := base + suffix
+
+	annotations := make(map[string]string, len(cj.Spec.JobTemplate.Annotations)+1)
+	for k, v := range cj.Spec.JobTemplate.Annotations {
+		annotations[k] = v
+	}
+	annotations["cronjob.kubernetes.io/instantiate"] = "manual"
+	labels := make(map[string]string, len(cj.Spec.JobTemplate.Labels))
+	for k, v := range cj.Spec.JobTemplate.Labels {
+		labels[k] = v
+	}
+
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        jobName,
+			Namespace:   ns,
+			Labels:      labels,
+			Annotations: annotations,
+		},
+		Spec: cj.Spec.JobTemplate.Spec,
+	}
+	if _, err := p.clientset.BatchV1().Jobs(ns).Create(ctx, job, metav1.CreateOptions{}); err != nil {
+		return "", mapKubeWriteErr(err)
+	}
+	return jobName, nil
+}
+
+// SuspendCronJob sets a CronJob's spec.suspend flag (true pauses scheduling,
+// false resumes it) via a strategic-merge patch.
+func (p *KubeProvider) SuspendCronJob(ctx context.Context, ns, name string, suspend bool) error {
+	if ns == "" || name == "" {
+		return provider.ErrNotFound
+	}
+	patch := fmt.Sprintf(`{"spec":{"suspend":%t}}`, suspend)
+	_, err := p.clientset.BatchV1().CronJobs(ns).Patch(
+		ctx, name, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{},
+	)
+	if err != nil {
 		return mapKubeWriteErr(err)
 	}
 	return nil

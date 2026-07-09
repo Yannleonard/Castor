@@ -1,12 +1,13 @@
 package api
 
 // k8s_write.go holds the mutating Kubernetes handlers: scale/restart/delete a
-// Deployment, delete a Pod, and apply a YAML manifest. They reach the provider
-// via s.manager.Kube() (nil when no kubeconfig is wired -> 404, matching the
-// read handlers' "host/feature absent" behavior). Each follows the codebase
-// convention: resolve provider, set the audit target, decode the (small) body,
-// call the provider, map errors via writeMapped, and return ok2 / a result body.
-// RBAC + AAL + AuditWrap are applied by the router, not here.
+// Deployment or StatefulSet, restart/delete a DaemonSet, delete a Pod/Job/
+// CronJob, trigger/suspend a CronJob, and apply a YAML manifest. They reach the
+// provider via s.manager.Kube() (nil when no kubeconfig is wired -> 404,
+// matching the read handlers' "host/feature absent" behavior). Each follows the
+// codebase convention: resolve provider, set the audit target, decode the
+// (small) body, call the provider, map errors via writeMapped, and return ok2 /
+// a result body. RBAC + AAL + AuditWrap are applied by the router, not here.
 
 import (
 	"net/http"
@@ -21,6 +22,18 @@ import (
 // scaleRequest is the body for POST .../scale.
 type scaleRequest struct {
 	Replicas int32 `json:"replicas"`
+}
+
+// suspendRequest is the body for POST .../cronjobs/{ns}/{name}/suspend.
+type suspendRequest struct {
+	Suspend bool `json:"suspend"`
+}
+
+// triggerCronJobResponse carries the name of the Job created from a CronJob's
+// jobTemplate by a manual trigger.
+type triggerCronJobResponse struct {
+	OK  bool   `json:"ok"`
+	Job string `json:"job"`
 }
 
 // applyRequest is the body for POST .../k8s/apply.
@@ -192,6 +205,166 @@ func (s *Server) K8sSetDeploymentResources(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err := k.SetDeploymentResources(r.Context(), ns, name, req.ContainerName, req.Requests, req.Limits); err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok2(w)
+}
+
+// K8sScaleStatefulSet sets a StatefulSet's replicas (perm k8s.statefulset.scale).
+func (s *Server) K8sScaleStatefulSet(w http.ResponseWriter, r *http.Request) {
+	k, ok := s.kubeProvider(w, r)
+	if !ok {
+		return
+	}
+	ns, name := k8sNsName(r)
+	authz.SetAuditTarget(r, "k8s.statefulset", ns+"/"+name, name)
+
+	var req scaleRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		authz.WriteError(w, r, err)
+		return
+	}
+	if req.Replicas < 0 {
+		authz.WriteError(w, r, authz.Errorf(authz.ErrValidation, "replicas must be >= 0."))
+		return
+	}
+	if err := k.ScaleStatefulSet(r.Context(), ns, name, req.Replicas); err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok2(w)
+}
+
+// K8sRestartStatefulSet triggers a rolling restart (perm k8s.statefulset.restart).
+func (s *Server) K8sRestartStatefulSet(w http.ResponseWriter, r *http.Request) {
+	k, ok := s.kubeProvider(w, r)
+	if !ok {
+		return
+	}
+	ns, name := k8sNsName(r)
+	authz.SetAuditTarget(r, "k8s.statefulset", ns+"/"+name, name)
+
+	if err := k.RolloutRestartStatefulSet(r.Context(), ns, name); err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok2(w)
+}
+
+// K8sDeleteStatefulSet deletes a StatefulSet (perm k8s.workload.delete).
+func (s *Server) K8sDeleteStatefulSet(w http.ResponseWriter, r *http.Request) {
+	k, ok := s.kubeProvider(w, r)
+	if !ok {
+		return
+	}
+	ns, name := k8sNsName(r)
+	authz.SetAuditTarget(r, "k8s.statefulset", ns+"/"+name, name)
+
+	if err := k.DeleteStatefulSet(r.Context(), ns, name); err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok2(w)
+}
+
+// K8sRestartDaemonSet triggers a rolling restart (perm k8s.daemonset.restart).
+func (s *Server) K8sRestartDaemonSet(w http.ResponseWriter, r *http.Request) {
+	k, ok := s.kubeProvider(w, r)
+	if !ok {
+		return
+	}
+	ns, name := k8sNsName(r)
+	authz.SetAuditTarget(r, "k8s.daemonset", ns+"/"+name, name)
+
+	if err := k.RolloutRestartDaemonSet(r.Context(), ns, name); err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok2(w)
+}
+
+// K8sDeleteDaemonSet deletes a DaemonSet (perm k8s.workload.delete).
+func (s *Server) K8sDeleteDaemonSet(w http.ResponseWriter, r *http.Request) {
+	k, ok := s.kubeProvider(w, r)
+	if !ok {
+		return
+	}
+	ns, name := k8sNsName(r)
+	authz.SetAuditTarget(r, "k8s.daemonset", ns+"/"+name, name)
+
+	if err := k.DeleteDaemonSet(r.Context(), ns, name); err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok2(w)
+}
+
+// K8sDeleteJob deletes a Job (perm k8s.workload.delete).
+func (s *Server) K8sDeleteJob(w http.ResponseWriter, r *http.Request) {
+	k, ok := s.kubeProvider(w, r)
+	if !ok {
+		return
+	}
+	ns, name := k8sNsName(r)
+	authz.SetAuditTarget(r, "k8s.job", ns+"/"+name, name)
+
+	if err := k.DeleteJob(r.Context(), ns, name); err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok2(w)
+}
+
+// K8sTriggerCronJob creates a one-off Job from a CronJob's jobTemplate (perm
+// k8s.cronjob.trigger) and returns the created Job's name.
+func (s *Server) K8sTriggerCronJob(w http.ResponseWriter, r *http.Request) {
+	k, available := s.kubeProvider(w, r)
+	if !available {
+		return
+	}
+	ns, name := k8sNsName(r)
+	authz.SetAuditTarget(r, "k8s.cronjob", ns+"/"+name, name)
+
+	jobName, err := k.TriggerCronJob(r.Context(), ns, name)
+	if err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok(w, triggerCronJobResponse{OK: true, Job: jobName})
+}
+
+// K8sSuspendCronJob sets a CronJob's spec.suspend flag (perm k8s.cronjob.suspend).
+func (s *Server) K8sSuspendCronJob(w http.ResponseWriter, r *http.Request) {
+	k, ok := s.kubeProvider(w, r)
+	if !ok {
+		return
+	}
+	ns, name := k8sNsName(r)
+	authz.SetAuditTarget(r, "k8s.cronjob", ns+"/"+name, name)
+
+	var req suspendRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		authz.WriteError(w, r, err)
+		return
+	}
+	if err := k.SuspendCronJob(r.Context(), ns, name, req.Suspend); err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok2(w)
+}
+
+// K8sDeleteCronJob deletes a CronJob (perm k8s.workload.delete).
+func (s *Server) K8sDeleteCronJob(w http.ResponseWriter, r *http.Request) {
+	k, ok := s.kubeProvider(w, r)
+	if !ok {
+		return
+	}
+	ns, name := k8sNsName(r)
+	authz.SetAuditTarget(r, "k8s.cronjob", ns+"/"+name, name)
+
+	if err := k.DeleteCronJob(r.Context(), ns, name); err != nil {
 		writeMapped(w, r, err)
 		return
 	}

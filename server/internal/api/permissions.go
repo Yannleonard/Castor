@@ -18,6 +18,7 @@ var permissionCatalog = []string{
 	"docker.container.stats",
 	"docker.container.exec",
 	"docker.container.create",
+	"docker.container.update",
 	"docker.container.inspect.secrets",
 	// docker images
 	"docker.image.read",
@@ -60,6 +61,14 @@ var permissionCatalog = []string{
 	"k8s.deployment.resources",
 	"k8s.workload.delete",
 	"k8s.manifest.apply",
+	// kubernetes workload controller kinds (StatefulSets/DaemonSets/CronJobs
+	// day-to-day ops, mirroring the deployment verbs; reads share
+	// k8s.deployment.read and deletes share k8s.workload.delete)
+	"k8s.statefulset.scale",
+	"k8s.statefulset.restart",
+	"k8s.daemonset.restart",
+	"k8s.cronjob.trigger",
+	"k8s.cronjob.suspend",
 	// kubernetes autoscaling + core cluster objects (Wave 3)
 	"k8s.hpa.read",
 	"k8s.hpa.write",
@@ -108,6 +117,9 @@ var permissionCatalog = []string{
 	"marketplace.template.create",
 	"marketplace.template.update",
 	"marketplace.template.delete",
+	// outbound notifications: webhook channel CRUD + test send (the webhook URL
+	// is write-only: sealed at rest, never returned by the API)
+	"notifications.manage",
 	// SSO / external identity providers (LDAP + OIDC) — admin-only configuration.
 	// Read lists provider config (secrets redacted); write covers create/update/
 	// delete/test + group-role mapping CRUD. Only admin's "*" grant satisfies these.

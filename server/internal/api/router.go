@@ -66,6 +66,21 @@ func (s *Server) Router() http.Handler {
 			pr.With(az.AuditWrap("auth.totp.disable"), az.RequireAAL).Post("/auth/totp/disable", http.HandlerFunc(s.TOTPDisable))
 			pr.With(az.AuditWrap("auth.password.change"), az.RequireAAL).Post("/auth/password", http.HandlerFunc(s.PasswordChange))
 
+			// Personal access tokens: self-service (a user manages only their
+			// OWN tokens, so no RequirePermission). Mutations follow the fixed
+			// AuditWrap (OUTERMOST) -> RequireAAL chain like the other
+			// self-service auth mutations; the handlers additionally refuse
+			// AMR "token" callers so a stolen PAT cannot mint or revoke tokens.
+			pr.Get("/auth/tokens", s.ListAPITokens)
+			pr.With(az.AuditWrap("auth.token.create"), az.RequireAAL).Post("/auth/tokens", http.HandlerFunc(s.CreateAPIToken))
+			pr.With(az.AuditWrap("auth.token.revoke"), az.RequireAAL).Delete("/auth/tokens/{id}", http.HandlerFunc(s.RevokeAPIToken))
+
+			// Prometheus metrics: read-only aggregates from the cache
+			// snapshots. Any authenticated principal (session or Bearer PAT)
+			// may scrape; non-mutating, so no audit row. Also mounted at the
+			// conventional top-level /metrics below.
+			pr.Get("/metrics", s.Metrics)
+
 			// providers / hosts
 			pr.Get("/providers", s.Providers)
 			pr.Get("/hosts", s.Hosts)
@@ -87,8 +102,15 @@ func (s *Server) Router() http.Handler {
 			s.mountTemplateRoutes(pr)
 			s.mountMarketplaceConfigRoutes(pr)
 			s.mountStackRoutes(pr)
+			s.mountNotificationRoutes(pr)
 		})
 	})
+
+	// Conventional Prometheus scrape path, behind the same chain as the
+	// protected /api/v1 group (bootstrap gate + session/PAT auth; CSRF is a
+	// pass-through on GET, kept for chain parity). Redundant with
+	// /api/v1/metrics so standard scrape configs work unchanged.
+	r.With(s.bootstrapGateMW, az.SessionAuth, az.CSRF).Get("/metrics", s.Metrics)
 
 	// SPA + embedded UI for everything else.
 	r.NotFound(web.Handler().ServeHTTP)
@@ -141,6 +163,20 @@ func (s *Server) mountWorkloadRoutes(pr chi.Router) {
 		Get("/hosts/{hostID}/workloads/{id}/logs", s.Logs)
 	pr.With(az.RequirePermission("docker.container.stats", scopeFromHost)).
 		Get("/hosts/{hostID}/workloads/{id}/stats", s.Stats)
+
+	// Image updates. The list is a read from the manager's cached check results
+	// (gated like the other container reads). The on-demand check performs
+	// outbound registry I/O with stored credentials, so it is write-gated by
+	// docker.image.pull and audited. Update (recreate on the newest image) is a
+	// stop+remove+create, gated by the dedicated docker.container.update
+	// permission. Mutations follow the fixed chain AuditWrap (OUTERMOST) ->
+	// RequireAAL -> RequirePermission -> handler.
+	pr.With(az.RequirePermission("docker.container.read", scopeFromHost)).
+		Get("/hosts/{hostID}/updates", s.ListUpdates)
+	pr.With(az.AuditWrap("image.update_check"), az.RequireAAL, az.RequirePermission("docker.image.pull", scopeFromHost)).
+		Post("/hosts/{hostID}/updates/check", s.CheckUpdates)
+	pr.With(az.AuditWrap("docker.container.update"), az.RequireAAL, az.RequirePermission("docker.container.update", scopeFromHost)).
+		Post("/hosts/{hostID}/workloads/{id}/update", s.UpdateWorkload)
 }
 
 // mountResourceRoutes wires Docker images/networks/volumes (read + gated write).
@@ -252,6 +288,18 @@ func (s *Server) mountSwarmK8sRoutes(pr chi.Router) {
 	pr.With(az.RequirePermission("k8s.node.read", scopeFromHost)).
 		Get("/hosts/{hostID}/k8s/nodes", s.K8sNodes)
 
+	// Controller-kind lists (StatefulSets/DaemonSets/Jobs/CronJobs) share the
+	// Deployment read grant: they are the same "workload controllers" surface,
+	// so viewer/operator see all of them with one permission.
+	pr.With(az.RequirePermission("k8s.deployment.read", scopeFromHost)).
+		Get("/hosts/{hostID}/k8s/statefulsets", s.K8sStatefulSets)
+	pr.With(az.RequirePermission("k8s.deployment.read", scopeFromHost)).
+		Get("/hosts/{hostID}/k8s/daemonsets", s.K8sDaemonSets)
+	pr.With(az.RequirePermission("k8s.deployment.read", scopeFromHost)).
+		Get("/hosts/{hostID}/k8s/jobs", s.K8sJobs)
+	pr.With(az.RequirePermission("k8s.deployment.read", scopeFromHost)).
+		Get("/hosts/{hostID}/k8s/cronjobs", s.K8sCronJobs)
+
 	// Kubernetes mutations. Fixed chain: AuditWrap (OUTERMOST) -> RequireAAL ->
 	// RequirePermission -> handler, so a denied mutation still records exactly one
 	// audit row. Scale/restart are operator-grade; delete + apply are admin-grade.
@@ -269,6 +317,28 @@ func (s *Server) mountSwarmK8sRoutes(pr chi.Router) {
 		Delete("/hosts/{hostID}/k8s/pods/{ns}/{name}", s.K8sDeletePod)
 	pr.With(az.AuditWrap("k8s.manifest.apply"), az.RequireAAL, az.RequirePermission("k8s.manifest.apply", scopeFromHost)).
 		Post("/hosts/{hostID}/k8s/apply", s.K8sApply)
+
+	// StatefulSet/DaemonSet/Job/CronJob mutations, mirroring the Deployment
+	// wiring: scale/restart/trigger/suspend are operator-grade per-verb perms;
+	// every delete reuses the admin-grade k8s.workload.delete.
+	pr.With(az.AuditWrap("k8s.statefulset.scale"), az.RequireAAL, az.RequirePermission("k8s.statefulset.scale", scopeFromHost)).
+		Post("/hosts/{hostID}/k8s/statefulsets/{ns}/{name}/scale", s.K8sScaleStatefulSet)
+	pr.With(az.AuditWrap("k8s.statefulset.restart"), az.RequireAAL, az.RequirePermission("k8s.statefulset.restart", scopeFromHost)).
+		Post("/hosts/{hostID}/k8s/statefulsets/{ns}/{name}/restart", s.K8sRestartStatefulSet)
+	pr.With(az.AuditWrap("k8s.statefulset.delete"), az.RequireAAL, az.RequirePermission("k8s.workload.delete", scopeFromHost)).
+		Delete("/hosts/{hostID}/k8s/statefulsets/{ns}/{name}", s.K8sDeleteStatefulSet)
+	pr.With(az.AuditWrap("k8s.daemonset.restart"), az.RequireAAL, az.RequirePermission("k8s.daemonset.restart", scopeFromHost)).
+		Post("/hosts/{hostID}/k8s/daemonsets/{ns}/{name}/restart", s.K8sRestartDaemonSet)
+	pr.With(az.AuditWrap("k8s.daemonset.delete"), az.RequireAAL, az.RequirePermission("k8s.workload.delete", scopeFromHost)).
+		Delete("/hosts/{hostID}/k8s/daemonsets/{ns}/{name}", s.K8sDeleteDaemonSet)
+	pr.With(az.AuditWrap("k8s.job.delete"), az.RequireAAL, az.RequirePermission("k8s.workload.delete", scopeFromHost)).
+		Delete("/hosts/{hostID}/k8s/jobs/{ns}/{name}", s.K8sDeleteJob)
+	pr.With(az.AuditWrap("k8s.cronjob.trigger"), az.RequireAAL, az.RequirePermission("k8s.cronjob.trigger", scopeFromHost)).
+		Post("/hosts/{hostID}/k8s/cronjobs/{ns}/{name}/trigger", s.K8sTriggerCronJob)
+	pr.With(az.AuditWrap("k8s.cronjob.suspend"), az.RequireAAL, az.RequirePermission("k8s.cronjob.suspend", scopeFromHost)).
+		Post("/hosts/{hostID}/k8s/cronjobs/{ns}/{name}/suspend", s.K8sSuspendCronJob)
+	pr.With(az.AuditWrap("k8s.cronjob.delete"), az.RequireAAL, az.RequirePermission("k8s.workload.delete", scopeFromHost)).
+		Delete("/hosts/{hostID}/k8s/cronjobs/{ns}/{name}", s.K8sDeleteCronJob)
 }
 
 // mountK8sClusterRoutes wires the Kubernetes autoscaling + core cluster-object
@@ -565,6 +635,31 @@ func (s *Server) mountStackRoutes(pr chi.Router) {
 	// Builder: pure compose-YAML generation. Global-scoped, deploy-capable only.
 	pr.With(az.RequirePermission("docker.container.create", g)).
 		Post("/stacks/builder/generate", s.BuilderGenerate)
+}
+
+// mountNotificationRoutes wires the outbound-notification channel surface:
+// channel CRUD plus a test-send probe. All routes are global-scoped and gated
+// by the single notifications.manage permission (granted to admin via "*" and
+// to operator explicitly). List responses never contain the webhook URL (it
+// embeds a secret token) — only urlSet. Mutations follow the fixed chain
+// AuditWrap (OUTERMOST) -> RequireAAL -> RequirePermission -> handler, so a
+// denied mutation still records exactly one audit row. The /test probe
+// performs network I/O with the unsealed URL, so it is treated as a mutating,
+// audited action (mirrors the registry /test pattern).
+func (s *Server) mountNotificationRoutes(pr chi.Router) {
+	az := s.authz
+	g := authz.GlobalScope
+
+	pr.With(az.RequirePermission("notifications.manage", g)).
+		Get("/notifications/channels", s.ListNotificationChannels)
+	pr.With(az.AuditWrap("notifications.channel.create"), az.RequireAAL, az.RequirePermission("notifications.manage", g)).
+		Post("/notifications/channels", s.CreateNotificationChannel)
+	pr.With(az.AuditWrap("notifications.channel.update"), az.RequireAAL, az.RequirePermission("notifications.manage", g)).
+		Put("/notifications/channels/{id}", s.UpdateNotificationChannel)
+	pr.With(az.AuditWrap("notifications.channel.delete"), az.RequireAAL, az.RequirePermission("notifications.manage", g)).
+		Delete("/notifications/channels/{id}", s.DeleteNotificationChannel)
+	pr.With(az.AuditWrap("notifications.channel.test"), az.RequireAAL, az.RequirePermission("notifications.manage", g)).
+		Post("/notifications/channels/{id}/test", s.TestNotificationChannel)
 }
 
 // audited wraps a handler with AuditWrap for the given action (used on auth

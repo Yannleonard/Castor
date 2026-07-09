@@ -10,10 +10,11 @@ import (
 // StateEvent is a normalized engine event the cache watcher consumes to patch
 // the snapshot and emit a targeted UI update (Docker-only; CapEvents).
 type StateEvent struct {
-	Action string // "create" | "start" | "die" | "stop" | "destroy" | "health_status" | ...
-	Kind   string // "container" | "network" | "volume" | "image"
-	ID     string // resource id
-	Actor  map[string]string
+	Action   string // "create" | "start" | "die" | "stop" | "destroy" | "health_status" | ...
+	Kind     string // "container" | "network" | "volume" | "image"
+	ID       string // resource id
+	ExitCode string // container "die" events: exit status (Actor attribute "exitCode"); "" otherwise
+	Actor    map[string]string
 }
 
 // Events subscribes to the Docker event stream, filtered to the resource types
@@ -88,9 +89,10 @@ func normalizeEvent(m events.Message) StateEvent {
 	}
 	id := m.Actor.ID
 	return StateEvent{
-		Action: string(m.Action),
-		Kind:   kind,
-		ID:     id,
-		Actor:  m.Actor.Attributes,
+		Action:   string(m.Action),
+		Kind:     kind,
+		ID:       id,
+		ExitCode: m.Actor.Attributes["exitCode"],
+		Actor:    m.Actor.Attributes,
 	}
 }

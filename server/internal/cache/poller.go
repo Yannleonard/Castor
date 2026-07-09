@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/gtek-it/castor/server/internal/config"
@@ -10,6 +11,8 @@ import (
 	"github.com/gtek-it/castor/server/internal/provider/docker"
 	"github.com/gtek-it/castor/server/internal/provider/kube"
 	"github.com/gtek-it/castor/server/internal/provider/swarm"
+	"github.com/gtek-it/castor/server/internal/store"
+	"github.com/gtek-it/castor/server/internal/updates"
 )
 
 // HostID is the single host id in V1.
@@ -29,6 +32,27 @@ type Manager struct {
 	docker *docker.DockerProvider
 	swarm  *swarm.SwarmProvider // may be nil
 	kube   *kube.KubeProvider   // may be nil
+
+	// Outbound-notification dispatcher (see notifier.go). Configured lazily by
+	// the API layer (which owns the unseal key); nil until then. runCtx is the
+	// Start context, kept so a post-Start ConfigureNotifications can still
+	// launch the dispatch loop with the manager's lifetime.
+	notifMu      sync.Mutex
+	notif        *notifier
+	notifStarted bool
+	runCtx       context.Context
+
+	// Image-update checker state (see updates.go). Configured lazily by the API
+	// layer (registry credentials need the unseal key); nil until then. updCtx
+	// mirrors runCtx for a post-Start ConfigureUpdates. updRunMu serializes
+	// check sweeps (background loop vs on-demand API trigger).
+	updMu       sync.Mutex
+	updChecker  *updates.Checker
+	updStore    *store.Store
+	updStarted  bool
+	updCtx      context.Context
+	updRunMu    sync.Mutex
+	updStatuses map[string]updates.UpdateStatus // by container id (host "local")
 }
 
 // NewManager constructs a Manager. swarmP and kubeP may be nil if not enabled.
@@ -73,6 +97,13 @@ func (m *Manager) Start(ctx context.Context) {
 
 	go m.runDockerPoller(ctx)
 	go m.runWatcher(ctx)
+
+	// Launch the notification dispatcher if it was configured before Start;
+	// otherwise remember ctx so ConfigureNotifications can launch it later.
+	m.startNotifier(ctx)
+
+	// Same handshake for the periodic image-update checker (see updates.go).
+	m.startUpdateChecker(ctx)
 
 	if m.swarm != nil {
 		go m.runSwarmPoller(ctx)
@@ -180,8 +211,47 @@ func (m *Manager) pollKube(ctx context.Context) {
 		log.Printf("cache: kube poll failed: %v", err)
 		return
 	}
-	deps, _ := m.kube.ListDeployments(cctx, "")
-	nodes, _ := m.kube.ListNodes(cctx)
-	m.store.replaceKube(HostID, pods, deps, nodes)
+
+	// The secondary lists below feed their own snapshot sections: a transient
+	// apiserver error on one of them must not blank that section, so it falls
+	// back to the previous snapshot's data.
+	prev, _ := m.store.Get(HostID)
+
+	deps, err := m.kube.ListDeployments(cctx, "")
+	if err != nil {
+		log.Printf("cache: kube deployments list failed: %v", err)
+		deps = prev.KubeDeployments
+	}
+	nodes, err := m.kube.ListNodes(cctx)
+	if err != nil {
+		log.Printf("cache: kube nodes list failed: %v", err)
+		nodes = prev.KubeNodes
+	}
+	sts, err := m.kube.ListStatefulSets(cctx, "")
+	if err != nil {
+		log.Printf("cache: kube statefulsets list failed: %v", err)
+		sts = prev.KubeStatefulSets
+	}
+	ds, err := m.kube.ListDaemonSets(cctx, "")
+	if err != nil {
+		log.Printf("cache: kube daemonsets list failed: %v", err)
+		ds = prev.KubeDaemonSets
+	}
+	jobs, err := m.kube.ListJobs(cctx, "")
+	if err != nil {
+		log.Printf("cache: kube jobs list failed: %v", err)
+		jobs = prev.KubeJobs
+	}
+	crons, err := m.kube.ListCronJobs(cctx, "")
+	if err != nil {
+		log.Printf("cache: kube cronjobs list failed: %v", err)
+		crons = prev.KubeCronJobs
+	}
+	m.store.replaceKube(HostID, pods, deps, nodes, KubeKinds{
+		StatefulSets: sts,
+		DaemonSets:   ds,
+		Jobs:         jobs,
+		CronJobs:     crons,
+	})
 	m.broker.Publish(StateEvent{HostID: HostID, Action: "snapshot.replaced", Kind: ""})
 }
