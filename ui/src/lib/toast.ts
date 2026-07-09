@@ -1,6 +1,8 @@
 // ui/src/lib/toast.ts — tiny zustand toast store.
 import { create } from "zustand";
 import { ApiError } from "./api";
+import { t as translate } from "../i18n";
+import { errorsDict } from "../i18n/locales/errors";
 
 export type ToastKind = "success" | "error" | "info" | "warning";
 
@@ -51,10 +53,17 @@ export const toast = {
     useToastStore.getState().push({ kind: "warning", title, message }),
 };
 
-/** Map an unknown error (likely ApiError) to a user-facing toast. */
+/** Map an unknown error (likely ApiError) to a user-facing toast. Known error
+ *  codes get a localized, actionable message; any other code falls back to the
+ *  server-supplied message so nothing is ever hidden. */
 export function toastError(prefix: string, err: unknown): void {
   if (err instanceof ApiError) {
-    toast.error(prefix, `${err.message}${err.requestId ? ` (req ${err.requestId})` : ""}`);
+    // Localize by machine code when we have a phrasing for it; otherwise keep the
+    // server message. `translate` returns the key itself when the code is absent,
+    // which lets us detect "no localized entry" and fall back.
+    const localized = translate(errorsDict, err.code);
+    const body = localized !== err.code ? localized : err.message;
+    toast.error(prefix, `${body}${err.requestId ? ` (req ${err.requestId})` : ""}`);
   } else if (err instanceof Error) {
     toast.error(prefix, err.message);
   } else {

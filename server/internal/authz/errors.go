@@ -38,6 +38,11 @@ var (
 	ErrMethodNotAllowed  = newErr(http.StatusMethodNotAllowed, "method_not_allowed", "This operation is not supported by the target orchestrator.")
 	ErrProtected         = newErr(http.StatusConflict, "protected_resource", "This resource is protected and cannot be modified.")
 	ErrConflict          = newErr(http.StatusConflict, "conflict", "The request conflicts with the current state.")
+	// Deploy-specific conflicts carry a distinct machine code so the UI can both
+	// show the actionable server message and localize it by code.
+	ErrNameConflict = newErr(http.StatusConflict, "name_conflict", "A container with this name already exists.")
+	ErrPortConflict = newErr(http.StatusConflict, "port_conflict", "A published port is already in use on the host.")
+	ErrImageNotFound = newErr(http.StatusNotFound, "image_not_found", "Image not found or could not be pulled.")
 	ErrValidation        = newErr(http.StatusUnprocessableEntity, "validation_failed", "The request payload is invalid.")
 	ErrRateLimited       = newErr(http.StatusTooManyRequests, "rate_limited", "Too many requests. Please slow down.")
 	ErrInternal          = newErr(http.StatusInternalServerError, "internal", "An internal error occurred.")
