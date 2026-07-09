@@ -6,7 +6,7 @@
 // Generic over the row type; columns declare a key, header, optional sort accessor,
 // and a cell renderer.
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { EmptyState } from "./EmptyState";
 
@@ -37,6 +37,17 @@ interface Props<T> {
   virtualizeThreshold?: number;
   rowHeight?: number;
   maxBodyHeight?: number;
+  /** enable a leading checkbox column for row selection */
+  selectable?: boolean;
+  /** currently selected row keys (controlled by the caller) */
+  selectedKeys?: Set<string>;
+  /** toggle a single row's selection */
+  onToggleRow?: (key: string) => void;
+  /**
+   * Toggle all rows. Receives the keys of the *complete* sorted set (never the
+   * virtualized window) so "select all" covers rows scrolled out of view.
+   */
+  onToggleAll?: (keys: string[]) => void;
 }
 
 export function DataTable<T>({
@@ -52,6 +63,10 @@ export function DataTable<T>({
   virtualizeThreshold = 120,
   rowHeight = 49,
   maxBodyHeight = 620,
+  selectable = false,
+  selectedKeys,
+  onToggleRow,
+  onToggleAll,
 }: Props<T>) {
   const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
@@ -88,18 +103,41 @@ export function DataTable<T>({
 
   const virtualize = sorted.length > virtualizeThreshold;
 
+  // Selection derived from the full sorted set (not the virtualized window), so
+  // the header checkbox reflects rows scrolled out of view.
+  const selection = selectable ? (selectedKeys ?? EMPTY_SELECTION) : EMPTY_SELECTION;
+  const selectedInView = selectable ? sorted.filter((r) => selection.has(rowKey(r))).length : 0;
+  const allSelected = selectable && sorted.length > 0 && selectedInView === sorted.length;
+  const someSelected = selectable && selectedInView > 0 && !allSelected;
+
+  const handleToggleAll = () => {
+    if (!onToggleAll) return;
+    onToggleAll(sorted.map((r) => rowKey(r)));
+  };
+
+  // Total header/body column span, including the checkbox column when present.
+  const colSpan = columns.length + (selectable ? 1 : 0);
+
   let body: ReactNode;
   if (sorted.length === 0) {
     body = (
       <tr>
-        <td colSpan={columns.length} style={{ padding: 0, border: "none" }}>
+        <td colSpan={colSpan} style={{ padding: 0, border: "none" }}>
           <EmptyState icon={emptyIcon} title={emptyTitle} message={emptyMessage} />
         </td>
       </tr>
     );
   } else if (!virtualize) {
     body = sorted.map((row) => (
-      <Row key={rowKey(row)} row={row} columns={columns} onRowClick={onRowClick} />
+      <Row
+        key={rowKey(row)}
+        row={row}
+        columns={columns}
+        onRowClick={onRowClick}
+        selectable={selectable}
+        selected={selection.has(rowKey(row))}
+        onToggleRow={onToggleRow ? () => onToggleRow(rowKey(row)) : undefined}
+      />
     ));
   } else {
     const total = sorted.length;
@@ -114,7 +152,7 @@ export function DataTable<T>({
       <>
         {padTop > 0 && (
           <tr aria-hidden>
-            <td colSpan={columns.length} style={{ height: padTop, padding: 0, border: "none" }} />
+            <td colSpan={colSpan} style={{ height: padTop, padding: 0, border: "none" }} />
           </tr>
         )}
         {sorted.slice(start, end).map((row) => (
@@ -124,11 +162,14 @@ export function DataTable<T>({
             columns={columns}
             onRowClick={onRowClick}
             height={rowHeight}
+            selectable={selectable}
+            selected={selection.has(rowKey(row))}
+            onToggleRow={onToggleRow ? () => onToggleRow(rowKey(row)) : undefined}
           />
         ))}
         {padBottom > 0 && (
           <tr aria-hidden>
-            <td colSpan={columns.length} style={{ height: padBottom, padding: 0, border: "none" }} />
+            <td colSpan={colSpan} style={{ height: padBottom, padding: 0, border: "none" }} />
           </tr>
         )}
       </>
@@ -145,6 +186,16 @@ export function DataTable<T>({
       <table className="dt">
         <thead>
           <tr>
+            {selectable ? (
+              <th style={{ width: 40, textAlign: "center" }}>
+                <HeaderCheckbox
+                  checked={allSelected}
+                  indeterminate={someSelected}
+                  disabled={sorted.length === 0}
+                  onChange={handleToggleAll}
+                />
+              </th>
+            ) : null}
             {columns.map((c) => (
               <th
                 key={c.key}
@@ -169,23 +220,74 @@ function Row<T>({
   columns,
   onRowClick,
   height,
+  selectable,
+  selected,
+  onToggleRow,
 }: {
   row: T;
   columns: Column<T>[];
   onRowClick?: (row: T) => void;
   height?: number;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleRow?: () => void;
 }) {
   return (
     <tr
-      className={clsx(onRowClick && "clickable")}
+      className={clsx(onRowClick && "clickable", selected && "selected")}
       style={height ? { height } : undefined}
       onClick={onRowClick ? () => onRowClick(row) : undefined}
     >
+      {selectable ? (
+        <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+          {/* stopPropagation keeps the row-click (navigate/open) from firing */}
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={() => onToggleRow?.()}
+            aria-label="Select row"
+            style={{ width: 16, height: 16, accentColor: "var(--accent)", cursor: "pointer" }}
+          />
+        </td>
+      ) : null}
       {columns.map((c) => (
         <td key={c.key} style={{ textAlign: c.align ?? "left" }}>
           {c.cell(row)}
         </td>
       ))}
     </tr>
+  );
+}
+
+// Stable empty selection reference so uncontrolled usage keeps a constant identity.
+const EMPTY_SELECTION: Set<string> = new Set();
+
+// Header checkbox with an indeterminate visual for partial selection. React has
+// no `indeterminate` prop, so it is set imperatively on the DOM node.
+function HeaderCheckbox({
+  checked,
+  indeterminate,
+  disabled,
+  onChange,
+}: {
+  checked: boolean;
+  indeterminate: boolean;
+  disabled?: boolean;
+  onChange: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      onChange={onChange}
+      aria-label="Select all rows"
+      style={{ width: 16, height: 16, accentColor: "var(--accent)", cursor: disabled ? "default" : "pointer" }}
+    />
   );
 }

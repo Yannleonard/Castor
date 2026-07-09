@@ -1,0 +1,158 @@
+/* ui/src/styles/command-palette.css
+ * Command palette (Cmd/Ctrl-K) styles. Scoped under .cmdk-* and the TopBar
+ * .cmdk-trigger button. Colors reference design tokens so light/dark both work.
+ * Imported by CommandPalette.tsx (does not touch shell.css / global.css).
+ */
+
+/* ---- TopBar trigger button ---- */
+.cmdk-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 32px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+.cmdk-trigger:hover {
+  background: var(--bg-surface-3);
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+.cmdk-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.cmdk-trigger-text {
+  /* Hidden on very narrow topbars; the icon + shortcut still read as search. */
+  white-space: nowrap;
+}
+.cmdk-trigger-kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1;
+  padding: 2px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+}
+@media (max-width: 720px) {
+  .cmdk-trigger-text {
+    display: none;
+  }
+}
+
+/* ---- Overlay ---- */
+.cmdk-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: var(--overlay);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh var(--sp-5) var(--sp-5);
+  animation: fade-in var(--dur-fast) var(--ease);
+}
+
+.cmdk-panel {
+  width: 100%;
+  max-width: 560px;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  animation: modal-in var(--dur-base) var(--ease);
+}
+
+/* ---- Search box ---- */
+.cmdk-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.cmdk-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-base);
+}
+.cmdk-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ---- Results ---- */
+.cmdk-list {
+  overflow-y: auto;
+  padding: var(--sp-2);
+}
+.cmdk-group + .cmdk-group {
+  margin-top: var(--sp-2);
+}
+.cmdk-group-label {
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--fs-base);
+  text-align: left;
+  cursor: pointer;
+}
+.cmdk-item.active {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+.cmdk-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.cmdk-item.active .cmdk-item-icon {
+  color: var(--accent);
+}
+.cmdk-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cmdk-empty {
+  padding: var(--sp-6) var(--sp-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
