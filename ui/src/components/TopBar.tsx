@@ -9,6 +9,7 @@ import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { useHosts } from "../lib/hooks";
 import { useHostStore } from "../lib/hostStore";
+import { useThemeStore, type ThemePreference } from "../lib/themeStore";
 import { wsClient } from "../lib/ws";
 import { toast, toastError } from "../lib/toast";
 import { StatusDot } from "./StatusDot";
@@ -19,6 +20,9 @@ import {
   IconLogout,
   IconAlert,
   IconCheck,
+  IconSun,
+  IconMoon,
+  IconMonitor,
 } from "./icons";
 
 const TITLES: Record<string, string> = {
@@ -42,12 +46,25 @@ function titleFor(pathname: string): string {
   return TITLES[pathname] ?? "Castor";
 }
 
+// Theme menu item cycles Light -> Dark -> System.
+const THEME_CYCLE: Record<ThemePreference, ThemePreference> = {
+  light: "dark",
+  dark: "system",
+  system: "light",
+};
+const THEME_LABEL: Record<ThemePreference, string> = {
+  light: "Light",
+  dark: "Dark",
+  system: "System",
+};
+
 export function TopBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, clear } = useAuth();
   const { data: hosts } = useHosts();
   const { selectedHostId, setSelectedHost } = useHostStore();
+  const { theme, setTheme } = useThemeStore();
 
   const [hostMenu, setHostMenu] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
@@ -168,6 +185,21 @@ export function TopBar() {
             >
               <IconProfile size={16} />
               Profile & security
+            </button>
+            <button
+              className="menu-item"
+              onClick={() => setTheme(THEME_CYCLE[theme])}
+              title="Cycle theme: Light → Dark → System"
+              aria-label={`Theme: ${THEME_LABEL[theme]} (click to change)`}
+            >
+              {theme === "light" ? (
+                <IconSun size={16} />
+              ) : theme === "dark" ? (
+                <IconMoon size={16} />
+              ) : (
+                <IconMonitor size={16} />
+              )}
+              Theme: {THEME_LABEL[theme]}
             </button>
             <button className="menu-item" onClick={logout} style={{ color: "var(--danger)" }}>
               <IconLogout size={16} />

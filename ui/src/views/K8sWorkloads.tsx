@@ -1,8 +1,10 @@
 // ui/src/views/K8sWorkloads.tsx
 //
-// Kubernetes (read + gated writes): pods, deployments, nodes with a namespace
-// selector. Deployments can be scaled, rollout-restarted and deleted; pods can
-// be deleted; an "Apply YAML" action server-side-applies a (multi-document)
+// Kubernetes (read + gated writes): pods, deployments, statefulsets, daemonsets,
+// jobs, cronjobs and nodes with a namespace selector. Deployments/StatefulSets
+// can be scaled, rollout-restarted and deleted; DaemonSets restarted/deleted;
+// Jobs deleted; CronJobs triggered, suspended/resumed and deleted; pods can be
+// deleted; an "Apply YAML" action server-side-applies a (multi-document)
 // manifest and reports a per-resource result. Affordances are greyed-out before
 // click via CapabilityGate (provider capability + RBAC permission); the backend
 // re-checks. Pod rows remain click-through to the detail view.
@@ -12,9 +14,19 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useK8sPods, useK8sDeployments, useK8sNodes, useK8sPodMetrics, useCapabilityLookup } from "../lib/hooks";
+import {
+  useK8sPods,
+  useK8sDeployments,
+  useK8sStatefulSets,
+  useK8sDaemonSets,
+  useK8sJobs,
+  useK8sCronJobs,
+  useK8sNodes,
+  useK8sPodMetrics,
+  useCapabilityLookup,
+} from "../lib/hooks";
 import { useSelectedHost } from "../lib/hostStore";
-import { gateK8s, gateExec, gateLogs } from "../lib/rbac";
+import { gateK8s, gateK8sController, gateExec, gateLogs } from "../lib/rbac";
 import { subscribeExec, subscribeLogs } from "../lib/ws";
 import { PageHeader } from "../components/PageHeader";
 import { DataTable, type Column } from "../components/DataTable";
@@ -37,12 +49,24 @@ import {
   bytesToQuantity,
   type K8sPairDraft,
 } from "../components/ResourceFields";
-import { IconKube, IconRefresh, IconPlus, IconTrash, IconRestart, IconScale, IconEdit, IconHelp, IconCopy, IconCheck, IconTerminal, IconLogs } from "../components/icons";
+import { IconKube, IconRefresh, IconPlus, IconTrash, IconRestart, IconScale, IconEdit, IconHelp, IconCopy, IconCheck, IconTerminal, IconLogs, IconPlay, IconPause } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { cleanName, timeAgo, formatBytes } from "../lib/format";
-import { podQosClass, type K8sApplyResult, type K8sContainerResources, type K8sDeployment, type K8sNode, type PodMetric, type Workload } from "../lib/types";
+import {
+  podQosClass,
+  type K8sApplyResult,
+  type K8sContainerResources,
+  type K8sCronJob,
+  type K8sDaemonSet,
+  type K8sDeployment,
+  type K8sJob,
+  type K8sNode,
+  type K8sStatefulSet,
+  type PodMetric,
+  type Workload,
+} from "../lib/types";
 
-type Section = "pods" | "deployments" | "nodes";
+type Section = "pods" | "deployments" | "statefulsets" | "daemonsets" | "jobs" | "cronjobs" | "nodes";
 
 // Split a pod id "<ns>/<pod>" into its parts (ns may be empty when not encoded).
 function splitPodId(id: string): { ns: string; name: string } {
@@ -55,6 +79,42 @@ function splitPodId(id: string): { ns: string; name: string } {
 function milliToCores(milli: number): string {
   if (milli <= 0) return "0";
   return (milli / 1000).toFixed(milli % 1000 === 0 ? 0 : 2);
+}
+
+// Derived Job phase from the status counters (the summary carries no conditions).
+type K8sJobStatus = "Active" | "Succeeded" | "Failed" | "Pending";
+
+function jobStatus(j: K8sJob): K8sJobStatus {
+  if (j.active > 0) return "Active";
+  if (j.succeeded >= Math.max(j.completions, 1)) return "Succeeded";
+  if (j.failed > 0) return "Failed";
+  return "Pending";
+}
+
+function jobStatusColor(s: K8sJobStatus): string {
+  switch (s) {
+    case "Succeeded":
+      return "var(--success)";
+    case "Failed":
+      return "var(--danger)";
+    case "Active":
+      return "var(--accent)";
+    default:
+      return "var(--text-secondary)";
+  }
+}
+
+// Compact run duration ("42s", "3m 12s", "2h 5m"): start -> completion, or
+// start -> now while still running; "—" before the controller stamps a start.
+function jobDuration(j: K8sJob): string {
+  if (!j.startedAt) return "—";
+  const start = new Date(j.startedAt).getTime();
+  const end = j.completedAt ? new Date(j.completedAt).getTime() : Date.now();
+  const secs = Math.max(0, Math.round((end - start) / 1000));
+  if (secs < 60) return `${secs}s`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ${secs % 60}s`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
 // Small copy-able shell command used in the guided empty state.
@@ -93,6 +153,10 @@ export function K8sWorkloads() {
 
   const podsQ = useK8sPods(hostId, namespace, section === "pods");
   const deploysQ = useK8sDeployments(hostId, namespace, section === "deployments");
+  const stsQ = useK8sStatefulSets(hostId, namespace, section === "statefulsets");
+  const dsQ = useK8sDaemonSets(hostId, namespace, section === "daemonsets");
+  const jobsQ = useK8sJobs(hostId, namespace, section === "jobs");
+  const cronsQ = useK8sCronJobs(hostId, namespace, section === "cronjobs");
   const nodesQ = useK8sNodes(hostId, section === "nodes");
   // Live per-pod usage (metrics-server) — keyed by "<ns>/<name>" for the columns.
   // available:false when metrics-server is not installed (columns then show "—").
@@ -112,6 +176,13 @@ export function K8sWorkloads() {
   const resourcesGate = gateK8s("resources", caps, permissions);
   const deleteGate = gateK8s("delete", caps, permissions);
   const applyGate = gateK8s("apply", caps, permissions);
+  // Controller-kind writes carry per-kind, per-verb permissions; every delete
+  // shares the admin-grade k8s.workload.delete (deleteGate above).
+  const stsScaleGate = gateK8sController("stsScale", caps, permissions);
+  const stsRestartGate = gateK8sController("stsRestart", caps, permissions);
+  const dsRestartGate = gateK8sController("dsRestart", caps, permissions);
+  const cronTriggerGate = gateK8sController("cronTrigger", caps, permissions);
+  const cronSuspendGate = gateK8sController("cronSuspend", caps, permissions);
   // Pod exec / logs reuse the generic capability gates (CapExec / CapLogs +
   // docker.container.exec / .logs — the same permissions the WS server enforces
   // for pod targets).
@@ -128,21 +199,47 @@ export function K8sWorkloads() {
   const [podDeleteTarget, setPodDeleteTarget] = useState<Workload | null>(null);
   const [podTermTarget, setPodTermTarget] = useState<Workload | null>(null);
   const [podLogsTarget, setPodLogsTarget] = useState<Workload | null>(null);
+  const [stsScaleTarget, setStsScaleTarget] = useState<K8sStatefulSet | null>(null);
+  const [stsRestartTarget, setStsRestartTarget] = useState<K8sStatefulSet | null>(null);
+  const [stsDeleteTarget, setStsDeleteTarget] = useState<K8sStatefulSet | null>(null);
+  const [dsRestartTarget, setDsRestartTarget] = useState<K8sDaemonSet | null>(null);
+  const [dsDeleteTarget, setDsDeleteTarget] = useState<K8sDaemonSet | null>(null);
+  const [jobDeleteTarget, setJobDeleteTarget] = useState<K8sJob | null>(null);
+  const [cronDeleteTarget, setCronDeleteTarget] = useState<K8sCronJob | null>(null);
 
-  // Namespace options derived from whatever we've loaded.
-  const namespaces = useMemo(() => {
-    const set = new Set<string>();
+  // Namespace options. The section queries are themselves filtered by the
+  // selected namespace, so deriving options from the current responses alone
+  // would collapse the list to that namespace after the first selection.
+  // Instead, accumulate the union of every namespace seen in any response for
+  // as long as the view stays mounted; "All namespaces" is always offered.
+  const [namespaces, setNamespaces] = useState<string[]>([]);
+  useEffect(() => {
+    const seen = new Set<string>();
     for (const p of podsQ.data ?? []) {
       const ns = p.id.includes("/") ? p.id.split("/")[0]! : "";
-      if (ns) set.add(ns);
+      if (ns) seen.add(ns);
     }
-    for (const d of deploysQ.data ?? []) if (d.namespace) set.add(d.namespace);
-    return Array.from(set).sort();
-  }, [podsQ.data, deploysQ.data]);
+    for (const d of deploysQ.data ?? []) if (d.namespace) seen.add(d.namespace);
+    for (const v of stsQ.data ?? []) if (v.namespace) seen.add(v.namespace);
+    for (const v of dsQ.data ?? []) if (v.namespace) seen.add(v.namespace);
+    for (const v of jobsQ.data ?? []) if (v.namespace) seen.add(v.namespace);
+    for (const v of cronsQ.data ?? []) if (v.namespace) seen.add(v.namespace);
+    setNamespaces((prev) => {
+      const merged = new Set(prev);
+      for (const ns of seen) merged.add(ns);
+      // Keep the previous array identity when nothing new appeared so React
+      // can bail out of the state update.
+      return merged.size === prev.length ? prev : Array.from(merged).sort();
+    });
+  }, [podsQ.data, deploysQ.data, stsQ.data, dsQ.data, jobsQ.data, cronsQ.data]);
 
   const refetch = () => {
     if (section === "pods") podsQ.refetch();
     else if (section === "deployments") deploysQ.refetch();
+    else if (section === "statefulsets") stsQ.refetch();
+    else if (section === "daemonsets") dsQ.refetch();
+    else if (section === "jobs") jobsQ.refetch();
+    else if (section === "cronjobs") cronsQ.refetch();
     else nodesQ.refetch();
   };
 
@@ -150,6 +247,38 @@ export function K8sWorkloads() {
     queryClient.invalidateQueries({ queryKey: ["k8s", "pods", hostId], exact: false });
   const invalidateDeploys = () =>
     queryClient.invalidateQueries({ queryKey: ["k8s", "deployments", hostId], exact: false });
+  const invalidateSts = () =>
+    queryClient.invalidateQueries({ queryKey: ["k8s", "statefulsets", hostId], exact: false });
+  const invalidateDs = () =>
+    queryClient.invalidateQueries({ queryKey: ["k8s", "daemonsets", hostId], exact: false });
+  const invalidateJobs = () =>
+    queryClient.invalidateQueries({ queryKey: ["k8s", "jobs", hostId], exact: false });
+  const invalidateCrons = () =>
+    queryClient.invalidateQueries({ queryKey: ["k8s", "cronjobs", hostId], exact: false });
+
+  // CronJob trigger + suspend/resume run directly off the row button (no
+  // confirm): trigger is constructive (creates a Job) and suspend is a
+  // reversible toggle.
+  const doTriggerCron = async (c: K8sCronJob) => {
+    try {
+      const res = await api.k8sTriggerCronJob(hostId, c.namespace, c.name);
+      toast.success("CronJob triggered", `Created job ${res.job}.`);
+      invalidateJobs();
+      invalidateCrons();
+    } catch (err) {
+      toastError("Trigger failed", err);
+    }
+  };
+
+  const doSuspendCron = async (c: K8sCronJob) => {
+    try {
+      await api.k8sSuspendCronJob(hostId, c.namespace, c.name, { suspend: !c.suspend });
+      toast.success(c.suspend ? "CronJob resumed" : "CronJob suspended", `${c.namespace}/${c.name}`);
+      invalidateCrons();
+    } catch (err) {
+      toastError(c.suspend ? "Resume failed" : "Suspend failed", err);
+    }
+  };
 
   const podCols: Column<Workload>[] = [
     {
@@ -364,6 +493,263 @@ export function K8sWorkloads() {
     },
   ];
 
+  const stsCols: Column<K8sStatefulSet>[] = [
+    { key: "name", header: "StatefulSet", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    {
+      key: "ready",
+      header: "Ready",
+      sortValue: (v) => v.ready,
+      cell: (v) => (
+        <span className="mono" style={{ color: v.ready >= v.replicas ? "var(--success)" : "var(--warning)" }}>
+          {v.ready}/{v.replicas}
+        </span>
+      ),
+    },
+    { key: "image", header: "Image", sortValue: (v) => v.image, cell: (v) => <span className="mono text-xs truncate" style={{ maxWidth: 240, display: "inline-block" }} title={v.image}>{v.image}</span> },
+    { key: "created", header: "Created", sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      width: "124px",
+      cell: (v) => (
+        <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
+          <CapabilityGate gate={stsScaleGate}>
+            {(allowed, reason) => (
+              <ActionButton
+                size="sm"
+                iconOnly
+                variant="ghost"
+                disabled={!allowed}
+                tooltip={allowed ? "Scale" : reason}
+                aria-label="Scale statefulset"
+                onClick={() => setStsScaleTarget(v)}
+              >
+                <IconScale size={15} />
+              </ActionButton>
+            )}
+          </CapabilityGate>
+          <CapabilityGate gate={stsRestartGate}>
+            {(allowed, reason) => (
+              <ActionButton
+                size="sm"
+                iconOnly
+                variant="ghost"
+                disabled={!allowed}
+                tooltip={allowed ? "Rollout restart" : reason}
+                aria-label="Restart statefulset"
+                onClick={() => setStsRestartTarget(v)}
+              >
+                <IconRestart size={15} />
+              </ActionButton>
+            )}
+          </CapabilityGate>
+          <CapabilityGate gate={deleteGate}>
+            {(allowed, reason) => (
+              <ActionButton
+                size="sm"
+                iconOnly
+                variant="ghost"
+                disabled={!allowed}
+                tooltip={allowed ? "Delete" : reason}
+                aria-label="Delete statefulset"
+                onClick={() => setStsDeleteTarget(v)}
+                style={allowed ? { color: "var(--danger)" } : undefined}
+              >
+                <IconTrash size={15} />
+              </ActionButton>
+            )}
+          </CapabilityGate>
+        </div>
+      ),
+    },
+  ];
+
+  const dsCols: Column<K8sDaemonSet>[] = [
+    { key: "name", header: "DaemonSet", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    { key: "desired", header: "Desired", sortValue: (v) => v.desired, cell: (v) => <span className="mono">{v.desired}</span> },
+    {
+      key: "ready",
+      header: "Ready",
+      sortValue: (v) => v.ready,
+      cell: (v) => (
+        <span className="mono" style={{ color: v.ready >= v.desired ? "var(--success)" : "var(--warning)" }}>
+          {v.ready}
+        </span>
+      ),
+    },
+    { key: "available", header: "Available", sortValue: (v) => v.available, cell: (v) => <span className="mono">{v.available}</span> },
+    { key: "created", header: "Created", sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      width: "84px",
+      cell: (v) => (
+        <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
+          <CapabilityGate gate={dsRestartGate}>
+            {(allowed, reason) => (
+              <ActionButton
+                size="sm"
+                iconOnly
+                variant="ghost"
+                disabled={!allowed}
+                tooltip={allowed ? "Rollout restart" : reason}
+                aria-label="Restart daemonset"
+                onClick={() => setDsRestartTarget(v)}
+              >
+                <IconRestart size={15} />
+              </ActionButton>
+            )}
+          </CapabilityGate>
+          <CapabilityGate gate={deleteGate}>
+            {(allowed, reason) => (
+              <ActionButton
+                size="sm"
+                iconOnly
+                variant="ghost"
+                disabled={!allowed}
+                tooltip={allowed ? "Delete" : reason}
+                aria-label="Delete daemonset"
+                onClick={() => setDsDeleteTarget(v)}
+                style={allowed ? { color: "var(--danger)" } : undefined}
+              >
+                <IconTrash size={15} />
+              </ActionButton>
+            )}
+          </CapabilityGate>
+        </div>
+      ),
+    },
+  ];
+
+  const jobCols: Column<K8sJob>[] = [
+    { key: "name", header: "Job", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    {
+      key: "status",
+      header: "Status",
+      sortValue: (v) => jobStatus(v),
+      cell: (v) => {
+        const s = jobStatus(v);
+        return (
+          <span className="pill" style={{ color: jobStatusColor(s), background: "transparent", borderColor: "var(--border-strong)" }}>
+            {s}
+          </span>
+        );
+      },
+    },
+    { key: "duration", header: "Duration", sortValue: (v) => v.startedAt ?? "", cell: (v) => <span className="mono text-xs">{jobDuration(v)}</span> },
+    { key: "created", header: "Created", sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      width: "44px",
+      cell: (v) => (
+        <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
+          <CapabilityGate gate={deleteGate}>
+            {(allowed, reason) => (
+              <ActionButton
+                size="sm"
+                iconOnly
+                variant="ghost"
+                disabled={!allowed}
+                tooltip={allowed ? "Delete" : reason}
+                aria-label="Delete job"
+                onClick={() => setJobDeleteTarget(v)}
+                style={allowed ? { color: "var(--danger)" } : undefined}
+              >
+                <IconTrash size={15} />
+              </ActionButton>
+            )}
+          </CapabilityGate>
+        </div>
+      ),
+    },
+  ];
+
+  const cronCols: Column<K8sCronJob>[] = [
+    { key: "name", header: "CronJob", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    { key: "schedule", header: "Schedule", sortValue: (v) => v.schedule, cell: (v) => <span className="mono text-xs">{v.schedule}</span> },
+    {
+      key: "suspend",
+      header: "State",
+      sortValue: (v) => (v.suspend ? 1 : 0),
+      cell: (v) => (
+        <span className="pill" style={{ color: v.suspend ? "var(--warning)" : "var(--success)", background: "transparent", borderColor: "var(--border-strong)" }}>
+          {v.suspend ? "Suspended" : "Active"}
+        </span>
+      ),
+    },
+    {
+      key: "lastRun",
+      header: "Last run",
+      sortValue: (v) => v.lastScheduleAt ?? "",
+      cell: (v) => <span className="text-xs muted nowrap">{v.lastScheduleAt ? timeAgo(v.lastScheduleAt) : "—"}</span>,
+    },
+    { key: "created", header: "Created", sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      width: "124px",
+      cell: (v) => (
+        <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
+          <CapabilityGate gate={cronTriggerGate}>
+            {(allowed, reason) => (
+              <ActionButton
+                size="sm"
+                iconOnly
+                variant="ghost"
+                disabled={!allowed}
+                tooltip={allowed ? "Run now" : reason}
+                aria-label="Run cronjob now"
+                onClick={() => doTriggerCron(v)}
+              >
+                <IconPlay size={15} />
+              </ActionButton>
+            )}
+          </CapabilityGate>
+          <CapabilityGate gate={cronSuspendGate}>
+            {(allowed, reason) => (
+              <ActionButton
+                size="sm"
+                iconOnly
+                variant="ghost"
+                disabled={!allowed}
+                tooltip={allowed ? (v.suspend ? "Resume" : "Suspend") : reason}
+                aria-label={v.suspend ? "Resume cronjob" : "Suspend cronjob"}
+                onClick={() => doSuspendCron(v)}
+              >
+                {v.suspend ? <IconPlay size={15} /> : <IconPause size={15} />}
+              </ActionButton>
+            )}
+          </CapabilityGate>
+          <CapabilityGate gate={deleteGate}>
+            {(allowed, reason) => (
+              <ActionButton
+                size="sm"
+                iconOnly
+                variant="ghost"
+                disabled={!allowed}
+                tooltip={allowed ? "Delete" : reason}
+                aria-label="Delete cronjob"
+                onClick={() => setCronDeleteTarget(v)}
+                style={allowed ? { color: "var(--danger)" } : undefined}
+              >
+                <IconTrash size={15} />
+              </ActionButton>
+            )}
+          </CapabilityGate>
+        </div>
+      ),
+    },
+  ];
+
   const nodeCols: Column<K8sNode>[] = [
     { key: "name", header: "Node", sortValue: (n) => n.name, cell: (n) => <span style={{ fontWeight: 600 }}>{n.name}</span> },
     {
@@ -384,6 +770,10 @@ export function K8sWorkloads() {
   const loading =
     (section === "pods" && podsQ.isLoading) ||
     (section === "deployments" && deploysQ.isLoading) ||
+    (section === "statefulsets" && stsQ.isLoading) ||
+    (section === "daemonsets" && dsQ.isLoading) ||
+    (section === "jobs" && jobsQ.isLoading) ||
+    (section === "cronjobs" && cronsQ.isLoading) ||
     (section === "nodes" && nodesQ.isLoading);
 
   // --- deployment write handlers ---
@@ -424,6 +814,79 @@ export function K8sWorkloads() {
     }
   };
 
+  // --- statefulset / daemonset / job / cronjob write handlers ---
+  const doRestartSts = async () => {
+    if (!stsRestartTarget) return;
+    try {
+      await api.k8sRestartStatefulSet(hostId, stsRestartTarget.namespace, stsRestartTarget.name);
+      toast.success("Rollout restarted", `${stsRestartTarget.namespace}/${stsRestartTarget.name}`);
+      invalidateSts();
+    } catch (err) {
+      toastError("Restart failed", err);
+      throw err;
+    }
+  };
+
+  const doDeleteSts = async () => {
+    if (!stsDeleteTarget) return;
+    try {
+      await api.k8sDeleteStatefulSet(hostId, stsDeleteTarget.namespace, stsDeleteTarget.name);
+      toast.success("StatefulSet deleted", `${stsDeleteTarget.namespace}/${stsDeleteTarget.name}`);
+      invalidateSts();
+    } catch (err) {
+      toastError("Delete failed", err);
+      throw err;
+    }
+  };
+
+  const doRestartDs = async () => {
+    if (!dsRestartTarget) return;
+    try {
+      await api.k8sRestartDaemonSet(hostId, dsRestartTarget.namespace, dsRestartTarget.name);
+      toast.success("Rollout restarted", `${dsRestartTarget.namespace}/${dsRestartTarget.name}`);
+      invalidateDs();
+    } catch (err) {
+      toastError("Restart failed", err);
+      throw err;
+    }
+  };
+
+  const doDeleteDs = async () => {
+    if (!dsDeleteTarget) return;
+    try {
+      await api.k8sDeleteDaemonSet(hostId, dsDeleteTarget.namespace, dsDeleteTarget.name);
+      toast.success("DaemonSet deleted", `${dsDeleteTarget.namespace}/${dsDeleteTarget.name}`);
+      invalidateDs();
+    } catch (err) {
+      toastError("Delete failed", err);
+      throw err;
+    }
+  };
+
+  const doDeleteJob = async () => {
+    if (!jobDeleteTarget) return;
+    try {
+      await api.k8sDeleteJob(hostId, jobDeleteTarget.namespace, jobDeleteTarget.name);
+      toast.success("Job deleted", `${jobDeleteTarget.namespace}/${jobDeleteTarget.name}`);
+      invalidateJobs();
+    } catch (err) {
+      toastError("Delete failed", err);
+      throw err;
+    }
+  };
+
+  const doDeleteCron = async () => {
+    if (!cronDeleteTarget) return;
+    try {
+      await api.k8sDeleteCronJob(hostId, cronDeleteTarget.namespace, cronDeleteTarget.name);
+      toast.success("CronJob deleted", `${cronDeleteTarget.namespace}/${cronDeleteTarget.name}`);
+      invalidateCrons();
+    } catch (err) {
+      toastError("Delete failed", err);
+      throw err;
+    }
+  };
+
   return (
     <div className="page">
       <PageHeader
@@ -433,7 +896,7 @@ export function K8sWorkloads() {
             <OrchestratorBadge kind="kubernetes" />
           </span>
         }
-        subtitle="Manage pods and deployments, or apply a manifest."
+        subtitle="Manage pods and workload controllers, or apply a manifest."
         actions={
           <div className="row">
             {section !== "nodes" ? (
@@ -475,6 +938,18 @@ export function K8sWorkloads() {
         </button>
         <button className={`tab${section === "deployments" ? " active" : ""}`} onClick={() => setSection("deployments")}>
           Deployments
+        </button>
+        <button className={`tab${section === "statefulsets" ? " active" : ""}`} onClick={() => setSection("statefulsets")}>
+          StatefulSets
+        </button>
+        <button className={`tab${section === "daemonsets" ? " active" : ""}`} onClick={() => setSection("daemonsets")}>
+          DaemonSets
+        </button>
+        <button className={`tab${section === "jobs" ? " active" : ""}`} onClick={() => setSection("jobs")}>
+          Jobs
+        </button>
+        <button className={`tab${section === "cronjobs" ? " active" : ""}`} onClick={() => setSection("cronjobs")}>
+          CronJobs
         </button>
         <button className={`tab${section === "nodes" ? " active" : ""}`} onClick={() => setSection("nodes")}>
           Nodes
@@ -532,6 +1007,42 @@ export function K8sWorkloads() {
           emptyIcon={<IconKube size={40} />}
           emptyTitle="No deployments"
         />
+      ) : section === "statefulsets" ? (
+        <DataTable
+          columns={stsCols}
+          rows={stsQ.data ?? []}
+          rowKey={(v) => `${v.namespace}/${v.name}`}
+          defaultSortKey="name"
+          emptyIcon={<IconKube size={40} />}
+          emptyTitle="No StatefulSets"
+        />
+      ) : section === "daemonsets" ? (
+        <DataTable
+          columns={dsCols}
+          rows={dsQ.data ?? []}
+          rowKey={(v) => `${v.namespace}/${v.name}`}
+          defaultSortKey="name"
+          emptyIcon={<IconKube size={40} />}
+          emptyTitle="No DaemonSets"
+        />
+      ) : section === "jobs" ? (
+        <DataTable
+          columns={jobCols}
+          rows={jobsQ.data ?? []}
+          rowKey={(v) => `${v.namespace}/${v.name}`}
+          defaultSortKey="name"
+          emptyIcon={<IconKube size={40} />}
+          emptyTitle="No jobs"
+        />
+      ) : section === "cronjobs" ? (
+        <DataTable
+          columns={cronCols}
+          rows={cronsQ.data ?? []}
+          rowKey={(v) => `${v.namespace}/${v.name}`}
+          defaultSortKey="name"
+          emptyIcon={<IconKube size={40} />}
+          emptyTitle="No CronJobs"
+        />
       ) : (
         <DataTable
           columns={nodeCols}
@@ -550,16 +1061,33 @@ export function K8sWorkloads() {
       <ApplyManifestModal open={applyOpen} hostId={hostId} onClose={() => setApplyOpen(false)} onApplied={() => {
         invalidatePods();
         invalidateDeploys();
+        invalidateSts();
+        invalidateDs();
+        invalidateJobs();
+        invalidateCrons();
       }} />
 
       {/* ---- Scale deployment ---- */}
-      <ScaleDeploymentModal
-        hostId={hostId}
+      <ScaleWorkloadModal
+        noun="Deployment"
         target={scaleTarget}
+        scale={(ns, name, replicas) => api.k8sScaleDeployment(hostId, ns, name, { replicas })}
         onClose={() => setScaleTarget(null)}
         onDone={() => {
           setScaleTarget(null);
           invalidateDeploys();
+        }}
+      />
+
+      {/* ---- Scale statefulset ---- */}
+      <ScaleWorkloadModal
+        noun="StatefulSet"
+        target={stsScaleTarget}
+        scale={(ns, name, replicas) => api.k8sScaleStatefulSet(hostId, ns, name, { replicas })}
+        onClose={() => setStsScaleTarget(null)}
+        onDone={() => {
+          setStsScaleTarget(null);
+          invalidateSts();
         }}
       />
 
@@ -626,6 +1154,120 @@ export function K8sWorkloads() {
         }
         onConfirm={doDeletePod}
         onClose={() => setPodDeleteTarget(null)}
+      />
+
+      {/* ---- Restart statefulset (confirm) ---- */}
+      <ConfirmDestructiveDialog
+        open={!!stsRestartTarget}
+        title="Rollout restart"
+        variant="primary"
+        confirmLabel="Restart"
+        description={
+          <>
+            Trigger a rolling restart of{" "}
+            <strong className="mono">
+              {stsRestartTarget?.namespace}/{stsRestartTarget?.name}
+            </strong>
+            ? Pods are recreated in ordinal order, one at a time.
+          </>
+        }
+        onConfirm={doRestartSts}
+        onClose={() => setStsRestartTarget(null)}
+      />
+
+      {/* ---- Delete statefulset (confirm) ---- */}
+      <ConfirmDestructiveDialog
+        open={!!stsDeleteTarget}
+        title="Delete StatefulSet"
+        variant="danger"
+        confirmLabel="Delete"
+        description={
+          <>
+            Delete{" "}
+            <strong className="mono">
+              {stsDeleteTarget?.namespace}/{stsDeleteTarget?.name}
+            </strong>
+            ? Its pods are terminated (PVCs are retained). This cannot be undone.
+          </>
+        }
+        onConfirm={doDeleteSts}
+        onClose={() => setStsDeleteTarget(null)}
+      />
+
+      {/* ---- Restart daemonset (confirm) ---- */}
+      <ConfirmDestructiveDialog
+        open={!!dsRestartTarget}
+        title="Rollout restart"
+        variant="primary"
+        confirmLabel="Restart"
+        description={
+          <>
+            Trigger a rolling restart of{" "}
+            <strong className="mono">
+              {dsRestartTarget?.namespace}/{dsRestartTarget?.name}
+            </strong>
+            ? Pods are recreated node by node.
+          </>
+        }
+        onConfirm={doRestartDs}
+        onClose={() => setDsRestartTarget(null)}
+      />
+
+      {/* ---- Delete daemonset (confirm) ---- */}
+      <ConfirmDestructiveDialog
+        open={!!dsDeleteTarget}
+        title="Delete DaemonSet"
+        variant="danger"
+        confirmLabel="Delete"
+        description={
+          <>
+            Delete{" "}
+            <strong className="mono">
+              {dsDeleteTarget?.namespace}/{dsDeleteTarget?.name}
+            </strong>
+            ? Its pods are removed from every node. This cannot be undone.
+          </>
+        }
+        onConfirm={doDeleteDs}
+        onClose={() => setDsDeleteTarget(null)}
+      />
+
+      {/* ---- Delete job (confirm) ---- */}
+      <ConfirmDestructiveDialog
+        open={!!jobDeleteTarget}
+        title="Delete job"
+        variant="danger"
+        confirmLabel="Delete"
+        description={
+          <>
+            Delete{" "}
+            <strong className="mono">
+              {jobDeleteTarget?.namespace}/{jobDeleteTarget?.name}
+            </strong>
+            ? Its pods are removed with it. This cannot be undone.
+          </>
+        }
+        onConfirm={doDeleteJob}
+        onClose={() => setJobDeleteTarget(null)}
+      />
+
+      {/* ---- Delete cronjob (confirm) ---- */}
+      <ConfirmDestructiveDialog
+        open={!!cronDeleteTarget}
+        title="Delete CronJob"
+        variant="danger"
+        confirmLabel="Delete"
+        description={
+          <>
+            Delete{" "}
+            <strong className="mono">
+              {cronDeleteTarget?.namespace}/{cronDeleteTarget?.name}
+            </strong>
+            ? No further runs are scheduled. This cannot be undone.
+          </>
+        }
+        onConfirm={doDeleteCron}
+        onClose={() => setCronDeleteTarget(null)}
       />
 
       {/* ---- Pod terminal (WS exec) ---- */}
@@ -922,16 +1564,21 @@ function PodLogsModal({
   );
 }
 
-/* ============================ Scale deployment modal ============================ */
+/* ============================ Scale workload modal ============================ */
 
-function ScaleDeploymentModal({
-  hostId,
+// Shared replica-count dialog for the scalable controller kinds (Deployment /
+// StatefulSet): both expose {namespace, name, replicas}, so the caller picks the
+// copy noun and supplies the kind-specific API call.
+function ScaleWorkloadModal({
+  noun,
   target,
+  scale,
   onClose,
   onDone,
 }: {
-  hostId: string;
-  target: K8sDeployment | null;
+  noun: string; // "Deployment" | "StatefulSet" — used in the modal copy
+  target: { namespace: string; name: string; replicas: number } | null;
+  scale: (ns: string, name: string, replicas: number) => Promise<unknown>;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -953,8 +1600,8 @@ function ScaleDeploymentModal({
     if (!target || !valid) return;
     setBusy(true);
     try {
-      await api.k8sScaleDeployment(hostId, target.namespace, target.name, { replicas: n });
-      toast.success("Deployment scaled", `${target.namespace}/${target.name} → ${n} replica(s).`);
+      await scale(target.namespace, target.name, n);
+      toast.success(`${noun} scaled`, `${target.namespace}/${target.name} → ${n} replica(s).`);
       onDone();
     } catch (err) {
       toastError("Scale failed", err);
@@ -966,7 +1613,7 @@ function ScaleDeploymentModal({
   return (
     <Modal
       open={!!target}
-      title="Scale deployment"
+      title={`Scale ${noun}`}
       busy={busy}
       onClose={onClose}
       footer={
@@ -982,7 +1629,7 @@ function ScaleDeploymentModal({
     >
       <div className="col" style={{ gap: "var(--sp-3)" }}>
         <div className="text-sm secondary">
-          Deployment{" "}
+          {noun}{" "}
           <strong className="mono">
             {target?.namespace}/{target?.name}
           </strong>{" "}

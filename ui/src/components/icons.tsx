@@ -152,6 +152,13 @@ export const IconStop = (p: IconProps) => (
   </svg>
 );
 
+export const IconPause = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" />
+    <rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" />
+  </svg>
+);
+
 export const IconRestart = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
@@ -163,6 +170,15 @@ export const IconTrash = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
     <path d="M10 11v6M14 11v6" />
+  </svg>
+);
+
+// Broom / prune: angled handle with a splayed brush head.
+export const IconPrune = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M19 3l-8.5 8.5" />
+    <path d="M10.5 11.5 5 14a3 3 0 0 0-1.7 2.2L3 20l3.8-.3A3 3 0 0 0 9 18l2.5-5.5" />
+    <path d="m7 15 2 2" />
   </svg>
 );
 
@@ -293,6 +309,27 @@ export const IconScale = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M7 8 4 5 1 8M4 5v14M17 16l3 3 3-3M20 19V5" />
     <path d="M10 6h4M9 12h6M10 18h4" />
+  </svg>
+);
+
+// Sun / moon / monitor: theme switcher states (light / dark / system).
+export const IconSun = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+  </svg>
+);
+
+export const IconMoon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+  </svg>
+);
+
+export const IconMonitor = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="2" y="4" width="20" height="13" rx="2" />
+    <path d="M8 21h8M12 17v4" />
   </svg>
 );
 

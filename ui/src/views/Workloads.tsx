@@ -7,12 +7,15 @@
 
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useWorkloads, useCapabilityLookup } from "../lib/hooks";
+import { useWorkloads, useUpdates, useCapabilityLookup, qk } from "../lib/hooks";
 import { useSelectedHost } from "../lib/hostStore";
 import { useWorkloadActions } from "./useWorkloadActions";
 import { PageHeader } from "../components/PageHeader";
 import { DataTable, type Column } from "../components/DataTable";
+import { EmptyState } from "../components/EmptyState";
 import { StateBadge } from "../components/StateBadge";
 import { OrchestratorBadge } from "../components/OrchestratorBadge";
 import { ProtectedTag } from "../components/ProtectedTag";
@@ -20,9 +23,13 @@ import { WorkloadActionButtons } from "../components/WorkloadActionButtons";
 import { LoadingFill } from "../components/Spinner";
 import { ActionButton } from "../components/ActionButton";
 import { HelpButton } from "../components/HelpButton";
-import { IconRefresh, IconSearch, IconWorkloads } from "../components/icons";
-import { cleanName, shortId, timeAgo } from "../lib/format";
-import type { OrchestratorKind, Workload, WorkloadState } from "../lib/types";
+import { CapabilityGate } from "../components/CapabilityGate";
+import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
+import { IconDownload, IconPrune, IconRefresh, IconSearch, IconWorkloads } from "../components/icons";
+import { gatePrune } from "../lib/rbac";
+import { toast, toastError } from "../lib/toast";
+import { cleanName, formatBytes, shortId, timeAgo } from "../lib/format";
+import type { OrchestratorKind, UpdateStatus, Workload, WorkloadState } from "../lib/types";
 
 const KINDS: { value: "" | OrchestratorKind; label: string }[] = [
   { value: "", label: "All orchestrators" },
@@ -46,8 +53,9 @@ const STATES: { value: "" | WorkloadState; label: string }[] = [
 
 export function Workloads() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const hostId = useSelectedHost();
-  const { permissions } = useAuth();
+  const { permissions, can } = useAuth();
   const { capsForKind } = useCapabilityLookup();
 
   const [showAll, setShowAll] = useState(true);
@@ -55,11 +63,62 @@ export function Workloads() {
   const [state, setState] = useState<"" | WorkloadState>("");
   const [group, setGroup] = useState("");
   const [search, setSearch] = useState("");
+  const [pruneOpen, setPruneOpen] = useState(false);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [updateTarget, setUpdateTarget] = useState<Workload | null>(null);
 
   const query = useWorkloads(hostId, { all: showAll, kind: kind || undefined });
   const workloads = query.data ?? EMPTY_WORKLOADS;
 
+  // Cached image-update statuses (server-side periodic checks), keyed by
+  // container id for O(1) badge lookups per row.
+  const updatesQuery = useUpdates(hostId);
+  const updatesById = useMemo(() => {
+    const map = new Map<string, UpdateStatus>();
+    for (const u of updatesQuery.data ?? []) map.set(u.containerId, u);
+    return map;
+  }, [updatesQuery.data]);
+
   const actions = useWorkloadActions(hostId);
+
+  const confirmPrune = async () => {
+    try {
+      const res = await api.prune(hostId, { target: "containers" });
+      toast.success("Pruned", `${res.removed.length} containers · ${formatBytes(res.spaceReclaimed)} reclaimed`);
+      queryClient.invalidateQueries({ queryKey: ["workloads", hostId] });
+    } catch (err) {
+      toastError("Prune failed", err);
+      throw err;
+    }
+  };
+
+  // On-demand registry sweep: the POST blocks until the server has re-checked
+  // every image, so fresh statuses are ready as soon as it resolves.
+  const runCheckUpdates = async () => {
+    setCheckingUpdates(true);
+    toast.success("Update check started", "Comparing image digests against registries…");
+    try {
+      await api.updatesCheck(hostId);
+      queryClient.invalidateQueries({ queryKey: qk.updates(hostId) });
+    } catch (err) {
+      toastError("Update check failed", err);
+    } finally {
+      setCheckingUpdates(false);
+    }
+  };
+
+  const confirmUpdate = async () => {
+    if (!updateTarget) return;
+    try {
+      await api.workloadUpdate(hostId, updateTarget.id);
+      toast.success("Updated", `${cleanName(updateTarget.name)} recreated on the newest image`);
+      queryClient.invalidateQueries({ queryKey: ["workloads", hostId] });
+      queryClient.invalidateQueries({ queryKey: qk.updates(hostId) });
+    } catch (err) {
+      toastError("Update failed", err);
+      throw err;
+    }
+  };
 
   const groups = useMemo(() => {
     const set = new Set<string>();
@@ -85,17 +144,29 @@ export function Workloads() {
       key: "name",
       header: "Name",
       sortValue: (w) => cleanName(w.name),
-      cell: (w) => (
-        <div className="col" style={{ gap: 2 }}>
-          <div className="row" style={{ gap: "var(--sp-2)" }}>
-            <span style={{ fontWeight: 600 }} className="truncate">
-              {cleanName(w.name)}
-            </span>
-            {w.protected ? <ProtectedTag /> : null}
+      cell: (w) => {
+        const upd = updatesById.get(w.id);
+        return (
+          <div className="col" style={{ gap: 2 }}>
+            <div className="row" style={{ gap: "var(--sp-2)" }}>
+              <span style={{ fontWeight: 600 }} className="truncate">
+                {cleanName(w.name)}
+              </span>
+              {w.protected ? <ProtectedTag /> : null}
+              {upd?.updateAvailable ? (
+                <span
+                  className="pill"
+                  style={{ background: "var(--info-bg)", color: "var(--accent)" }}
+                  title={`New image digest available: ${upd.image}`}
+                >
+                  update
+                </span>
+              ) : null}
+            </div>
+            <span className="text-xs muted mono">{shortId(w.id)}</span>
           </div>
-          <span className="text-xs muted mono">{shortId(w.id)}</span>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "state",
@@ -154,18 +225,42 @@ export function Workloads() {
       header: "",
       align: "right",
       width: "150px",
-      cell: (w) => (
-        <WorkloadActionButtons
-          workload={w}
-          caps={capsForKind(w.kind)}
-          permissions={permissions}
-          busy={actions.busyId === w.id}
-          onStart={actions.runStart}
-          onStop={actions.triggerStop}
-          onRestart={actions.triggerRestart}
-          onRemove={actions.triggerRemove}
-        />
-      ),
+      cell: (w) => {
+        const upd = updatesById.get(w.id);
+        // Update action only surfaces when it can actually run: an update is
+        // known, the workload is standalone Docker, and the user holds the perm.
+        const showUpdate = w.kind === "docker" && !!upd?.updateAvailable && can("docker.container.update");
+        return (
+          <div className="dt-actions" onClick={(e) => e.stopPropagation()}>
+            {showUpdate ? (
+              <ActionButton
+                size="sm"
+                iconOnly
+                variant="ghost"
+                disabled={w.protected}
+                tooltip={w.protected ? "Protected — cannot be recreated" : "Update to the newest image"}
+                aria-label="Update"
+                onClick={() => setUpdateTarget(w)}
+                style={w.protected ? undefined : { color: "var(--accent)" }}
+              >
+                <IconDownload size={15} />
+              </ActionButton>
+            ) : null}
+            <WorkloadActionButtons
+              workload={w}
+              caps={capsForKind(w.kind)}
+              permissions={permissions}
+              busy={actions.busyId === w.id}
+              onStart={actions.runStart}
+              onPause={actions.runPause}
+              onUnpause={actions.runUnpause}
+              onStop={actions.triggerStop}
+              onRestart={actions.triggerRestart}
+              onRemove={actions.triggerRemove}
+            />
+          </div>
+        );
+      },
     },
   ];
 
@@ -176,6 +271,36 @@ export function Workloads() {
         subtitle="Every container, service-task and pod across your orchestrators."
         actions={
           <div className="row">
+            <CapabilityGate gate={gatePrune("docker", capsForKind("docker"), permissions)}>
+              {(allowed, reason) => (
+                <ActionButton
+                  variant="ghost"
+                  disabled={!allowed}
+                  tooltip={allowed ? undefined : reason}
+                  onClick={() => setPruneOpen(true)}
+                >
+                  <IconPrune size={15} />
+                  Prune stopped
+                </ActionButton>
+              )}
+            </CapabilityGate>
+            <CapabilityGate
+              allowed={can("docker.image.pull")}
+              reason="You lack the docker.image.pull permission"
+            >
+              {(allowed, reason) => (
+                <ActionButton
+                  variant="ghost"
+                  disabled={!allowed}
+                  loading={checkingUpdates}
+                  tooltip={allowed ? undefined : reason}
+                  onClick={runCheckUpdates}
+                >
+                  <IconDownload size={15} />
+                  Check updates
+                </ActionButton>
+              )}
+            </CapabilityGate>
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" onClick={() => query.refetch()} aria-label="Refresh">
               <IconRefresh size={16} />
             </ActionButton>
@@ -233,6 +358,21 @@ export function Workloads() {
 
       {query.isLoading ? (
         <LoadingFill label="Loading workloads…" />
+      ) : workloads.length === 0 && !kind && showAll ? (
+        // Nothing on the host at all (not a filter miss): springboard to the
+        // Marketplace instead of a dead-end empty table.
+        <div className="card">
+          <EmptyState
+            icon={<IconWorkloads size={40} />}
+            title="No workloads yet"
+            message="Deploy your first app from the Marketplace — a container will show up here."
+            action={
+              <ActionButton variant="primary" onClick={() => navigate("/marketplace")}>
+                Deploy your first app
+              </ActionButton>
+            }
+          />
+        </div>
       ) : (
         <DataTable
           columns={columns}
@@ -245,6 +385,37 @@ export function Workloads() {
           emptyMessage="Adjust the filters above, or start some containers."
         />
       )}
+
+      <ConfirmDestructiveDialog
+        open={pruneOpen}
+        title="Prune stopped containers"
+        variant="danger"
+        confirmLabel="Prune"
+        description={
+          <>
+            Permanently remove <strong>all stopped containers</strong> on this host. Their writable
+            layers are deleted; images and named volumes are kept. This cannot be undone.
+          </>
+        }
+        onConfirm={confirmPrune}
+        onClose={() => setPruneOpen(false)}
+      />
+
+      <ConfirmDestructiveDialog
+        open={updateTarget !== null}
+        title="Update container"
+        variant="primary"
+        confirmLabel="Update"
+        description={
+          <>
+            Pull the newest image for <strong className="mono">{updateTarget?.image}</strong> and
+            recreate <strong className="mono">{cleanName(updateTarget?.name)}</strong> with the same
+            configuration. The container restarts on the new image — expect a brief downtime.
+          </>
+        }
+        onConfirm={confirmUpdate}
+        onClose={() => setUpdateTarget(null)}
+      />
 
       {actions.dialogs}
     </div>

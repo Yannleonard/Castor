@@ -15,6 +15,7 @@ import { useStacks, useCapabilityLookup, qk } from "../lib/hooks";
 import { useSelectedHost } from "../lib/hostStore";
 import { PageHeader } from "../components/PageHeader";
 import { DataTable, type Column } from "../components/DataTable";
+import { EmptyState } from "../components/EmptyState";
 import { LoadingFill } from "../components/Spinner";
 import { ActionButton } from "../components/ActionButton";
 import { CapabilityGate } from "../components/CapabilityGate";
@@ -199,6 +200,24 @@ export function Stacks() {
 
       {query.isLoading ? (
         <LoadingFill label="Loading stacks…" />
+      ) : stacks.length === 0 ? (
+        // No stacks on the host: springboard into the compose editor (the same
+        // flow as the header "Deploy stack" button), shown only when allowed.
+        <div className="card">
+          <EmptyState
+            icon={<IconStacks size={40} />}
+            title="No stacks"
+            message="Deploy a multi-container stack from a compose file to get started."
+            action={
+              canDeploy ? (
+                <ActionButton variant="primary" onClick={() => navigate("/stacks/new")}>
+                  <IconPlus size={15} />
+                  Create your first stack
+                </ActionButton>
+              ) : undefined
+            }
+          />
+        </div>
       ) : (
         <DataTable
           columns={columns}

@@ -1,8 +1,9 @@
 // ui/src/views/useWorkloadActions.tsx
 //
-// Shared lifecycle action handling for Docker workloads: start/stop/restart/remove
-// with ConfirmDestructiveDialog and (for protected, admin-override) ReasonPromptDialog.
-// Returns trigger functions plus the dialog elements to render.
+// Shared lifecycle action handling for Docker workloads: start/pause/unpause/
+// stop/restart/remove with ConfirmDestructiveDialog and (for protected,
+// admin-override) ReasonPromptDialog. Returns trigger functions plus the dialog
+// elements to render.
 //
 // Decision matrix for remove (per REST contract):
 //   - protected + admin (rbac.* / "*") → ReasonPromptDialog (confirm:true + reason)
@@ -62,6 +63,32 @@ export function useWorkloadActions(hostId: string) {
       invalidate();
     } catch (err) {
       toastError("Start failed", err);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const runPause = async (w: Workload) => {
+    setBusyId(w.id);
+    try {
+      await api.workloadPause(hostId, w.id);
+      toast.success("Paused", cleanName(w.name));
+      invalidate();
+    } catch (err) {
+      toastError("Pause failed", err);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const runUnpause = async (w: Workload) => {
+    setBusyId(w.id);
+    try {
+      await api.workloadUnpause(hostId, w.id);
+      toast.success("Unpaused", cleanName(w.name));
+      invalidate();
+    } catch (err) {
+      toastError("Unpause failed", err);
     } finally {
       setBusyId(null);
     }
@@ -226,6 +253,8 @@ export function useWorkloadActions(hostId: string) {
 
   return {
     runStart,
+    runPause,
+    runUnpause,
     triggerStop,
     triggerRestart,
     triggerRemove,

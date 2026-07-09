@@ -15,7 +15,7 @@ body,
 
 html {
   -webkit-text-size-adjust: 100%;
-  color-scheme: light;
+  /* color-scheme comes from tokens.css (:root light, html.dark dark) */
 }
 
 body {
@@ -135,7 +135,7 @@ li { list-style: none; }
 .btn-danger {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--text-on-danger);
   font-weight: var(--fw-semibold);
 }
 .btn-danger:hover:not(:disabled) { filter: brightness(1.08); }
@@ -590,7 +590,7 @@ li { list-style: none; }
   justify-content: center;
   font-weight: var(--fw-bold);
   font-size: var(--fs-md);
-  color: #fff;
+  color: var(--text-on-accent); /* white in both themes; tiles keep fixed brand colors */
   text-transform: uppercase;
   letter-spacing: 0.02em;
   user-select: none;
@@ -780,7 +780,7 @@ li { list-style: none; }
   margin: 0;
   padding: var(--sp-3) var(--sp-4);
   background: var(--bg-inset);
-  color: #DCE6F2;
+  color: var(--help-code-text);
   border-radius: var(--radius-md);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
@@ -801,7 +801,7 @@ li { list-style: none; }
 .help-callout code {
   font-family: var(--font-mono);
   font-size: 0.86em;
-  background: rgba(0,0,0,0.05);
+  background: var(--callout-code-bg);
   border-radius: 4px;
   padding: 0.05em 0.35em;
 }
@@ -813,7 +813,7 @@ li { list-style: none; }
 .help-callout--warn {
   background: var(--warning-bg);
   border-color: var(--warning);
-  color: #7a4c00;
+  color: var(--warning-text);
 }
 
 /* inline "Need help?" text button (for empty states) */
@@ -841,6 +841,22 @@ li { list-style: none; }
   text-align: center;
 }
 .help-guide-cmd { width: 100%; max-width: 520px; text-align: left; }
+
+/* ---- onboarding "Getting started" checklist (Dashboard) ---- */
+.onboard-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.onboard-item { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-sm); }
+.onboard-check {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-on-accent);
+}
+.onboard-check.done { background: var(--success); border-color: var(--success); }
 
 /* ---- helm chart catalog grid (Charts tab) ---- */
 .helm-chart-grid {

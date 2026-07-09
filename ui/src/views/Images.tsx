@@ -12,6 +12,7 @@ import { useImages, useCapabilityLookup } from "../lib/hooks";
 import { useSelectedHost } from "../lib/hostStore";
 import { PageHeader } from "../components/PageHeader";
 import { DataTable, type Column } from "../components/DataTable";
+import { EmptyState } from "../components/EmptyState";
 import { LoadingFill } from "../components/Spinner";
 import { Modal } from "../components/Modal";
 import { ActionButton } from "../components/ActionButton";
@@ -19,7 +20,7 @@ import { HelpButton } from "../components/HelpButton";
 import { CapabilityGate } from "../components/CapabilityGate";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
 import { TextField } from "../components/Field";
-import { IconImages, IconPlus, IconTrash, IconRefresh, IconSearch } from "../components/icons";
+import { IconImages, IconPlus, IconTrash, IconRefresh, IconSearch, IconPrune, IconAlert } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { formatBytes, shortId, timeAgo } from "../lib/format";
 import type { DockerImage } from "../lib/types";
@@ -41,9 +42,13 @@ export function Images() {
   const [pullRef, setPullRef] = useState("");
   const [pulling, setPulling] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<DockerImage | null>(null);
+  const [pruneOpen, setPruneOpen] = useState(false);
+  const [removeAll, setRemoveAll] = useState(false);
+  const [pruning, setPruning] = useState(false);
 
   const canPull = caps?.includes("images") && can("docker.image.pull");
   const canDelete = caps?.includes("images") && can("docker.image.delete");
+  const canPrune = can("docker.system.prune");
 
   const images = query.data ?? EMPTY_IMAGES;
   const filtered = useMemo(() => {
@@ -67,6 +72,20 @@ export function Images() {
       toastError("Pull failed", err);
     } finally {
       setPulling(false);
+    }
+  };
+
+  const doPrune = async () => {
+    setPruning(true);
+    try {
+      const res = await api.prune(hostId, { target: "images", dangling: !removeAll });
+      toast.success("Pruned", `${res.removed.length} images · ${formatBytes(res.spaceReclaimed)} reclaimed`);
+      setPruneOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["images", hostId] });
+    } catch (err) {
+      toastError("Prune failed", err);
+    } finally {
+      setPruning(false);
     }
   };
 
@@ -156,6 +175,22 @@ export function Images() {
                 </ActionButton>
               )}
             </CapabilityGate>
+            <CapabilityGate allowed={canPrune} reason="Requires docker.system.prune">
+              {(allowed, reason) => (
+                <ActionButton
+                  variant="ghost"
+                  disabled={!allowed}
+                  tooltip={allowed ? undefined : reason}
+                  onClick={() => {
+                    setRemoveAll(false);
+                    setPruneOpen(true);
+                  }}
+                >
+                  <IconPrune size={15} />
+                  Prune
+                </ActionButton>
+              )}
+            </CapabilityGate>
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
@@ -179,6 +214,24 @@ export function Images() {
 
       {query.isLoading ? (
         <LoadingFill label="Loading images…" />
+      ) : images.length === 0 ? (
+        // No images on the host: open the existing pull modal directly (only
+        // when the caller may pull).
+        <div className="card">
+          <EmptyState
+            icon={<IconImages size={40} />}
+            title="No images"
+            message="Pull an image from a registry to get started."
+            action={
+              canPull ? (
+                <ActionButton variant="primary" onClick={() => setPullOpen(true)}>
+                  <IconPlus size={15} />
+                  Pull an image
+                </ActionButton>
+              ) : undefined
+            }
+          />
+        </div>
       ) : (
         <DataTable
           columns={columns}
@@ -218,6 +271,43 @@ export function Images() {
             error={pullRef && !refRegexOk ? "Enter a valid image reference (e.g. registry/name:tag)." : undefined}
             hint="An image reference only — arbitrary URLs are rejected by the server."
           />
+        </div>
+      </Modal>
+
+      {/* Custom prune dialog: ConfirmDestructiveDialog only offers fixed force/volumes
+          toggles, so the remove-all checkbox needs its own modal (same destructive style). */}
+      <Modal
+        open={pruneOpen}
+        title={
+          <span className="row">
+            <span style={{ color: "var(--danger)" }}>
+              <IconAlert size={18} />
+            </span>
+            Prune images
+          </span>
+        }
+        busy={pruning}
+        onClose={() => setPruneOpen(false)}
+        footer={
+          <>
+            <button className="btn" onClick={() => setPruneOpen(false)} disabled={pruning}>
+              Cancel
+            </button>
+            <ActionButton variant="danger" loading={pruning} onClick={doPrune}>
+              Prune
+            </ActionButton>
+          </>
+        }
+      >
+        <div className="col" style={{ gap: "var(--sp-4)" }}>
+          <div className="text-sm secondary">
+            By default only dangling images (untagged layers not referenced by any tag) are removed. This frees disk
+            space without touching images you may still run.
+          </div>
+          <label className="checkbox-row">
+            <input type="checkbox" checked={removeAll} onChange={(e) => setRemoveAll(e.target.checked)} />
+            <span>Also remove all unused images (not just dangling)</span>
+          </label>
         </div>
       </Modal>
 

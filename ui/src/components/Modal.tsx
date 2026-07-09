@@ -13,14 +13,20 @@ interface Props {
   wide?: boolean;
   /** prevent backdrop/Escape close while a mutation is in flight */
   busy?: boolean;
+  /**
+   * When false, Escape, scrim clicks and the header X cannot close the modal —
+   * only an explicit footer action can. Content shown exactly once (API
+   * tokens, recovery codes) is unrecoverable after an accidental dismiss.
+   */
+  dismissable?: boolean;
 }
 
 /** Accessible modal dialog using the --overlay scrim and brand surfaces. */
-export function Modal({ open, title, onClose, children, footer, wide, busy }: Props) {
+export function Modal({ open, title, onClose, children, footer, wide, busy, dismissable = true }: Props) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) onClose();
+      if (e.key === "Escape" && !busy && dismissable) onClose();
     };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -29,7 +35,7 @@ export function Modal({ open, title, onClose, children, footer, wide, busy }: Pr
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose, busy]);
+  }, [open, onClose, busy, dismissable]);
 
   if (!open) return null;
 
@@ -37,7 +43,7 @@ export function Modal({ open, title, onClose, children, footer, wide, busy }: Pr
     <div
       className="modal-scrim"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
+        if (e.target === e.currentTarget && !busy && dismissable) onClose();
       }}
     >
       <div
@@ -48,9 +54,11 @@ export function Modal({ open, title, onClose, children, footer, wide, busy }: Pr
       >
         <div className="modal-header">
           <h2 className="modal-title">{title}</h2>
-          <button className="btn btn-ghost btn-icon btn-sm" onClick={onClose} disabled={busy} aria-label="Close">
-            <IconClose size={16} />
-          </button>
+          {dismissable ? (
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={onClose} disabled={busy} aria-label="Close">
+              <IconClose size={16} />
+            </button>
+          ) : null}
         </div>
         <div className="modal-body">{children}</div>
         {footer ? <div className="modal-footer">{footer}</div> : null}

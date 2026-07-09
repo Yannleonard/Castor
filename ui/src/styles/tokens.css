@@ -46,6 +46,12 @@
   --info-bg:            rgba(36,150,237,0.10);
   --warm:               var(--castor-beaver);
 
+  /* --- semantic text-on-color tokens (themed) --- */
+  --text-on-danger:     #FFFFFF;   /* text on solid danger buttons */
+  --help-code-text:     #DCE6F2;   /* code text on --bg-inset blocks */
+  --warning-text:       #7A4C00;   /* readable copy on --warning-bg */
+  --callout-code-bg:    rgba(0,0,0,0.05); /* inline code inside callouts */
+
   /* --- trend indicators (BI deltas) --- */
   --trend-up:           var(--castor-teal);   /* positive delta ▲ */
   --trend-down:         #E5484D;              /* negative delta ▼ */
@@ -97,4 +103,86 @@
   --sidebar-w: 300px; --topbar-h: 56px; --content-max: 1440px; --z-modal: 1000; --z-toast: 1100;
 
   color-scheme: light;
+}
+
+/* =====================================================================
+   DARK theme — deep navy night mode, same brand identity (Castor navy /
+   Docker blue), never neutral grey. Only color / surface / shadow tokens
+   are overridden; typography, spacing, radii and motion are invariant.
+   Activated by the `dark` class on <html> (see ui/src/lib/themeStore.ts).
+   ===================================================================== */
+html.dark {
+  /* --- dark surfaces (blue-night ladder, perceptible elevation steps) --- */
+  --bg-app:             #0F1720;   /* app background — near-black navy */
+  --bg-surface:         #16202B;   /* cards / panels */
+  --bg-surface-2:       #1C2836;   /* raised / table header / subtle fill */
+  --bg-surface-3:       #223142;   /* hover / active row */
+  --bg-inset:           #0B111A;   /* code / log blocks sink below the app bg */
+  --border:             #1E2A38;   /* hairline borders (subtle) */
+  --border-strong:      #2C3E52;   /* stronger separators / inputs */
+  --overlay:            rgba(3, 10, 18, 0.62); /* modal scrim */
+
+  /* --- text (cool white ladder on navy) --- */
+  --text-primary:       #E8EFF7;
+  --text-secondary:     #A7B7C7;
+  --text-muted:         #6E8093;
+  --text-on-accent:     #FFFFFF;
+  --text-link:          #5FB2F2;   /* lightened Docker blue, AA on dark */
+
+  /* --- accents / states (same hues, lightened for contrast on dark) --- */
+  --accent:             var(--castor-blue);   /* #2496ED holds up on navy */
+  --accent-hover:       #3FA6F1;              /* hover lightens (not darkens) */
+  --accent-press:       #1B82D6;
+  --accent-soft:        rgba(36,150,237,0.16);
+  --success:            #1EC498;              /* teal +lightness */
+  --success-bg:         rgba(30,196,152,0.14);
+  --warning:            #F2A33C;              /* amber +lightness */
+  --warning-bg:         rgba(242,163,60,0.14);
+  --danger:             #F0666B;              /* red +lightness */
+  --danger-bg:          rgba(240,102,107,0.14);
+  --info:               #4FA9F0;
+  --info-bg:            rgba(79,169,240,0.14);
+  --warm:               #C08A5E;              /* beaver +lightness */
+
+  /* --- semantic text-on-color tokens --- */
+  --text-on-danger:     #FFFFFF;
+  --help-code-text:     #DCE6F2;
+  --warning-text:       #F5C583;   /* readable on the dark warning-bg */
+  --callout-code-bg:    rgba(255,255,255,0.08);
+
+  /* --- trend indicators --- */
+  --trend-up:           #1EC498;
+  --trend-down:         #F0666B;
+  --trend-flat:         #6E8093;
+
+  /* --- workload state colors (lightened for dark surfaces) --- */
+  --state-running:      #1EC498;
+  --state-stopped:      #7E93AB;
+  --state-paused:       var(--warning);
+  --state-restarting:   #4FA9F0;
+  --state-pending:      #9E8FE8;
+  --state-unknown:      #7E93AB;
+  --state-protected:    #C08A5E;
+
+  /* --- chart palette (brightened ~10-15% for dark backgrounds) --- */
+  --chart-1:            #4FA9F0;  /* Docker blue, lightened */
+  --chart-2:            #1EC498;  /* teal, lightened */
+  --chart-3:            #6C8FF0;  /* kubernetes blue, lightened */
+  --chart-4:            #C08A5E;  /* beaver, lightened */
+  --chart-5:            #9E8FE8;  /* violet, lightened */
+  --chart-6:            #F2A33C;  /* amber, lightened */
+  --chart-grid:         #223142;  /* gridlines on dark */
+  --chart-axis:         #8DA0B5;  /* axis text */
+
+  /* --- orchestrator badges --- */
+  --orch-docker:        #4FA9F0;
+  --orch-swarm:         #9E8FE8;
+  --orch-kubernetes:    #6C8FF0;
+
+  /* --- shadows: more opaque, tighter (light halos don't exist at night) --- */
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.45), 0 1px 3px rgba(0,0,0,0.35);
+  --shadow-2: 0 4px 16px rgba(0,0,0,0.45);
+  --shadow-pop: 0 12px 32px rgba(0,0,0,0.60);
+
+  color-scheme: dark;
 }

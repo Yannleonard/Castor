@@ -40,12 +40,16 @@ export function isReadOnly(caps: Capability[] | undefined): boolean {
 
 /* ---- Map a workload lifecycle action to its (capability, permission) pair. ---- */
 
-export type WorkloadAction = "start" | "stop" | "restart" | "remove";
+export type WorkloadAction = "start" | "stop" | "restart" | "pause" | "unpause" | "remove";
 
+// pause and unpause share the single "pause" capability bit (a provider that can
+// pause can always unpause); they carry distinct permissions.
 const ACTION_CAP: Record<WorkloadAction, Capability> = {
   start: "start",
   stop: "stop",
   restart: "restart",
+  pause: "pause",
+  unpause: "pause",
   remove: "remove",
 };
 
@@ -53,6 +57,8 @@ const ACTION_PERM: Record<WorkloadAction, string> = {
   start: "docker.container.start",
   stop: "docker.container.stop",
   restart: "docker.container.restart",
+  pause: "docker.container.pause",
+  unpause: "docker.container.unpause",
   remove: "docker.container.remove",
 };
 
@@ -105,6 +111,25 @@ export function gateExec(caps: Capability[] | undefined, permissions: string[] |
   if (!hasCap(caps, "exec")) return { allowed: false, reason: "Exec not supported by this orchestrator" };
   if (!can(permissions, "docker.container.exec"))
     return { allowed: false, reason: "You lack the docker.container.exec permission" };
+  return { allowed: true, reason: "" };
+}
+
+/**
+ * Prune gate (docker.system.prune). Docker-only, like the workload lifecycle
+ * gate; no capability bit is checked because the docker provider always
+ * supports prune.
+ */
+export function gatePrune(
+  kind: OrchestratorKind,
+  caps: Capability[] | undefined,
+  permissions: string[] | undefined,
+): GateResult {
+  if (kind !== "docker" || isReadOnly(caps)) {
+    return { allowed: false, reason: `${labelKind(kind)} is read-only in this version` };
+  }
+  if (!can(permissions, "docker.system.prune")) {
+    return { allowed: false, reason: "You lack the docker.system.prune permission" };
+  }
   return { allowed: true, reason: "" };
 }
 
@@ -197,6 +222,35 @@ export function gateK8s(
 ): GateResult {
   if (isReadOnly(caps)) return { allowed: false, reason: "Kubernetes is read-only on this host" };
   const perm = K8S_PERM[action];
+  if (!can(permissions, perm)) return { allowed: false, reason: `You lack the ${perm} permission` };
+  return { allowed: true, reason: "" };
+}
+
+/* ----- Kubernetes workload controllers (StatefulSet / DaemonSet / CronJob) ----- */
+//
+// Day-to-day controller operations carry per-kind, per-verb permissions
+// mirroring the backend router; deletes are NOT listed here — every controller
+// delete shares the admin-grade k8s.workload.delete via gateK8s("delete").
+
+/** Kubernetes controller-kind write permissions, keyed by action. */
+export const K8S_CONTROLLER_PERM = {
+  stsScale: "k8s.statefulset.scale",
+  stsRestart: "k8s.statefulset.restart",
+  dsRestart: "k8s.daemonset.restart",
+  cronTrigger: "k8s.cronjob.trigger",
+  cronSuspend: "k8s.cronjob.suspend",
+} as const;
+
+export type K8sControllerAction = keyof typeof K8S_CONTROLLER_PERM;
+
+/** Gate a controller-kind write (STS scale/restart, DS restart, CronJob trigger/suspend). */
+export function gateK8sController(
+  action: K8sControllerAction,
+  caps: Capability[] | undefined,
+  permissions: string[] | undefined,
+): GateResult {
+  if (isReadOnly(caps)) return { allowed: false, reason: "Kubernetes is read-only on this host" };
+  const perm = K8S_CONTROLLER_PERM[action];
   if (!can(permissions, perm)) return { allowed: false, reason: `You lack the ${perm} permission` };
   return { allowed: true, reason: "" };
 }
