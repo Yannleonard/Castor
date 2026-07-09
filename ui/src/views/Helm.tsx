@@ -56,9 +56,63 @@ import type {
   HelmRelease,
   HelmReleaseRevision,
   HelmReleaseStatus,
+  HelmUpgradePreview,
 } from "../lib/types";
 
 type Tab = "repos" | "charts" | "releases";
+
+/* ============================ Unified diff helper ============================ */
+//
+// The upgrade preview returns two rendered manifests (current + pending). We
+// compute a classic line-oriented unified diff between them with an LCS so the
+// UpgradeReleaseModal can render added / removed / context lines. An install
+// preview arrives with current === "" and every pending line shows as added.
+
+type DiffLine = { kind: "add" | "del" | "ctx"; text: string };
+
+function diffLines(current: string, pending: string): DiffLine[] {
+  // Split, dropping a single trailing newline's empty tail so a manifest that
+  // ends in "\n" does not contribute a phantom blank line.
+  const split = (s: string): string[] => {
+    if (s === "") return [];
+    const parts = s.split("\n");
+    if (parts.length > 0 && parts[parts.length - 1] === "") parts.pop();
+    return parts;
+  };
+  const a = split(current);
+  const b = split(pending);
+
+  // LCS length table (rows = a, cols = b). Kept simple/O(n*m); manifests are
+  // small enough that this is fine.
+  const n = a.length;
+  const m = b.length;
+  const lcs: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      lcs[i]![j] = a[i] === b[j] ? lcs[i + 1]![j + 1]! + 1 : Math.max(lcs[i + 1]![j]!, lcs[i]![j + 1]!);
+    }
+  }
+
+  const out: DiffLine[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) {
+      out.push({ kind: "ctx", text: a[i]! });
+      i++;
+      j++;
+    } else if (lcs[i + 1]![j]! >= lcs[i]![j + 1]!) {
+      out.push({ kind: "del", text: a[i]! });
+      i++;
+    } else {
+      out.push({ kind: "add", text: b[j]! });
+      j++;
+    }
+  }
+  while (i < n) out.push({ kind: "del", text: a[i++]! });
+  while (j < m) out.push({ kind: "add", text: b[j++]! });
+  return out;
+}
 
 /* ============================ YAML values helper ============================ */
 //
@@ -912,6 +966,8 @@ function UpgradeReleaseModal({
   const [version, setVersion] = useState("");
   const [valuesText, setValuesText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [preview, setPreview] = useState<HelmUpgradePreview | null>(null);
 
   // Derive a "repo/chart" guess from the release's chart ("name-version").
   useEffect(() => {
@@ -920,8 +976,15 @@ function UpgradeReleaseModal({
       setVersion("");
       setValuesText("");
       setBusy(false);
+      setPreviewBusy(false);
+      setPreview(null);
     }
   }, [target]);
+
+  // Editing any input invalidates a stale preview so the diff never lags the form.
+  useEffect(() => {
+    setPreview(null);
+  }, [chart, version, valuesText]);
 
   const valuesError = useMemo(() => {
     if (!valuesText.trim()) return null;
@@ -934,6 +997,27 @@ function UpgradeReleaseModal({
   }, [valuesText]);
 
   const valid = chart.trim() !== "" && !valuesError && !busy;
+
+  // Same body as the upgrade — chart/version/parsed values — sent to the
+  // dry-run preview endpoint. Nothing is applied; we diff current vs pending.
+  const runPreview = async () => {
+    if (!target || !valid || previewBusy) return;
+    setPreviewBusy(true);
+    try {
+      const values = valuesText.trim() ? parseYamlValues(valuesText) : undefined;
+      const result = await api.helmPreviewUpgrade(hostId, target.namespace, target.name, {
+        chart: chart.trim(),
+        version: version.trim() || undefined,
+        values,
+      });
+      setPreview(result);
+    } catch (err) {
+      setPreview(null);
+      toastError("Preview failed", err);
+    } finally {
+      setPreviewBusy(false);
+    }
+  };
 
   const submit = async () => {
     if (!target || !valid) return;
@@ -966,6 +1050,16 @@ function UpgradeReleaseModal({
           <button className="btn" onClick={onClose} disabled={busy}>
             Cancel
           </button>
+          <ActionButton
+            variant="default"
+            loading={previewBusy}
+            disabled={!valid || previewBusy}
+            tooltip="Dry-run: render the change and diff it against the current release"
+            onClick={runPreview}
+          >
+            <IconInspect size={15} />
+            Preview
+          </ActionButton>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
             Upgrade
           </ActionButton>
@@ -1018,8 +1112,72 @@ function UpgradeReleaseModal({
           />
           {valuesError ? <span className="field-error">{valuesError}</span> : <span className="field-hint">Merged over the release's existing values.</span>}
         </div>
+
+        {preview ? <UpgradeDiff preview={preview} /> : null}
       </div>
     </Modal>
+  );
+}
+
+/* ============================ Upgrade diff view ============================ */
+//
+// Renders the current→pending manifest diff produced by the preview endpoint as
+// a scrollable unified diff, reusing the InspectReleaseModal values <pre> style.
+// Added lines are var(--success), removed var(--danger), context muted gray.
+// An install preview (current === "") shows as a pure-addition diff.
+
+function UpgradeDiff({ preview }: { preview: HelmUpgradePreview }) {
+  const lines = useMemo(() => diffLines(preview.current, preview.pending), [preview]);
+  const added = lines.filter((l) => l.kind === "add").length;
+  const removed = lines.filter((l) => l.kind === "del").length;
+  const noChange = added === 0 && removed === 0;
+  const isInstall = preview.current.trim() === "";
+
+  return (
+    <div className="col" style={{ gap: 6 }}>
+      <div className="row" style={{ gap: "var(--sp-2)", alignItems: "baseline" }}>
+        <span className="field-label" style={{ margin: 0 }}>
+          Preview diff
+        </span>
+        <span className="text-xs" style={{ color: "var(--success)" }}>
+          +{added}
+        </span>
+        <span className="text-xs" style={{ color: "var(--danger)" }}>
+          −{removed}
+        </span>
+        {isInstall ? <span className="text-xs muted">(first install — everything is new)</span> : null}
+      </div>
+      {noChange ? (
+        <div className="text-sm muted">No manifest changes — the rendered output is identical.</div>
+      ) : (
+        <pre
+          className="input-mono"
+          style={{
+            margin: 0,
+            padding: "var(--sp-3)",
+            background: "var(--bg-surface-2)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+            fontSize: 12.5,
+            lineHeight: 1.5,
+            maxHeight: 420,
+            overflow: "auto",
+            whiteSpace: "pre",
+          }}
+        >
+          {lines.map((l, idx) => {
+            const color =
+              l.kind === "add" ? "var(--success)" : l.kind === "del" ? "var(--danger)" : "var(--text-secondary)";
+            const sign = l.kind === "add" ? "+" : l.kind === "del" ? "-" : " ";
+            return (
+              <div key={idx} style={{ color }}>
+                {sign} {l.text}
+              </div>
+            );
+          })}
+        </pre>
+      )}
+    </div>
   );
 }
 

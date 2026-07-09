@@ -22,7 +22,7 @@ import { CapabilityGate } from "../components/CapabilityGate";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
 import { HelpButton } from "../components/HelpButton";
 import { StatusDot } from "../components/StatusDot";
-import { IconStacks, IconPlus, IconTrash, IconRefresh, IconSearch } from "../components/icons";
+import { IconStacks, IconPlus, IconTrash, IconRefresh, IconSearch, IconExternal } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { timeAgo } from "../lib/format";
 import type { Stack, StackStatus, WorkloadState } from "../lib/types";
@@ -92,7 +92,18 @@ export function Stacks() {
       sortValue: (st) => st.name,
       cell: (st) => (
         <div className="col" style={{ gap: 2 }}>
-          <span style={{ fontWeight: 600 }}>{st.name}</span>
+          <span className="row" style={{ gap: "var(--sp-2)", alignItems: "center" }}>
+            <span style={{ fontWeight: 600 }}>{st.name}</span>
+            {st.gitRepoUrl ? (
+              <span
+                className="pill"
+                title={`Tracked from ${st.gitRepoUrl}${st.gitRef ? ` (${st.gitRef})` : ""}`}
+                style={{ color: "var(--accent)", borderColor: "var(--accent)", background: "transparent" }}
+              >
+                <IconExternal size={11} /> Git
+              </span>
+            ) : null}
+          </span>
           <span className="mono text-xs muted">{st.projectName}</span>
         </div>
       ),

@@ -68,6 +68,7 @@ import type {
   HelmRepoRequest,
   HelmInstallRequest,
   HelmUpgradeRequest,
+  HelmUpgradePreview,
   HelmRollbackRequest,
   LoginResponse,
   MeResponse,
@@ -88,7 +89,9 @@ import type {
   SettingsPatch,
   SettingsResponse,
   Stack,
+  StackCreateResponse,
   StackDetail,
+  StackDiff,
   StackValidateResponse,
   StatSample,
   SwarmNode,
@@ -671,6 +674,10 @@ export const api = {
   // {ns}/{name} are distinct path segments (a release name + namespace are DNS labels).
   helmUpgrade: (hostId: string, ns: string, name: string, body: HelmUpgradeRequest) =>
     post<HelmRelease>(`/hosts/${encId(hostId)}/helm/releases/${encId(ns)}/${encId(name)}/upgrade`, body),
+  // Dry-run preview of an upgrade: renders current + pending manifests without
+  // applying (read; reuses the upgrade body). The UI diffs the two.
+  helmPreviewUpgrade: (hostId: string, ns: string, name: string, body: HelmUpgradeRequest) =>
+    post<HelmUpgradePreview>(`/hosts/${encId(hostId)}/helm/releases/${encId(ns)}/${encId(name)}/preview`, body),
   helmRollback: (hostId: string, ns: string, name: string, body: HelmRollbackRequest) =>
     post<ActionResult | void>(`/hosts/${encId(hostId)}/helm/releases/${encId(ns)}/${encId(name)}/rollback`, body),
   helmUninstall: (hostId: string, ns: string, name: string) =>
@@ -711,10 +718,21 @@ export const api = {
     get<StackDetail>(`/hosts/${encId(hostId)}/stacks/${encId(id)}`),
   stackValidate: (hostId: string, body: ValidateStackRequest) =>
     post<StackValidateResponse>(`/hosts/${encId(hostId)}/stacks/validate`, body),
+  // Create returns the stack plus, exactly once, the redeploy webhookSecret when
+  // created git-backed with autoDeploy (StackCreateResponse.webhookSecret).
   stackCreate: (hostId: string, body: CreateStackRequest) =>
-    post<Stack>(`/hosts/${encId(hostId)}/stacks`, body),
+    post<StackCreateResponse>(`/hosts/${encId(hostId)}/stacks`, body),
   stackDelete: (hostId: string, id: string) =>
     del<void>(`/hosts/${encId(hostId)}/stacks/${encId(id)}`),
+  // GitOps (git-backed stacks only). sync pulls the compose from the repo's
+  // pinned ref, validates+deploys it, and returns the updated stack. diff fetches
+  // the incoming compose at HEAD and returns it alongside the stored one (no
+  // deploy) so the UI can render a diff. The redeploy webhook is public and not
+  // called from the UI.
+  stackSync: (hostId: string, id: string) =>
+    post<Stack>(`/hosts/${encId(hostId)}/stacks/${encId(id)}/sync`),
+  stackDiff: (hostId: string, id: string) =>
+    get<StackDiff>(`/hosts/${encId(hostId)}/stacks/${encId(id)}/diff`),
   stackBuilderGenerate: (body: BuilderRequest) =>
     post<BuilderResponse>("/stacks/builder/generate", body),
   /* ---- notifications: channels (notifications.manage) ---- */

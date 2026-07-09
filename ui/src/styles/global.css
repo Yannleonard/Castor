@@ -597,6 +597,17 @@ li { list-style: none; }
 }
 
 .mkt-card-title { font-size: var(--fs-md); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
+
+/* "N deployed" badge on a template card — a clickable pill opening the
+   deployed-instances modal. Inline styles set the tint; this rule adds the
+   click affordance (gap for its icon + a subtle hover lift). */
+.mkt-deployed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: filter var(--dur-fast, 120ms) ease;
+}
+.mkt-deployed-badge:hover { filter: brightness(1.08); }
 .mkt-card-desc {
   font-size: var(--fs-sm);
   color: var(--text-secondary);

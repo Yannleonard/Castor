@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useTemplates, useCapabilityLookup } from "../lib/hooks";
+import { useTemplates, useCapabilityLookup, useWorkloads } from "../lib/hooks";
 import { useSelectedHost } from "../lib/hostStore";
 import { PageHeader } from "../components/PageHeader";
 import { LoadingFill } from "../components/Spinner";
@@ -36,8 +36,16 @@ import type { Template } from "../lib/types";
 import { DeployTemplateModal } from "./marketplace/DeployTemplateModal";
 import { CustomTemplateModal } from "./marketplace/CustomTemplateModal";
 import { TemplateLogo } from "./marketplace/TemplateLogo";
+import {
+  DeployedBadge,
+  DeployedInstancesModal,
+  groupBySlug,
+  LABEL_SELECTOR_ANY,
+} from "./marketplace/DeployedInstances";
+import type { Workload } from "../lib/types";
 
 const EMPTY: Template[] = [];
+const EMPTY_WORKLOADS: Workload[] = [];
 const ALL = "__all__";
 
 export function Marketplace() {
@@ -56,6 +64,18 @@ export function Marketplace() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Template | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Template | null>(null);
+  const [deployedTarget, setDeployedTarget] = useState<Template | null>(null);
+
+  // ONE query for the whole page: every container deployed from any template
+  // carries io.castor.template=<slug>, so a single bare-key labelSelector fetch
+  // yields all deployed instances. Counts + the per-slug instance lists are then
+  // derived client-side — adding the "N deployed" badge to every card costs zero
+  // extra requests (as opposed to one useWorkloads per card).
+  const deployedQuery = useWorkloads(hostId, { labelSelector: LABEL_SELECTOR_ANY });
+  const bySlug = useMemo(
+    () => groupBySlug(deployedQuery.data ?? EMPTY_WORKLOADS),
+    [deployedQuery.data],
+  );
 
   // Deploy needs the provider's create capability AND the permission. The docker
   // provider exposes lifecycle caps; "start" is the closest proxy for "can run
@@ -182,9 +202,11 @@ export function Marketplace() {
               deployReason={deployReason}
               canEdit={t.source === "custom" && canUpdate}
               canRemove={t.source === "custom" && canDelete}
+              deployedCount={(bySlug.get(t.slug) ?? EMPTY_WORKLOADS).length}
               onDeploy={() => setDeployTarget(t)}
               onEdit={() => setEditTarget(t)}
               onDelete={() => setDeleteTarget(t)}
+              onShowDeployed={() => setDeployedTarget(t)}
             />
           ))}
         </div>
@@ -197,10 +219,19 @@ export function Marketplace() {
           onClose={() => setDeployTarget(null)}
           onDeployed={() => {
             setDeployTarget(null);
+            // Refresh the deployed-instance counts before leaving so the badges
+            // are correct if the user comes back.
+            queryClient.invalidateQueries({ queryKey: ["workloads", hostId] });
             navigate("/workloads");
           }}
         />
       ) : null}
+
+      <DeployedInstancesModal
+        template={deployedTarget}
+        instances={deployedTarget ? (bySlug.get(deployedTarget.slug) ?? EMPTY_WORKLOADS) : EMPTY_WORKLOADS}
+        onClose={() => setDeployedTarget(null)}
+      />
 
       {createOpen ? (
         <CustomTemplateModal mode="create" onClose={() => setCreateOpen(false)} onDone={invalidate} />
@@ -249,12 +280,25 @@ interface CardProps {
   deployReason: string;
   canEdit: boolean;
   canRemove: boolean;
+  deployedCount: number;
   onDeploy: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onShowDeployed: () => void;
 }
 
-function TemplateCard({ t, canDeploy, deployReason, canEdit, canRemove, onDeploy, onEdit, onDelete }: CardProps) {
+function TemplateCard({
+  t,
+  canDeploy,
+  deployReason,
+  canEdit,
+  canRemove,
+  deployedCount,
+  onDeploy,
+  onEdit,
+  onDelete,
+  onShowDeployed,
+}: CardProps) {
   return (
     <div className="mkt-card">
       <div className="mkt-card-head">
@@ -270,9 +314,12 @@ function TemplateCard({ t, canDeploy, deployReason, canEdit, canRemove, onDeploy
               </span>
             ) : null}
           </div>
-          <span className="chip text-xs" style={{ textTransform: "capitalize", alignSelf: "flex-start" }}>
-            {t.category || "other"}
-          </span>
+          <div className="row" style={{ gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <span className="chip text-xs" style={{ textTransform: "capitalize", alignSelf: "flex-start" }}>
+              {t.category || "other"}
+            </span>
+            <DeployedBadge count={deployedCount} onOpen={onShowDeployed} />
+          </div>
         </div>
       </div>
 
