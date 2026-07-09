@@ -88,7 +88,21 @@ irm https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.ps
 
 ### Manuel — clone & compose
 
-Vous préférez le faire à la main ? Il vous faut **Docker** (avec le plugin Compose) et `openssl`.
+Vous préférez le faire à la main ? Il vous faut **Docker Engine** avec **Docker Compose v2**
+(le plugin `docker compose` — en deux mots) et `openssl`.
+
+> [!IMPORTANT]
+> Castor requiert **Compose v2**. L'ancien binaire autonome **`docker-compose` (v1, avec un tiret)
+> n'est pas pris en charge** et échouera sur les fichiers compose de ce projet. Vérifiez votre
+> version :
+> ```bash
+> docker compose version   # doit afficher v2.x  (PAS « docker-compose version 1.x »)
+> ```
+> Si vous n'avez que la v1, installez le plugin Compose v2 — sur Debian/Ubuntu :
+> `sudo apt-get install docker-compose-plugin` (ou suivez le
+> [guide d'installation officiel](https://docs.docker.com/compose/install/)). Docker Desktop
+> embarque déjà la v2. Dans tout ce README, utilisez toujours `docker compose` (avec une espace),
+> jamais `docker-compose`.
 
 ```bash
 git clone https://github.com/Yannleonard/Castor.git
