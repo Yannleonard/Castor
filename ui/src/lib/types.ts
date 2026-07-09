@@ -922,6 +922,16 @@ export interface HelmRollbackRequest {
   revision: number;
 }
 
+// HelmUpgradePreview is the body of POST .../helm/releases/{ns}/{name}/preview:
+// the rendered-manifest pair for an upgrade (dry-run, nothing applied). current
+// is the release's live manifest ("" when the release does not yet exist — the
+// UI renders a first-install/pure-addition diff); pending is the manifest the
+// upgrade would produce. The UI diffs the two. Mirrors helm.UpgradePreview.
+export interface HelmUpgradePreview {
+  current: string;
+  pending: string;
+}
+
 /* ===================== Audit ===================== */
 
 export type AuditResult = "success" | "denied" | "error";
@@ -1041,9 +1051,15 @@ export interface RestoreBackupRequest {
 
 export type StackStatus = "pending" | "running" | "partial" | "stopped" | "error";
 
-// Stack mirrors store.Stack: a deployed multi-container compose stack.
-// composeYaml is the validated source document; projectName is the compose
-// project label (com.docker.compose.project) used to enumerate/teardown.
+// Stack mirrors store.Stack / api.stackView: a deployed multi-container compose
+// stack. composeYaml is the validated source document; projectName is the
+// compose project label (com.docker.compose.project) used to enumerate/teardown.
+//
+// GitOps fields are populated when the stack tracks a git repository. The git
+// PAT and webhook-secret hash are write-only at rest: reads expose only
+// hasGitToken (whether a PAT is stored) and lastSyncedCommit (the commit the
+// last sync deployed). webhookSecret is NOT on this read shape — it is returned
+// exactly once by stackCreate (see StackCreateResponse).
 export interface Stack {
   id: string;
   name: string;
@@ -1055,6 +1071,22 @@ export interface Stack {
   createdBy: string;
   createdAt: number; // unix epoch seconds
   updatedAt: number; // unix epoch seconds
+
+  // GitOps (mirrors api.stackView git fields).
+  gitRepoUrl: string;
+  gitRef: string;
+  gitPath: string;
+  hasGitToken: boolean;
+  autoDeploy: boolean;
+  lastSyncedCommit: string;
+}
+
+// StackCreateResponse is the POST /hosts/{hostID}/stacks body: a Stack plus,
+// exactly once, the generated redeploy webhook secret when the stack was created
+// git-backed AND with autoDeploy. Absent on every other response (only its hash
+// is persisted). Mirrors api.stackCreateView (stackView + webhookSecret,omitempty).
+export interface StackCreateResponse extends Stack {
+  webhookSecret?: string;
 }
 
 // One live container of a stack (StackDetail.containers), enumerated by the
@@ -1068,6 +1100,17 @@ export interface StackContainer {
 
 export interface StackDetail extends Stack {
   containers: StackContainer[];
+}
+
+// StackDiff is the body of GET /hosts/{hostID}/stacks/{id}/diff (GitOps): the
+// compose document currently stored on the stack vs the one at HEAD of the
+// repo's pinned ref, and whether they differ. commit is the resolved incoming
+// commit. The textual diff is rendered by the UI. Mirrors api.stackDiffView.
+export interface StackDiff {
+  current: string;
+  incoming: string;
+  changed: boolean;
+  commit: string;
 }
 
 // One normalized service in a validate/summary response. environment is the
@@ -1099,7 +1142,16 @@ export interface ValidateStackRequest {
   composeYaml: string;
 }
 
-// Body for POST /hosts/{hostID}/stacks (create + up).
+// Body for POST /hosts/{hostID}/stacks (create + up). Mirrors
+// api.createStackRequest.
+//
+// A stack needs a source: an inline composeYaml, a gitRepoUrl, or both. When
+// gitRepoUrl is set the stack is created from that repo — composeYaml may be
+// omitted (it is pulled on the first sync) and no containers are deployed at
+// create. gitToken is a plaintext git PAT for a private repo, sent write-only
+// (never returned; requires gitRepoUrl). When gitRepoUrl AND autoDeploy are both
+// set, the create response carries the generated webhookSecret exactly once
+// (StackCreateResponse.webhookSecret).
 export interface CreateStackRequest {
   name: string;
   composeYaml: string;
@@ -1107,6 +1159,13 @@ export interface CreateStackRequest {
   // Non-admins are rejected with 403 if any service declares a host bind; the
   // always-blocked host paths stay rejected for everyone. Omit for named volumes.
   allowHostMounts?: boolean;
+
+  // GitOps configuration (all optional; require gitRepoUrl to be set).
+  gitRepoUrl?: string;
+  gitRef?: string;
+  gitPath?: string;
+  gitToken?: string; // plaintext PAT, sent once, never returned
+  autoDeploy?: boolean;
 }
 
 /* ----- compose builder (POST /stacks/builder/generate) ----- */

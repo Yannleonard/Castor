@@ -45,6 +45,7 @@ import type {
   SwarmConfigInfo,
   Stack,
   StackDetail,
+  StackDiff,
   Template,
   UpdateStatus,
   UserRecord,
@@ -103,6 +104,7 @@ export const qk = {
   templates: ["templates"] as const,
   stacks: (host: string) => ["stacks", host] as const,
   stack: (host: string, id: string) => ["stack", host, id] as const,
+  stackDiff: (host: string, id: string) => ["stack", "diff", host, id] as const,
   backups: (host: string) => ["backups", host] as const,
   registries: ["registries"] as const,
   catalogs: ["catalogs"] as const,
@@ -496,6 +498,24 @@ export function useStackDetail(hostId: string, id: string, opts?: Partial<UseQue
   return useQuery<StackDetail>({
     queryKey: qk.stack(hostId, id),
     queryFn: () => api.stackDetail(hostId, id),
+    ...opts,
+  });
+}
+
+/**
+ * GitOps diff for a git-backed stack: the stored compose vs the incoming compose
+ * at the repo's pinned ref (no deploy). Off by default (enabled:false) since it
+ * hits the remote — flip `enabled` when the operator opens the diff view.
+ */
+export function useStackDiff(
+  hostId: string,
+  id: string,
+  opts?: Partial<UseQueryOptions<StackDiff>>,
+) {
+  return useQuery<StackDiff>({
+    queryKey: qk.stackDiff(hostId, id),
+    queryFn: () => api.stackDiff(hostId, id),
+    enabled: false,
     ...opts,
   });
 }
