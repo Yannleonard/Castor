@@ -213,7 +213,10 @@ export function Workloads() {
     const eligible = bulkTargets.filter(
       (w) => gateWorkloadAction(action, w.kind, capsForKind(w.kind), permissions).allowed,
     );
-    actions.runBulk(action, eligible);
+    // Clear the selection once the bulk run settles: remove drops the rows (so
+    // the reconciliation effect prunes them), but start/stop keep them in view
+    // and would otherwise leave stale ids selected.
+    actions.runBulk(action, eligible, clearSelection);
   };
 
   const columns: Column<Workload>[] = [

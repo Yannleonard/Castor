@@ -25,11 +25,18 @@ import type { AuditEntry, AuditResult } from "../lib/types";
 // CSV columns exported for each audit row, in output order.
 const CSV_COLUMNS = ["ts", "actor", "action", "target", "scope", "result", "status", "requestId"] as const;
 
-// escapeCsv quotes a field per RFC 4180: a field containing a quote, comma, CR
-// or LF is wrapped in double quotes with embedded quotes doubled. Everything is
-// stringified first so null/number values are handled uniformly.
+// escapeCsv renders a field safe for CSV. Two concerns, in order:
+//   1. Formula injection: a cell whose first character is =, +, -, @, or a
+//      leading tab/CR is interpreted as a formula by Excel/Sheets and executed
+//      on open. Prefix such a value with a single quote to neutralize it, so it
+//      is shown as literal text instead of evaluated.
+//   2. RFC 4180 quoting: a field containing a quote, comma, CR or LF is wrapped
+//      in double quotes with embedded quotes doubled.
+// Everything is stringified first so null/number values are handled uniformly.
 function escapeCsv(value: string | number | null | undefined): string {
-  const s = value == null ? "" : String(value);
+  let s = value == null ? "" : String(value);
+  // Defuse formula injection before RFC 4180 quoting.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
