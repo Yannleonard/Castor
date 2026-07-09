@@ -81,6 +81,17 @@ export const dashboardCard: HelpCard = {
         ],
       },
       {
+        title: "Search & keyboard",
+        blocks: [
+          { kind: "p", text: "Press **Cmd/Ctrl-K** anywhere (or click the **Search** button in the top bar) to open the **command palette**. Type to fuzzy-search, use **↑ / ↓** to move, **Enter** to run, **Esc** to close." },
+          { kind: "list", items: [
+            "**Navigate** — jump straight to any view you have permission to see (Containers, Images, Swarm, Users…). The list is filtered by your role, so you only see what you can open.",
+            "**Actions** — quick actions without leaving the keyboard: **Toggle theme** (light → dark → system), **Go to Profile**, **Open help**, and **Sign out**.",
+          ] },
+          { kind: "p", text: "For appearance and language, the **user menu** (your avatar, top-right) holds the same **theme** toggle (**light / dark / system**) and a **language** selector (**English / Français**). Both choices are remembered for next time — the whole interface, including these help cards, follows the language you pick." },
+        ],
+      },
+      {
         title: "Documentation",
         blocks: [
           { kind: "doc", href: "https://docs.docker.com/reference/cli/docker/system/df/", label: "docker system df — disk usage (images, volumes, containers)" },
@@ -162,6 +173,17 @@ export const dashboardCard: HelpCard = {
             "**Un bandeau degraded** — traitez-le comme une alerte à part entière : les métriques ne sont pas fiables tant qu'il est présent.",
             "**Un donut d'états déséquilibré** — une part « arrêtés » qui grossit trahit souvent des boucles de redémarrage à investiguer.",
           ] },
+        ],
+      },
+      {
+        title: "Recherche & clavier",
+        blocks: [
+          { kind: "p", text: "Appuyez sur **Cmd/Ctrl-K** n'importe où (ou cliquez sur le bouton **Rechercher** de la barre du haut) pour ouvrir la **palette de commandes**. Tapez pour une recherche approximative, **↑ / ↓** pour naviguer, **Entrée** pour lancer, **Échap** pour fermer." },
+          { kind: "list", items: [
+            "**Naviguer** — sautez directement vers n'importe quelle vue que vos droits vous autorisent (Conteneurs, Images, Swarm, Utilisateurs…). La liste est filtrée par votre rôle : vous ne voyez que ce que vous pouvez ouvrir.",
+            "**Actions** — des actions rapides sans quitter le clavier : **Changer de thème** (clair → sombre → système), **Aller au Profil**, **Ouvrir l'aide**, et **Se déconnecter**.",
+          ] },
+          { kind: "p", text: "Pour l'apparence et la langue, le **menu utilisateur** (votre avatar, en haut à droite) propose le même bouton de **thème** (**clair / sombre / système**) et un sélecteur de **langue** (**English / Français**). Les deux choix sont mémorisés pour la prochaine fois — toute l'interface, y compris ces fiches d'aide, suit la langue choisie." },
         ],
       },
       {
