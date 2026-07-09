@@ -44,6 +44,37 @@ const MsgContainerRunning = "Container is running — stop it first, or remove w
 // error used to produce.
 var ErrContainerRunning = fmt.Errorf("%w: %s", ErrConflict, MsgContainerRunning)
 
+// MsgNameConflict is the user-facing 409 message when a container cannot be
+// created because its name is already taken by another container.
+const MsgNameConflict = "A container with this name already exists. Choose a different name, or remove the existing one first."
+
+// ErrNameConflict is the specific ErrConflict raised when ContainerCreate is
+// refused because the requested name is already in use. It wraps ErrConflict so
+// errors.Is(err, ErrConflict) holds and the API maps it to HTTP 409, but it
+// carries an actionable message instead of the daemon's opaque
+// "Conflict. The container name ... is already in use" string.
+var ErrNameConflict = fmt.Errorf("%w: %s", ErrConflict, MsgNameConflict)
+
+// MsgPortConflict is the user-facing 409 message when a container fails to start
+// because a published host port is already bound by something else.
+const MsgPortConflict = "A published port is already in use on the host. Pick a different host port, or free the one in use."
+
+// ErrPortConflict is the specific ErrConflict raised when ContainerStart fails
+// because a requested host port is already allocated. The bare daemon error
+// ("driver failed programming external connectivity ... bind: address already in
+// use") otherwise fell through to a generic HTTP 500; this maps it to a clear 409.
+var ErrPortConflict = fmt.Errorf("%w: %s", ErrConflict, MsgPortConflict)
+
+// MsgImageNotFound is the user-facing 404-style message when the image for a
+// deploy cannot be found or pulled (bad tag, private registry without creds,
+// typo in the reference).
+const MsgImageNotFound = "Image not found or could not be pulled. Check the image name and tag, and that any private registry credentials are configured."
+
+// ErrImageNotFound is returned by the deploy path when the image cannot be
+// resolved (local lookup miss + pull failure). It wraps ErrNotFound so the API
+// maps it to HTTP 404 with an actionable message instead of a generic 500.
+var ErrImageNotFound = fmt.Errorf("%w: %s", ErrNotFound, MsgImageNotFound)
+
 // ErrForbidden is returned when a request is rejected by a server-side security
 // policy (not by missing RBAC, which is enforced earlier at the middleware). The
 // canonical case is ErrHostMountDenied below. The API maps it to HTTP 403.

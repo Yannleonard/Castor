@@ -4,12 +4,16 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/go-connections/nat"
+
+	"github.com/gtek-it/castor/server/internal/provider"
 )
 
 // PortMap is a single host:container port publication for a DeploySpec.
@@ -103,14 +107,52 @@ func (p *DockerProvider) ContainerCreateAndStart(ctx context.Context, spec Deplo
 
 	created, err := p.cli.ContainerCreate(ctx, cfg, hostCfg, nil, nil, spec.Name)
 	if err != nil {
-		return "", mapResourceErr(err)
+		return "", mapDeployCreateErr(err)
 	}
 	if err := p.cli.ContainerStart(ctx, created.ID, container.StartOptions{}); err != nil {
 		// Best-effort cleanup so a failed start does not leak a created container.
 		_ = p.cli.ContainerRemove(ctx, created.ID, container.RemoveOptions{Force: true})
-		return "", mapNotFound(err)
+		return "", mapDeployStartErr(err)
 	}
 	return created.ID, nil
+}
+
+// mapDeployCreateErr turns a ContainerCreate failure into an actionable provider
+// sentinel. The daemon returns HTTP 409 "Conflict. The container name '/x' is
+// already in use by container ..." when the name is taken; map that to
+// ErrNameConflict (a specific ErrConflict) so the API surfaces a clear message
+// instead of the opaque generic conflict. Other errors fall back to
+// mapResourceErr (not-found / in-use / generic).
+func mapDeployCreateErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := strings.ToLower(err.Error())
+	if cerrdefs.IsConflict(err) ||
+		(strings.Contains(msg, "container name") && strings.Contains(msg, "already in use")) {
+		return provider.ErrNameConflict
+	}
+	return mapResourceErr(err)
+}
+
+// mapDeployStartErr turns a ContainerStart failure into an actionable provider
+// sentinel. The most common real-world failure is a host-port clash: the daemon
+// reports "driver failed programming external connectivity ... bind: address
+// already in use" (or "port is already allocated"). Map those to ErrPortConflict
+// (a specific ErrConflict → HTTP 409) rather than letting the bare error fall
+// through to a generic 500. Unknown-container errors still map to ErrNotFound.
+func mapDeployStartErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "address already in use") ||
+		strings.Contains(msg, "port is already allocated") ||
+		(strings.Contains(msg, "bind") && strings.Contains(msg, "in use")) ||
+		strings.Contains(msg, "external connectivity") {
+		return provider.ErrPortConflict
+	}
+	return mapNotFound(err)
 }
 
 // ensureImage pulls ref when it is not already present locally. A successful
@@ -125,14 +167,44 @@ func (p *DockerProvider) ensureImage(ctx context.Context, ref string) error {
 	}
 	rc, err := p.cli.ImagePull(ctx, ref, image.PullOptions{})
 	if err != nil {
+		// A pull that never starts is almost always a bad reference or an
+		// unauthorized private registry — surface an actionable 404 rather than a
+		// generic 500. (errors.Is stays true for provider.ErrNotFound.)
+		if isImageRefErr(err) {
+			return provider.ErrImageNotFound
+		}
 		return fmt.Errorf("docker: pull %q: %w", ref, err)
 	}
 	defer func() { _ = rc.Close() }()
-	// Draining to EOF blocks until the pull completes (or errors mid-stream).
+	// Draining to EOF blocks until the pull completes (or errors mid-stream). The
+	// daemon reports a bad tag / auth failure inside the stream, so inspect it too.
 	if _, err := io.Copy(io.Discard, rc); err != nil {
+		if isImageRefErr(err) {
+			return provider.ErrImageNotFound
+		}
 		return fmt.Errorf("docker: pull %q: %w", ref, err)
 	}
 	return nil
+}
+
+// isImageRefErr reports whether a pull error is a "reference does not resolve"
+// class of failure (unknown repo/tag, manifest not found, or an auth failure on
+// a private registry) as opposed to a transient network/daemon fault.
+func isImageRefErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if cerrdefs.IsNotFound(err) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "not found") ||
+		strings.Contains(msg, "manifest unknown") ||
+		strings.Contains(msg, "no such image") ||
+		strings.Contains(msg, "pull access denied") ||
+		strings.Contains(msg, "repository does not exist") ||
+		strings.Contains(msg, "unauthorized") ||
+		strings.Contains(msg, "requested access to the resource is denied")
 }
 
 // envSlice converts an env map into the "KEY=VALUE" slice the Docker API wants.

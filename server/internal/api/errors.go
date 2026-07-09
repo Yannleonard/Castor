@@ -34,12 +34,22 @@ func mapError(err error) error {
 	switch {
 	case errors.Is(err, provider.ErrUnsupported):
 		return authz.ErrMethodNotAllowed
+	case errors.Is(err, provider.ErrImageNotFound):
+		// Specific 404 (distinct code image_not_found) for a bad/unpullable image,
+		// checked before the generic ErrNotFound it wraps.
+		return authz.Errorf(authz.ErrImageNotFound, provider.MsgImageNotFound)
 	case errors.Is(err, provider.ErrNotFound):
 		return authz.ErrNotFound
 	case errors.Is(err, provider.ErrContainerRunning):
 		// Specific 409: a clear, actionable message the UI can act on (offer a
 		// force-remove) instead of the generic "conflicts with current state".
 		return authz.Errorf(authz.ErrConflict, provider.MsgContainerRunning)
+	case errors.Is(err, provider.ErrNameConflict):
+		// Distinct code name_conflict so the UI can localize + explain.
+		return authz.Errorf(authz.ErrNameConflict, provider.MsgNameConflict)
+	case errors.Is(err, provider.ErrPortConflict):
+		// Distinct code port_conflict for a host-port clash on start.
+		return authz.Errorf(authz.ErrPortConflict, provider.MsgPortConflict)
 	case errors.Is(err, provider.ErrConflict):
 		return authz.ErrConflict
 	case errors.Is(err, provider.ErrForbidden):
