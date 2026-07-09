@@ -6,12 +6,13 @@ export const profileCard: HelpCard = {
   title: { en: "Your profile & 2FA", fr: "Votre profil & 2FA" },
 
   en: {
-    summary: "Manage your account: change your password, enable TOTP two-factor authentication, and keep your one-time recovery codes safe.",
+    summary: "Manage your account: change your password, enable TOTP two-factor authentication, keep your one-time recovery codes safe, and create API tokens to automate Castor.",
     sections: [
       {
         title: "What the Profile page is for",
         blocks: [
-          { kind: "p", text: "The **Profile** page is where you manage your own account. From here you can change your **password** and turn **two-factor authentication (2FA)** on or off. It also shows your current **assurance level** — whether you signed in with a password only (`pwd`) or with a password plus a one-time code (`pwd+totp`)." },
+          { kind: "p", text: "The **Profile** page is where you manage your own account. From here you can change your **password**, turn **two-factor authentication (2FA)** on or off, and create **API tokens** for automation. It also shows your current **assurance level** — whether you signed in with a password only (`pwd`) or with a password plus a one-time code (`pwd+totp`)." },
+          { kind: "note", text: "You reach this page from the **user menu** in the top bar (your avatar, on the right). The same menu also holds the **Theme** switch — each click cycles **Light → Dark → System** (System follows your OS preference)." },
           { kind: "callout", tone: "warn", text: "Enabling 2FA is **strongly recommended**, especially if your Castor instance is reachable from the Internet. Castor drives the Docker socket, which is effectively **root-equivalent** on the host — a stolen password alone should never be enough to take it over." },
         ],
       },
@@ -49,6 +50,24 @@ export const profileCard: HelpCard = {
         ],
       },
       {
+        title: "API tokens (Personal Access Tokens)",
+        blocks: [
+          { kind: "p", text: "The **API tokens** card lets you create **Personal Access Tokens** to automate Castor without a browser session: shell scripts, **CI/CD pipelines**, or a **Prometheus** instance scraping the `/metrics` endpoint." },
+          { kind: "p", text: "Click **New token**, give it a **name** you'll recognize later (e.g. “CI deploy”) and pick an **expiration** (30, 90 or 365 days, or never — 90 days is the default). The token — `castor_pat_` followed by a long random string — is then displayed with a copy button." },
+          { kind: "callout", tone: "warn", text: "The token is shown **only once**, right after creation. Copy it before closing the dialog — afterwards the list only shows its **prefix** and metadata (created, expires, last used). If you lose it, revoke it and create a new one." },
+          { kind: "p", text: "To use it, send it in the `Authorization: Bearer` header of your API requests:" },
+          { kind: "cmd", command: "curl -H \"Authorization: Bearer castor_pat_...\" https://your-castor.example.com/api/hosts" },
+          { kind: "p", text: "A token acts **as you**: it inherits your role's permissions, no more, no less. For example, an **operator**'s token can create networks and volumes, prune unused resources or update containers — but deletions still require a token owned by an **admin**. Being machine-to-machine, a token also passes the **“2FA required for mutations”** step-up on its own. Two things it can **never** do, though: manage API tokens (creating or revoking tokens takes a real browser session) and open an **exec terminal** into a container." },
+          { kind: "p", text: "Made a token you no longer trust? Click **Revoke** in the list — requests using it are rejected **immediately**, and this cannot be undone. Expired tokens are rejected automatically." },
+          { kind: "list", items: [
+            "Prefer a **short expiration** — a token that dies on its own limits the damage if it leaks.",
+            "Create **one token per usage** (one for CI, one for Prometheus…) so you can revoke one without breaking the others.",
+            "Treat a token like a **password**: don't commit it to git, inject it via your CI's secret store.",
+            "If a token leaks (pasted in a log, committed by mistake…), **revoke it right away** and issue a new one.",
+          ] },
+        ],
+      },
+      {
         title: "Pitfalls & good practices",
         blocks: [
           { kind: "list", items: [
@@ -69,12 +88,13 @@ export const profileCard: HelpCard = {
   },
 
   fr: {
-    summary: "Gérez votre compte : changez votre mot de passe, activez la double authentification TOTP et conservez précieusement vos codes de récupération à usage unique.",
+    summary: "Gérez votre compte : changez votre mot de passe, activez la double authentification TOTP, conservez précieusement vos codes de récupération à usage unique et créez des tokens API pour automatiser Castor.",
     sections: [
       {
         title: "À quoi sert la page Profil",
         blocks: [
-          { kind: "p", text: "La page **Profil** est l'endroit où vous gérez votre propre compte. Vous pouvez y changer votre **mot de passe** et activer ou désactiver la **double authentification (2FA)**. Elle affiche aussi votre **niveau d'assurance** actuel — si vous vous êtes connecté avec un mot de passe seul (`pwd`) ou avec un mot de passe plus un code à usage unique (`pwd+totp`)." },
+          { kind: "p", text: "La page **Profil** est l'endroit où vous gérez votre propre compte. Vous pouvez y changer votre **mot de passe**, activer ou désactiver la **double authentification (2FA)**, et créer des **tokens API** pour l'automatisation. Elle affiche aussi votre **niveau d'assurance** actuel — si vous vous êtes connecté avec un mot de passe seul (`pwd`) ou avec un mot de passe plus un code à usage unique (`pwd+totp`)." },
+          { kind: "note", text: "Vous accédez à cette page depuis le **menu utilisateur** de la barre du haut (votre avatar, à droite). Ce même menu contient aussi le sélecteur de **thème** — chaque clic fait défiler **Light → Dark → System** (System suit la préférence de votre OS)." },
           { kind: "callout", tone: "warn", text: "Activer la 2FA est **fortement recommandé**, surtout si votre instance Castor est accessible depuis Internet. Castor pilote le socket Docker, ce qui équivaut à un accès **root** sur l'hôte — un mot de passe volé ne devrait jamais suffire à en prendre le contrôle." },
         ],
       },
@@ -109,6 +129,24 @@ export const profileCard: HelpCard = {
         blocks: [
           { kind: "p", text: "Avec la 2FA activée, chaque connexion demande le code à 6 chiffres après le mot de passe. Votre niveau d'assurance affiche alors `pwd+totp`, ce qu'exigent certaines actions : Castor peut imposer la **2FA pour les mutations** (réglage « 2FA requise pour les mutations »), et exige toujours un code frais avant d'ouvrir un **terminal exec** dans un conteneur (une élévation vers le niveau d'assurance supérieur / step-up AAL)." },
           { kind: "p", text: "Pour **désactiver** la 2FA, Castor demande votre **mot de passe** pour confirmer que c'est bien vous. La désactivation invalide aussi vos codes de récupération ; si vous réactivez la 2FA plus tard, vous en obtiendrez 10 nouveaux." },
+        ],
+      },
+      {
+        title: "Tokens API (Personal Access Tokens)",
+        blocks: [
+          { kind: "p", text: "La carte **API tokens** vous permet de créer des **Personal Access Tokens** pour automatiser Castor sans session navigateur : scripts shell, **pipelines CI/CD**, ou une instance **Prometheus** qui scrape l'endpoint `/metrics`." },
+          { kind: "p", text: "Cliquez sur **New token**, donnez-lui un **nom** que vous reconnaîtrez plus tard (ex. « CI deploy ») et choisissez une **expiration** (30, 90 ou 365 jours, ou jamais — 90 jours par défaut). Le token — `castor_pat_` suivi d'une longue chaîne aléatoire — s'affiche alors avec un bouton de copie." },
+          { kind: "callout", tone: "warn", text: "Le token n'est affiché **qu'une seule fois**, juste après sa création. Copiez-le avant de fermer la fenêtre — ensuite, la liste ne montre que son **préfixe** et ses métadonnées (création, expiration, dernière utilisation). Si vous le perdez, révoquez-le et créez-en un nouveau." },
+          { kind: "p", text: "Pour l'utiliser, envoyez-le dans l'en-tête `Authorization: Bearer` de vos requêtes API :" },
+          { kind: "cmd", command: "curl -H \"Authorization: Bearer castor_pat_...\" https://votre-castor.example.com/api/hosts" },
+          { kind: "p", text: "Un token agit **en votre nom** : il hérite des permissions de votre rôle, ni plus, ni moins. Par exemple, le token d'un **operator** peut créer des réseaux et des volumes, purger les ressources inutilisées ou mettre à jour des conteneurs — mais les suppressions exigent toujours un token appartenant à un **admin**. Étant machine-à-machine, un token satisfait aussi de lui-même le step-up **« 2FA requise pour les mutations »**. Deux choses lui restent en revanche **interdites** : gérer les tokens API (créer ou révoquer un token exige une vraie session navigateur) et ouvrir un **terminal exec** dans un conteneur." },
+          { kind: "p", text: "Un token en qui vous n'avez plus confiance ? Cliquez sur **Revoke** dans la liste — les requêtes qui l'utilisent sont rejetées **immédiatement**, et c'est irréversible. Les tokens expirés sont rejetés automatiquement." },
+          { kind: "list", items: [
+            "Préférez une **expiration courte** — un token qui meurt tout seul limite les dégâts en cas de fuite.",
+            "Créez **un token par usage** (un pour la CI, un pour Prometheus…) pour pouvoir en révoquer un sans casser les autres.",
+            "Traitez un token comme un **mot de passe** : ne le committez pas dans git, injectez-le via le coffre à secrets de votre CI.",
+            "Si un token fuite (collé dans un log, committé par erreur…), **révoquez-le immédiatement** et émettez-en un nouveau.",
+          ] },
         ],
       },
       {

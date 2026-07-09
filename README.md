@@ -29,12 +29,28 @@ protected/system containers, hardened distroless image). It runs as **one contai
 
 | Orchestrator | V1 scope |
 |---|---|
-| **Docker** | Full read **+ write** — list/inspect, start/stop/restart/remove, logs, stats, exec, events, images, networks, volumes |
+| **Docker** | Full read **+ write** — list/inspect, start/stop/restart/pause/unpause/remove, logs, stats, exec, events; images, networks & volumes (incl. **create** and **prune**); **one-click image updates with automatic rollback** |
 | **Docker Swarm** | **Read-only** — services / nodes / tasks |
-| **Kubernetes** | **Read-only** — pods / deployments / nodes (via `client-go` + kubeconfig) |
+| **Kubernetes** | **Read-only** — pods / deployments / statefulsets / daemonsets / jobs / cronjobs / nodes (via `client-go` + kubeconfig) |
 
 > Multi-host **Go agents are V2.** The internal `Provider` seam is designed so a remote agent
 > becomes "just another provider" with no API/UI rework — but no agent is built in V1.
+
+---
+
+## ✨ Feature highlights
+
+- **Image update detection & one-click updates** — Castor compares each container's image digest
+  against its registry and flags available updates (opt-out in settings). Update in one click —
+  with **automatic rollback** if the new container fails to come up.
+- **Outbound notifications** — Discord, Slack, [ntfy](https://ntfy.sh) or any generic webhook,
+  triggered on *container down* and *image update available* events.
+- **Personal Access Tokens + Prometheus metrics** — call the API with `Authorization: Bearer`
+  tokens and scrape the `/metrics` endpoint (Prometheus format).
+- **Housekeeping built in** — pause/unpause containers, create networks and volumes, and prune
+  images / containers / volumes / networks from the UI.
+- **Polished UX** — **dark mode** (Light / Dark / System), a **"Getting started" onboarding
+  checklist**, and **bilingual (FR/EN) contextual help** on every view via the "?" button.
 
 ---
 
@@ -213,6 +229,8 @@ docker compose --env-file .env up -d
 
 - **Local auth + TOTP 2FA** (argon2id password hashing; TOTP secret AES-256-GCM-sealed at rest).
 - **Resource-scoped RBAC** with built-in `admin` / `operator` / `viewer` roles, scope-aware for V2.
+- **Personal Access Tokens** — Bearer tokens (`Authorization: Bearer`) for the API and `/metrics`
+  scraping, as an alternative to session auth.
 - **Full audit log** — every mutating action writes exactly one append-only row.
 - **Protected containers** — Castor's own container and the `/data` volume can **never** be removed
   via the UI (even by admins); containers labelled `io.castor.protected="true"` are guarded too.
@@ -282,9 +300,13 @@ Multi-arch images (`linux/amd64`, `linux/arm64`) are published to
   docker run --rm -v castor-data:/data -v "$PWD:/backup" busybox \
     sh -c 'cp /data/castor.db /backup/castor-$(date +%Y%m%d).db'
   ```
+- **Metrics:** `GET /metrics` serves Prometheus-format metrics — authenticate scrapes with a
+  Personal Access Token (`Authorization: Bearer`).
 - **Logs:** `docker logs castor` (structured JSON; secrets are redacted before logging).
 - **Upgrade:** `docker compose pull && docker compose up -d` — the DB on `/data` persists; schema
-  migrations run automatically on startup.
+  migrations run automatically on startup. Castor also **detects image updates** for your containers
+  (registry digest comparison, opt-out in settings) and can apply them in one click with automatic
+  rollback.
 
 More: [`docs/runbooks/install.md`](docs/runbooks/install.md).
 

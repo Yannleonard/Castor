@@ -6,13 +6,13 @@ export const settingsCard: HelpCard = {
   title: { en: "Instance settings", fr: "Réglages de l'instance" },
 
   en: {
-    summary: "Instance-wide security controls (admin only): require TOTP for mutations, define protected labels, and set the session inactivity window.",
+    summary: "Instance-wide security controls (admin only) — TOTP for mutations, protected labels, session window — plus outbound notification channels (Discord, Slack, ntfy, webhook).",
     sections: [
       {
         title: "What this page is for",
         blocks: [
           { kind: "p", text: "The **Settings** page holds the instance-wide security controls. They are **admin-only**: a change here applies to **every** user on this Castor instance, not just to you. From here you decide how strict the instance is about **step-up authentication**, which containers are **hard to delete by accident**, and how long a session stays alive." },
-          { kind: "p", text: "The page also shows read-only **instance metadata** — Castor **version** and **build** — handy when reporting an issue or checking you are on the release you expect." },
+          { kind: "p", text: "The page also shows read-only **instance metadata** — Castor **version** and **build** — handy when reporting an issue or checking you are on the release you expect. Finally, it hosts the **Notifications** card, where you wire Castor to the outside world: alert channels for container and image-update events. That part is the exception to \"admin-only\" — **operators** can manage channels too." },
         ],
       },
       {
@@ -40,6 +40,20 @@ export const settingsCard: HelpCard = {
         ],
       },
       {
+        title: "Notifications",
+        blocks: [
+          { kind: "p", text: "The **Notifications** card manages outbound alert **channels**. A channel is a named destination — **Discord**, **Slack**, **ntfy** or a **generic webhook** — subscribed to one or more events. Click **Add channel**, give it a **Name**, pick a **Type**, paste the **Webhook URL** and tick the events you want it to receive." },
+          { kind: "list", items: [
+            "**Container went down** (`container.down`) — fires when a running container stops unexpectedly. The event is **debounced**, so a container flapping during a restart does not flood the channel.",
+            "**Image update available** (`update.available`) — fires when Castor detects that a newer image is available for a running container.",
+          ] },
+          { kind: "p", text: "The **webhook URL is a secret**: it is **sealed with AES-256-GCM** on the server and **never displayed again** — neither in the UI nor through the API. When you edit a channel, the URL field shows the placeholder `•••••• (unchanged)`: **leave it blank to keep** the stored URL, or type a new one to replace it." },
+          { kind: "p", text: "Each channel row carries an **enable/disable toggle**, a **Test** button that fires a test notification at the stored URL — the surest way to verify it before you depend on it — an **Edit** button, and a **delete** (trash) icon guarded by a confirmation. Alerts routed to a deleted channel stop immediately." },
+          { kind: "callout", tone: "info", text: "Unlike the security settings above, channel changes apply **immediately** — they do **not** go through the page-level **Save changes** button." },
+          { kind: "note", text: "Managing channels requires the **`notifications.manage`** permission, granted to both **admin** and **operator** roles. Users without it see the section but cannot list or change channels." },
+        ],
+      },
+      {
         title: "Pitfalls & best practices",
         blocks: [
           { kind: "list", items: [
@@ -47,7 +61,8 @@ export const settingsCard: HelpCard = {
             "**Label your critical containers** (`io.castor.protected=true`) before you need the safety net, not after a near-miss.",
             "Keep `session.ttl_seconds` **short on shared machines**; a long window on a public host is a hijack risk.",
             "Every setting here is **instance-wide** — announce changes to your team so a sudden TOTP prompt or session drop does not surprise them.",
-            "These are **admin** actions; **operator** and **viewer** roles cannot change them.",
+            "The security settings are **admin** actions (`settings.update`); notification channels are the exception — **operator** can manage them too (`notifications.manage`).",
+            "**Test a channel right after creating it** — the URL is never shown again, so a typo only surfaces through a failed **Test**.",
           ] },
         ],
       },
@@ -61,13 +76,13 @@ export const settingsCard: HelpCard = {
   },
 
   fr: {
-    summary: "Contrôles de sécurité au niveau de l'instance (admin uniquement) : exiger un code TOTP pour les mutations, définir les labels protégés et régler la fenêtre d'inactivité des sessions.",
+    summary: "Contrôles de sécurité au niveau de l'instance (admin uniquement) — TOTP pour les mutations, labels protégés, fenêtre de session — plus les canaux de notification sortants (Discord, Slack, ntfy, webhook).",
     sections: [
       {
         title: "À quoi sert cette page",
         blocks: [
           { kind: "p", text: "La page **Réglages** regroupe les contrôles de sécurité au niveau de l'instance. Ils sont **réservés à l'admin** : un changement ici s'applique à **tous** les utilisateurs de cette instance Castor, pas seulement à vous. C'est ici que vous décidez de la sévérité de l'instance en matière d'**authentification renforcée** (step-up), des conteneurs **difficiles à supprimer par accident**, et de la durée de vie d'une session." },
-          { kind: "p", text: "La page affiche aussi des **métadonnées d'instance** en lecture seule — **version** et **build** de Castor — pratiques pour signaler un incident ou vérifier que vous êtes bien sur la version attendue." },
+          { kind: "p", text: "La page affiche aussi des **métadonnées d'instance** en lecture seule — **version** et **build** de Castor — pratiques pour signaler un incident ou vérifier que vous êtes bien sur la version attendue. Enfin, elle héberge la carte **Notifications**, où vous reliez Castor au monde extérieur : des canaux d'alerte pour les événements conteneurs et mises à jour d'images. C'est l'exception au « admin uniquement » — les **operators** peuvent aussi gérer les canaux." },
         ],
       },
       {
@@ -95,6 +110,20 @@ export const settingsCard: HelpCard = {
         ],
       },
       {
+        title: "Notifications",
+        blocks: [
+          { kind: "p", text: "La carte **Notifications** gère les **canaux** d'alerte sortants. Un canal est une destination nommée — **Discord**, **Slack**, **ntfy** ou un **webhook générique** — abonnée à un ou plusieurs événements. Cliquez sur **Add channel**, donnez-lui un **nom**, choisissez un **type**, collez l'**URL du webhook** et cochez les événements qu'il doit recevoir." },
+          { kind: "list", items: [
+            "**Conteneur tombé** (`container.down`) — se déclenche quand un conteneur en marche s'arrête de façon inattendue. L'événement est **débouncé** : un conteneur qui clignote pendant un redémarrage n'inonde pas le canal.",
+            "**Mise à jour d'image disponible** (`update.available`) — se déclenche quand Castor détecte qu'une image plus récente existe pour un conteneur en marche.",
+          ] },
+          { kind: "p", text: "L'**URL du webhook est un secret** : elle est **scellée en AES-256-GCM** côté serveur et **jamais réaffichée** — ni dans l'interface, ni via l'API. Quand vous éditez un canal, le champ URL affiche le placeholder `•••••• (unchanged)` : **laissez-le vide pour conserver** l'URL stockée, ou saisissez-en une nouvelle pour la remplacer." },
+          { kind: "p", text: "Chaque ligne de canal porte un **interrupteur activer/désactiver**, un bouton **Test** qui envoie une notification de test à l'URL stockée — le moyen le plus sûr de la vérifier avant d'en dépendre —, un bouton **Edit**, et une icône **corbeille** de suppression protégée par une confirmation. Les alertes routées vers un canal supprimé cessent immédiatement." },
+          { kind: "callout", tone: "info", text: "Contrairement aux réglages de sécurité ci-dessus, les changements de canaux s'appliquent **immédiatement** — ils ne passent **pas** par le bouton **Save changes** de la page." },
+          { kind: "note", text: "Gérer les canaux exige la permission **`notifications.manage`**, accordée aux rôles **admin** et **operator**. Un utilisateur qui ne l'a pas voit la section mais ne peut ni lister ni modifier les canaux." },
+        ],
+      },
+      {
         title: "Pièges & bonnes pratiques",
         blocks: [
           { kind: "list", items: [
@@ -102,7 +131,8 @@ export const settingsCard: HelpCard = {
             "**Labellisez vos conteneurs critiques** (`io.castor.protected=true`) avant d'en avoir besoin, pas après un incident évité de justesse.",
             "Gardez `session.ttl_seconds` **court sur les machines partagées** ; une fenêtre longue sur un hôte public est un risque de détournement de session.",
             "Chaque réglage ici est **valable pour toute l'instance** — prévenez votre équipe pour qu'une demande TOTP soudaine ou une session coupée ne la surprenne pas.",
-            "Ce sont des actions **admin** ; les rôles **operator** et **viewer** ne peuvent pas les modifier.",
+            "Les réglages de sécurité sont des actions **admin** (`settings.update`) ; les canaux de notification font exception — **operator** peut aussi les gérer (`notifications.manage`).",
+            "**Testez un canal juste après l'avoir créé** — l'URL n'est jamais réaffichée, donc une faute de frappe ne se révèle que par un **Test** en échec.",
           ] },
         ],
       },

@@ -31,11 +31,18 @@ export const imagesCard: HelpCard = {
         ],
       },
       {
-        title: "Removing an image & pruning",
+        title: "Removing an image (Delete)",
         blocks: [
-          { kind: "p", text: "**Delete** removes a single image; it needs the `docker.image.delete` permission, which is **often restricted to admins**. If the image is still in use by a container, the deletion is refused — tick **force** to remove it anyway (any stopped container still referencing it will lose its base image)." },
-          { kind: "p", text: "**Prune** is a bulk cleanup: it reclaims disk space by deleting **unused** images in one go. By default it targets only dangling `<none>` layers; the aggressive variant also removes any image not currently used by a container. It never touches an image that a running or stopped container depends on." },
-          { kind: "callout", tone: "warn", text: "Prune is irreversible and repository-wide — a removed image must be re-pulled. Run it during a maintenance window, and be aware that pruning 'all unused' images can delete tags you were keeping for a future rollback." },
+          { kind: "p", text: "The **trash icon** at the end of a row deletes that image after a **confirmation dialog**; it needs the `docker.image.delete` permission, reserved for **admins**. If the image is still in use by a container, the deletion is refused — remove that container first." },
+        ],
+      },
+      {
+        title: "Pruning unused images (Prune)",
+        blocks: [
+          { kind: "p", text: "**Prune**, in the page header next to **Pull image**, is a bulk cleanup that reclaims disk space in one go. It requires the `docker.system.prune` permission, granted to **operators and admins**, and **always opens a confirmation dialog** — nothing is deleted until you confirm." },
+          { kind: "p", text: "By default the prune removes only **dangling** images — the untagged `<none>` layers no tag references anymore — which frees space without touching images you may still run. Tick **'Also remove all unused images (not just dangling)'** for an aggressive cleanup that also deletes every image not currently used by a container. The box is unticked each time the dialog opens, so the aggressive mode is always an explicit choice." },
+          { kind: "p", text: "When the prune completes, a notification shows **how many images were removed and how much disk space was reclaimed**, and the list refreshes automatically." },
+          { kind: "callout", tone: "warn", text: "Prune is irreversible and host-wide — a removed image must be re-pulled. Run it during a maintenance window, and be aware that pruning 'all unused' images can delete tags you were keeping for a future rollback." },
         ],
       },
       {
@@ -45,7 +52,7 @@ export const imagesCard: HelpCard = {
             "**Pin your tags** in production (`nginx:1.27`, `ghcr.io/org/app:1.4.0`) — avoid `:latest`, which silently drifts and makes deployments non-reproducible.",
             "Prefer an **immutable digest** (`image@sha256:…`) when you need a byte-for-byte guarantee.",
             "Configure private-registry credentials in **Registries (Marketplace)** *before* the first private pull, not during an incident.",
-            "Use **force delete** deliberately: it can pull the base image out from under a stopped container.",
+            "Deleting from the UI never forces: an image still used by a container is refused — remove the container first (a **force** removal only exists at the API level).",
             "**Prune regularly** to keep disk usage down, but never blindly on a host where old tags are your rollback path.",
             "Building, tagging and pushing images **locally is not part of Castor V1** — build in your CI pipeline and push to a registry, then Pull here.",
           ] },
@@ -86,11 +93,18 @@ export const imagesCard: HelpCard = {
         ],
       },
       {
-        title: "Supprimer une image & prune",
+        title: "Supprimer une image (Delete)",
         blocks: [
-          { kind: "p", text: "**Delete** supprime une image ; cela requiert la permission `docker.image.delete`, **souvent réservée aux admins**. Si l'image est encore utilisée par un conteneur, la suppression est refusée — cochez **force** pour la retirer malgré tout (tout conteneur arrêté qui la référence encore perdra son image de base)." },
-          { kind: "p", text: "**Prune** est un nettoyage groupé : il récupère de l'espace disque en supprimant d'un coup les images **inutilisées**. Par défaut, il ne vise que les couches `<none>` (dangling) ; la variante agressive supprime aussi toute image non utilisée par un conteneur. Il ne touche jamais à une image dont dépend un conteneur en cours ou arrêté." },
-          { kind: "callout", tone: "warn", text: "Le prune est irréversible et s'applique à tout le dépôt — une image supprimée devra être re-tirée. Lancez-le pendant une fenêtre de maintenance, et gardez à l'esprit que purger « toutes les images inutilisées » peut effacer des tags que vous conserviez pour un rollback futur." },
+          { kind: "p", text: "L'**icône corbeille** en bout de ligne supprime cette image après une **boîte de confirmation** ; cela requiert la permission `docker.image.delete`, réservée aux **admins**. Si l'image est encore utilisée par un conteneur, la suppression est refusée — supprimez d'abord ce conteneur." },
+        ],
+      },
+      {
+        title: "Purger les images inutilisées (Prune)",
+        blocks: [
+          { kind: "p", text: "**Prune**, dans l'en-tête de la page à côté de **Pull image**, est un nettoyage groupé qui récupère de l'espace disque en une fois. Il requiert la permission `docker.system.prune`, accordée aux **operators et admins**, et **ouvre toujours une boîte de confirmation** — rien n'est supprimé tant que vous n'avez pas confirmé." },
+          { kind: "p", text: "Par défaut, le prune ne supprime que les images **dangling** — les couches `<none>` sans tag, que plus aucun tag ne référence — ce qui libère de l'espace sans toucher aux images que vous exécutez peut-être encore. Cochez **« Also remove all unused images (not just dangling) »** pour un nettoyage agressif qui supprime aussi toute image non utilisée par un conteneur. La case est décochée à chaque ouverture de la boîte : le mode agressif reste un choix explicite." },
+          { kind: "p", text: "Une fois le prune terminé, une notification indique **combien d'images ont été supprimées et combien d'espace disque a été récupéré**, puis la liste se rafraîchit automatiquement." },
+          { kind: "callout", tone: "warn", text: "Le prune est irréversible et s'applique à tout l'hôte — une image supprimée devra être re-tirée. Lancez-le pendant une fenêtre de maintenance, et gardez à l'esprit que purger « toutes les images inutilisées » peut effacer des tags que vous conserviez pour un rollback futur." },
         ],
       },
       {
@@ -100,7 +114,7 @@ export const imagesCard: HelpCard = {
             "**Épinglez vos tags** en production (`nginx:1.27`, `ghcr.io/org/app:1.4.0`) — évitez `:latest`, qui dérive silencieusement et rend les déploiements non reproductibles.",
             "Préférez un **digest immuable** (`image@sha256:…`) quand vous voulez une garantie octet par octet.",
             "Configurez les identifiants de registre privé dans **Registres (Marketplace)** *avant* le premier pull privé, pas en plein incident.",
-            "Utilisez **force delete** à bon escient : cela peut retirer l'image de base sous un conteneur arrêté.",
+            "La suppression depuis l'interface ne force jamais : une image encore utilisée par un conteneur est refusée — supprimez d'abord le conteneur (le retrait **force** n'existe qu'au niveau de l'API).",
             "**Prunez régulièrement** pour maîtriser l'espace disque, mais jamais à l'aveugle sur un hôte où d'anciens tags sont votre chemin de rollback.",
             "La construction, le tag et le push d'images **localement ne font pas partie de Castor V1** — construisez dans votre pipeline CI et poussez vers un registre, puis faites un Pull ici.",
           ] },

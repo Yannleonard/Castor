@@ -18,8 +18,16 @@ export const volumesCard: HelpCard = {
       {
         title: "How it works in Castor",
         blocks: [
-          { kind: "p", text: "The **Volumes** view lists every volume with its **name**, **driver**, **mountpoint** (where Docker stores it on the host) and **size**. From there you can back up a volume, restore one, or remove it." },
+          { kind: "p", text: "The **Volumes** view lists every volume with its **name**, **driver**, **mountpoint** (where Docker stores it on the host) and **creation date**. From there you can create a volume, back one up, restore it, remove it, or prune all unused volumes at once." },
           { kind: "p", text: "Backups produced from this view live in the **Backups** view, where you can see each archive, restore it, or clean it up." },
+        ],
+      },
+      {
+        title: "Creating a volume",
+        blocks: [
+          { kind: "p", text: "Click **Create volume** at the top of the view. The dialog asks for a **Name** — a letter or digit first, then letters, digits, `_`, `.` or `-`, the same rule Docker itself enforces — and an optional **Driver**. Leave the driver empty to use the default **`local`** driver." },
+          { kind: "p", text: "A freshly created volume is empty. Mount it into a container to start using it, or pick it as the **destination** of a restore — creating a volume first is the clean way to inspect an old backup without touching the original data." },
+          { kind: "note", text: "Creation requires the `docker.volume.create` permission, granted to the **admin** and **operator** roles." },
         ],
       },
       {
@@ -41,7 +49,15 @@ export const volumesCard: HelpCard = {
         blocks: [
           { kind: "p", text: "Removing a volume calls `docker.volume.remove` and **destroys its data permanently** — there is no undo. Only volumes not currently in use by a container can be removed." },
           { kind: "callout", tone: "warn", text: "The **`castor-data`** volume — which holds Castor's own database and user accounts — is **auto-protected** and **cannot be deleted from the UI**. This prevents you from locking yourself out of Castor by accident." },
-          { kind: "note", text: "Deletion is a mutation, so it obeys the usual guardrails: the `docker.volume.remove` permission (RBAC), and TOTP step-up if **2FA required for mutations** is enabled." },
+          { kind: "note", text: "Deletion is a mutation, so it obeys the usual guardrails: the `docker.volume.remove` permission (RBAC, **admin** only), and TOTP step-up if **2FA required for mutations** is enabled." },
+        ],
+      },
+      {
+        title: "Pruning unused volumes",
+        blocks: [
+          { kind: "p", text: "The **Prune** button at the top of the view removes **every volume not attached to a container** on this host, in a single operation. Castor asks for confirmation, then reports how many volumes were removed and how much disk space was reclaimed." },
+          { kind: "callout", tone: "warn", text: "Pruning **permanently destroys the data** of every unattached volume — there is no undo. A volume left behind by a container you removed last month counts as unattached and **will be deleted**. Back up anything you might still need **before** pruning. Volumes currently in use by a container are not affected." },
+          { kind: "note", text: "Prune requires the `docker.system.prune` permission, granted to the **admin** and **operator** roles." },
         ],
       },
       {
@@ -79,8 +95,16 @@ export const volumesCard: HelpCard = {
       {
         title: "Comment ça marche dans Castor",
         blocks: [
-          { kind: "p", text: "La vue **Volumes** liste chaque volume avec son **nom**, son **driver**, son **point de montage** (où Docker le stocke sur l'hôte) et sa **taille**. De là, vous pouvez sauvegarder un volume, en restaurer un, ou le supprimer." },
+          { kind: "p", text: "La vue **Volumes** liste chaque volume avec son **nom**, son **driver**, son **point de montage** (où Docker le stocke sur l'hôte) et sa **date de création**. De là, vous pouvez créer un volume, en sauvegarder un, le restaurer, le supprimer, ou purger d'un coup tous les volumes inutilisés." },
           { kind: "p", text: "Les sauvegardes produites depuis cette vue sont consultables dans la vue **Backups**, où vous retrouvez chaque archive pour la restaurer ou la nettoyer." },
+        ],
+      },
+      {
+        title: "Créer un volume",
+        blocks: [
+          { kind: "p", text: "Cliquez sur **Create volume** en haut de la vue. La fenêtre demande un **Name** — une lettre ou un chiffre d'abord, puis lettres, chiffres, `_`, `.` ou `-`, la même règle que Docker impose — et un **Driver** optionnel. Laissez le driver vide pour utiliser le driver **`local`** par défaut." },
+          { kind: "p", text: "Un volume fraîchement créé est vide. Montez-le dans un conteneur pour commencer à l'utiliser, ou choisissez-le comme **destination** d'une restauration — créer un volume d'abord est la façon propre d'inspecter une vieille sauvegarde sans toucher aux données d'origine." },
+          { kind: "note", text: "La création requiert la permission `docker.volume.create`, accordée aux rôles **admin** et **operator**." },
         ],
       },
       {
@@ -102,7 +126,15 @@ export const volumesCard: HelpCard = {
         blocks: [
           { kind: "p", text: "Supprimer un volume appelle `docker.volume.remove` et **détruit ses données définitivement** — il n'y a pas d'annulation. Seuls les volumes non utilisés par un conteneur peuvent être supprimés." },
           { kind: "callout", tone: "warn", text: "Le volume **`castor-data`** — qui contient la base de Castor et les comptes utilisateurs — est **auto-protégé** et **ne peut PAS être supprimé via l'UI**. Cela vous évite de vous verrouiller hors de Castor par accident." },
-          { kind: "note", text: "La suppression est une mutation, elle suit donc les garde-fous habituels : la permission `docker.volume.remove` (RBAC), et le step-up TOTP si le réglage **2FA requise pour les mutations** est activé." },
+          { kind: "note", text: "La suppression est une mutation, elle suit donc les garde-fous habituels : la permission `docker.volume.remove` (RBAC, **admin** uniquement), et le step-up TOTP si le réglage **2FA requise pour les mutations** est activé." },
+        ],
+      },
+      {
+        title: "Purger les volumes inutilisés",
+        blocks: [
+          { kind: "p", text: "Le bouton **Prune** en haut de la vue supprime **tous les volumes non attachés à un conteneur** sur cet hôte, en une seule opération. Castor demande confirmation, puis indique combien de volumes ont été supprimés et combien d'espace disque a été récupéré." },
+          { kind: "callout", tone: "warn", text: "La purge **détruit définitivement les données** de chaque volume non attaché — il n'y a pas d'annulation. Un volume laissé derrière par un conteneur supprimé le mois dernier compte comme non attaché et **sera supprimé**. Sauvegardez tout ce dont vous pourriez encore avoir besoin **avant** de purger. Les volumes actuellement utilisés par un conteneur ne sont pas affectés." },
+          { kind: "note", text: "La purge requiert la permission `docker.system.prune`, accordée aux rôles **admin** et **operator**." },
         ],
       },
       {
