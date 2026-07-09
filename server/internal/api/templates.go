@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/gtek-it/castor/server/internal/authz"
+	"github.com/gtek-it/castor/server/internal/compose"
 	"github.com/gtek-it/castor/server/internal/provider/docker"
 	"github.com/gtek-it/castor/server/internal/store"
 	"github.com/gtek-it/castor/server/internal/templates"
@@ -279,6 +280,15 @@ func (s *Server) buildDeploySpec(r *http.Request, req *deployRequest) (docker.De
 				spec.Volumes = append(spec.Volumes, docker.VolMount{Source: "", Target: v})
 			}
 		}
+		// Stamp the reserved Castor labels so deployed instances are linkable back
+		// to their marketplace template (built-in ids are empty; the slug is the
+		// stable key) and enumerable via the io.castor.managed marker. These keys
+		// are force-set LAST so a caller-supplied label cannot override them.
+		if spec.Labels == nil {
+			spec.Labels = map[string]string{}
+		}
+		spec.Labels[compose.LabelCastorTemplate] = slug
+		spec.Labels[compose.LabelCastorManaged] = "true"
 	}
 
 	// Merge request env over template defaults.

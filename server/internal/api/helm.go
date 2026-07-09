@@ -234,6 +234,34 @@ func (s *Server) HelmUpgrade(w http.ResponseWriter, r *http.Request) {
 	ok(w, rel)
 }
 
+// HelmPreviewUpgrade renders the current + pending manifests for an upgrade
+// without applying it, so the UI can diff them (perm helm.release.read). The
+// release name + namespace come from the path; chart/version/values from the
+// body (reusing helmUpgradeRequest). It is a read: non-mutating, no audit row.
+func (s *Server) HelmPreviewUpgrade(w http.ResponseWriter, r *http.Request) {
+	svc, available := s.helmService(w, r)
+	if !available {
+		return
+	}
+	ns, name := k8sNsName(r)
+	var req helmUpgradeRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		authz.WriteError(w, r, err)
+		return
+	}
+	if strings.TrimSpace(req.Chart) == "" {
+		authz.WriteError(w, r, authz.Errorf(authz.ErrValidation, "chart is required."))
+		return
+	}
+
+	preview, err := svc.PreviewUpgrade(r.Context(), name, req.Chart, ns, req.Version, req.Values)
+	if err != nil {
+		writeMapped(w, r, mapHelmNotFound(err))
+		return
+	}
+	ok(w, preview)
+}
+
 // HelmRollback rolls a release back to a prior revision (perm
 // helm.release.rollback). revision 0 => the immediately previous revision.
 func (s *Server) HelmRollback(w http.ResponseWriter, r *http.Request) {

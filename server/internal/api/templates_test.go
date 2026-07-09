@@ -3,9 +3,12 @@ package api
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/gtek-it/castor/server/internal/compose"
 	"github.com/gtek-it/castor/server/internal/store"
+	"github.com/gtek-it/castor/server/internal/templates"
 )
 
 // TestDeployTemplateRejectsHostMountForNonAdmin proves the host-mount escalation
@@ -60,5 +63,62 @@ func TestDeployTemplateNonAdminFlagRejected(t *testing.T) {
 	}, cookies, csrf)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("non-admin allowHostMounts=true = %d want 403 (%s)", rec.Code, rec.Body.String())
+	}
+}
+
+// TestBuildDeploySpecStampsTemplateLabels proves that deploying from a
+// marketplace template (built-in or custom) stamps the reserved Castor labels so
+// the instance is linkable back to its template. Built-in entries have no DB id,
+// so the link key is the SLUG (io.castor.template); io.castor.managed marks it as
+// Castor-deployed. A caller-supplied label must never override these reserved
+// keys. buildDeploySpec runs without a live Docker daemon (no mounts requested).
+func TestBuildDeploySpecStampsTemplateLabels(t *testing.T) {
+	e := newTestEnv(t)
+
+	// A built-in slug (taken from the embedded catalog) and a seeded custom slug.
+	builtins := templates.BuiltinTemplates()
+	if len(builtins) == 0 {
+		t.Fatal("built-in catalog is empty; cannot exercise the built-in path")
+	}
+	builtinSlug := builtins[0].Slug
+
+	const customSlug = "my-custom-app"
+	if err := e.st.CreateCustomTemplate(context.Background(), &store.CustomTemplate{
+		ID:    store.NewUUID(),
+		Name:  "My Custom App",
+		Slug:  customSlug,
+		Image: "example/app:latest",
+	}); err != nil {
+		t.Fatalf("CreateCustomTemplate: %v", err)
+	}
+
+	cases := []struct {
+		name string
+		slug string
+	}{
+		{"builtin", builtinSlug},
+		{"custom", customSlug},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// A user label that collides with a reserved key must be overridden.
+			req := &deployRequest{
+				TemplateSlug: tc.slug,
+				Name:         "instance-" + tc.name,
+				Labels:       map[string]string{compose.LabelCastorManaged: "false"},
+			}
+			r := httptest.NewRequest(http.MethodPost, "/api/v1/hosts/local/templates/deploy", nil)
+
+			spec, err := e.srv.buildDeploySpec(r, req)
+			if err != nil {
+				t.Fatalf("buildDeploySpec(%s): %v", tc.slug, err)
+			}
+			if got := spec.Labels[compose.LabelCastorTemplate]; got != tc.slug {
+				t.Errorf("%s = %q, want template slug %q", compose.LabelCastorTemplate, got, tc.slug)
+			}
+			if got := spec.Labels[compose.LabelCastorManaged]; got != "true" {
+				t.Errorf("%s = %q, want reserved key force-set to %q", compose.LabelCastorManaged, got, "true")
+			}
+		})
 	}
 }

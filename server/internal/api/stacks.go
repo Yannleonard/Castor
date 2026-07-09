@@ -12,6 +12,7 @@ import (
 
 	"github.com/gtek-it/castor/server/internal/authz"
 	"github.com/gtek-it/castor/server/internal/compose"
+	"github.com/gtek-it/castor/server/internal/git"
 	"github.com/gtek-it/castor/server/internal/store"
 )
 
@@ -19,6 +20,14 @@ import (
 // the request indefinitely. Compose stacks may pull several images, so this is
 // generous relative to a single-container action.
 const stackDeployTimeout = 10 * time.Minute
+
+// gitSyncTimeout bounds the git clone/fetch portion of a sync separately from the
+// deploy so a slow remote fails fast before any container work begins.
+const gitSyncTimeout = 3 * time.Minute
+
+// webhookTokenHeader carries the redeploy webhook secret on the public hook. The
+// secret may also be passed as the "token" query parameter.
+const webhookTokenHeader = "X-Castor-Token"
 
 // --- request/response shapes (camelCase, mirrored in ui/src/lib/types.ts) ---
 
@@ -32,10 +41,23 @@ type composeRequest struct {
 // semantics as the template-deploy flag) to permit ordinary host bind mounts
 // declared in the compose volumes; non-admins are denied 403 if any service
 // declares a host bind, and the always-blocked host paths stay denied for all.
+//
+// The Git* fields are optional GitOps configuration. When GitRepoURL is set the
+// stack is created from that repo: composeYaml may be omitted (it is pulled on
+// the first sync) and the stack is not deployed at creation. GitToken is a git
+// PAT for a private repo — write-only, sealed at rest, never returned. AutoDeploy
+// enables the public redeploy webhook; when both a repo and auto-deploy are set,
+// the create response includes the generated webhook secret exactly once.
 type createStackRequest struct {
 	Name            string `json:"name"`
 	ComposeYAML     string `json:"composeYaml"`
 	AllowHostMounts bool   `json:"allowHostMounts"`
+
+	GitRepoURL string `json:"gitRepoUrl"`
+	GitRef     string `json:"gitRef"`
+	GitPath    string `json:"gitPath"`
+	GitToken   string `json:"gitToken"`
+	AutoDeploy bool   `json:"autoDeploy"`
 }
 
 // stackServiceView is one normalized service in a validate/summary response.
@@ -61,7 +83,10 @@ type stackValidateResponse struct {
 	DeployOrder  []string           `json:"deployOrder"`
 }
 
-// stackView is a stack row as returned by the list/detail/create endpoints.
+// stackView is a stack row as returned by the list/detail/create endpoints. The
+// git PAT and webhook secret hash are never included (write-only at rest); the
+// view exposes only HasGitToken and the repo/ref/path/auto-deploy config plus the
+// last synced commit.
 type stackView struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
@@ -73,6 +98,21 @@ type stackView struct {
 	CreatedBy    string `json:"createdBy"`
 	CreatedAt    int64  `json:"createdAt"`
 	UpdatedAt    int64  `json:"updatedAt"`
+
+	GitRepoURL       string `json:"gitRepoUrl"`
+	GitRef           string `json:"gitRef"`
+	GitPath          string `json:"gitPath"`
+	HasGitToken      bool   `json:"hasGitToken"`
+	AutoDeploy       bool   `json:"autoDeploy"`
+	LastSyncedCommit string `json:"lastSyncedCommit"`
+}
+
+// stackCreateView is the create response: a stackView plus, exactly once, the
+// generated webhook secret when the stack was created with git + auto-deploy. The
+// secret is omitted from every other response (it is not stored in plaintext).
+type stackCreateView struct {
+	stackView
+	WebhookSecret string `json:"webhookSecret,omitempty"`
 }
 
 // stackContainerView lists a deployed container of a stack (detail endpoint).
@@ -161,11 +201,17 @@ func (s *Server) ValidateStack(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// CreateStack validates the compose document, creates+starts every container in
-// dependency order on the local Docker engine (attaching each to a per-stack
-// bridge network), and persists the stack row. Partial failures roll the row to
-// status "partial"/"error" with the already-created containers left in place for
-// inspection. Perm docker.container.create at host scope.
+// CreateStack persists a stack row and, when a compose document is supplied,
+// creates+starts every container in dependency order on the local Docker engine
+// (attaching each to a per-stack bridge network). Partial failures roll the row
+// to status "partial"/"error" with the already-created containers left in place
+// for inspection. Perm docker.container.create at host scope.
+//
+// GitOps: when gitRepoUrl is set the stack is created from a repository. The git
+// PAT (if any) is sealed via authz.SealSecret; the compose may be omitted (it is
+// pulled by the first /sync) in which case no containers are deployed at create.
+// If both a repo and autoDeploy are set, a redeploy webhook secret is generated
+// and returned exactly once in the create response (only its hash is stored).
 func (s *Server) CreateStack(w http.ResponseWriter, r *http.Request) {
 	hostID := chi.URLParam(r, "hostID")
 	if _, ok := s.manager.Store().Get(hostID); !ok {
@@ -183,27 +229,55 @@ func (s *Server) CreateStack(w http.ResponseWriter, r *http.Request) {
 		authz.WriteError(w, r, authz.Errorf(authz.ErrValidation, "Stack name is required."))
 		return
 	}
+	gitURL := strings.TrimSpace(req.GitRepoURL)
+	hasCompose := strings.TrimSpace(req.ComposeYAML) != ""
 
-	model, plan, err := s.parseAndPlan(req.ComposeYAML, name)
-	if err != nil {
-		authz.WriteError(w, r, mapComposeErr(err))
+	// A stack must have a source: an inline compose document, a git repo, or both.
+	if !hasCompose && gitURL == "" {
+		authz.WriteError(w, r, authz.Errorf(authz.ErrValidation, "Provide a compose document or a git repository URL."))
 		return
 	}
-	authz.SetAuditTarget(r, "stack", plan.Project, name)
 
-	// Host-mount escalation guard: reject host bind mounts declared anywhere in
-	// the compose document for non-admins (403, audited); for a global superuser
-	// that opted in, stamp every spec so the provider permits ordinary host binds
-	// (the always-blocked host paths still fail in ValidateMounts).
-	if err := s.authorizePlanHostMounts(r, plan, req.AllowHostMounts); err != nil {
-		authz.WriteError(w, r, err)
-		return
+	// Resolve the project name. When a compose document is present we plan it now
+	// (which validates it and derives the project); a git-only create derives the
+	// project from the stack name alone.
+	var (
+		model        *compose.Model
+		plan         *compose.Plan
+		project      string
+		serviceCount int
+	)
+	if hasCompose {
+		var perr error
+		model, plan, perr = s.parseAndPlan(req.ComposeYAML, name)
+		if perr != nil {
+			authz.WriteError(w, r, mapComposeErr(perr))
+			return
+		}
+		project = plan.Project
+		serviceCount = len(model.Services)
+	} else {
+		project = compose.SanitizeProjectName(name)
+		if project == "" {
+			authz.WriteError(w, r, authz.Errorf(authz.ErrValidation, "Invalid stack name (use letters, digits, '-' or '_')."))
+			return
+		}
+	}
+	authz.SetAuditTarget(r, "stack", project, name)
+
+	// Host-mount escalation guard runs only when there is a compose plan to check;
+	// a git-only stack is guarded on its first sync instead.
+	if hasCompose {
+		if err := s.authorizePlanHostMounts(r, plan, req.AllowHostMounts); err != nil {
+			authz.WriteError(w, r, err)
+			return
+		}
 	}
 
 	// Reject a duplicate project up front (the UNIQUE constraint would catch it
 	// anyway, but this avoids creating containers we then can't record).
-	if _, gerr := s.store.GetStackByProject(r.Context(), plan.Project); gerr == nil {
-		authz.WriteError(w, r, authz.Errorf(authz.ErrConflict, "A stack with project name "+plan.Project+" already exists."))
+	if _, gerr := s.store.GetStackByProject(r.Context(), project); gerr == nil {
+		authz.WriteError(w, r, authz.Errorf(authz.ErrConflict, "A stack with project name "+project+" already exists."))
 		return
 	}
 
@@ -212,34 +286,71 @@ func (s *Server) CreateStack(w http.ResponseWriter, r *http.Request) {
 	st := &store.Stack{
 		ID:           store.NewUUID(),
 		Name:         name,
-		ProjectName:  plan.Project,
+		ProjectName:  project,
 		HostID:       hostID,
 		ComposeYAML:  req.ComposeYAML,
 		Status:       "pending",
-		ServiceCount: len(model.Services),
+		ServiceCount: serviceCount,
+		GitRepoURL:   gitURL,
+		GitRef:       strings.TrimSpace(req.GitRef),
+		GitPath:      strings.TrimSpace(req.GitPath),
+		AutoDeploy:   req.AutoDeploy,
 	}
 	if u := authz.UserFrom(r); u != nil {
 		st.CreatedBy = u.ID
 	}
+
+	// Seal the git PAT in the API layer (the store never imports the crypto
+	// package), mirroring the registry credential path.
+	if tok := strings.TrimSpace(req.GitToken); tok != "" {
+		if gitURL == "" {
+			authz.WriteError(w, r, authz.Errorf(authz.ErrValidation, "A git token requires a git repository URL."))
+			return
+		}
+		sealed, serr := authz.SealSecret(s.cfg.SecretKey, []byte(tok))
+		if serr != nil {
+			authz.WriteError(w, r, authz.ErrInternal)
+			return
+		}
+		st.GitTokenEnc = sealed
+	}
+
+	// Generate a redeploy webhook secret when the stack is git-backed AND opts into
+	// auto-deploy. Only the hash is persisted; the raw secret is returned once.
+	var webhookSecret string
+	if gitURL != "" && req.AutoDeploy {
+		raw, gerr := authz.RandomToken(32)
+		if gerr != nil {
+			authz.WriteError(w, r, authz.ErrInternal)
+			return
+		}
+		webhookSecret = raw
+		st.WebhookSecretHash = authz.HashSessionID(raw)
+	}
+
 	if err := s.store.CreateStack(r.Context(), st); err != nil {
 		writeMapped(w, r, mapStackConflict(err))
 		return
 	}
 
-	// Deploy on a background-derived timeout (decoupled from the request cancel so
-	// a client disconnect mid-pull doesn't orphan a half-built stack).
-	ctx, cancel := context.WithTimeout(context.Background(), stackDeployTimeout)
-	defer cancel()
+	// Deploy only when a compose document was supplied. A git-only stack stays
+	// "pending" until its first /sync pulls and deploys the compose.
+	if hasCompose {
+		// Deploy on a background-derived timeout (decoupled from the request cancel
+		// so a client disconnect mid-pull doesn't orphan a half-built stack).
+		ctx, cancel := context.WithTimeout(context.Background(), stackDeployTimeout)
+		defer cancel()
 
-	status, derr := s.deployPlan(ctx, plan)
-	_ = s.store.UpdateStackStatus(r.Context(), st.ID, status)
-	st.Status = status
+		status, derr := s.deployPlan(ctx, plan)
+		_ = s.store.UpdateStackStatus(r.Context(), st.ID, status)
+		st.Status = status
 
-	if derr != nil {
-		// The row is kept (status reflects the failure) so the operator can see
-		// and tear it down. Surface the mapped error.
-		writeMapped(w, r, derr)
-		return
+		if derr != nil {
+			// The row is kept (status reflects the failure) so the operator can see
+			// and tear it down. Surface the mapped error.
+			writeMapped(w, r, derr)
+			return
+		}
 	}
 
 	stored, err := s.store.GetStack(r.Context(), st.ID)
@@ -247,7 +358,7 @@ func (s *Server) CreateStack(w http.ResponseWriter, r *http.Request) {
 		writeMapped(w, r, err)
 		return
 	}
-	created(w, toStackView(stored))
+	created(w, stackCreateView{stackView: toStackView(stored), WebhookSecret: webhookSecret})
 }
 
 // authorizePlanHostMounts applies the host-mount escalation guard to a whole
@@ -432,6 +543,262 @@ func (s *Server) DeleteStack(w http.ResponseWriter, r *http.Request) {
 	ok2(w)
 }
 
+// --- GitOps: sync / diff / redeploy webhook ---
+
+// stackDiffView is the body of GET .../stacks/{id}/diff: the compose document
+// currently stored on the stack vs the one at the repo's ref, and whether they
+// differ. The textual diff is computed by the UI.
+type stackDiffView struct {
+	Current  string `json:"current"`
+	Incoming string `json:"incoming"`
+	Changed  bool   `json:"changed"`
+	Commit   string `json:"commit"`
+}
+
+// SyncStack pulls the compose document from the stack's git repository at its
+// pinned ref, validates it against Castor's supported compose subset, deploys it,
+// and records the resolved commit. Perm docker.container.create at host scope
+// (deploy-grade, identical to CreateStack — a sync re-creates containers). A
+// compose that exceeds the supported subset returns a clear 422, never a crash.
+func (s *Server) SyncStack(w http.ResponseWriter, r *http.Request) {
+	hostID := chi.URLParam(r, "hostID")
+	id := chi.URLParam(r, "id")
+	st, err := s.store.GetStack(r.Context(), id)
+	if err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	if st.HostID != hostID {
+		authz.WriteError(w, r, authz.ErrNotFound)
+		return
+	}
+	authz.SetAuditTarget(r, "stack", st.ProjectName, st.Name)
+
+	if !st.GitConfigured() {
+		authz.WriteError(w, r, authz.Errorf(authz.ErrValidation, "This stack is not configured with a git repository."))
+		return
+	}
+
+	status, commit, err := s.syncAndDeploy(r.Context(), st, r, false)
+	if err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	authz.AddAuditDetail(r, "commit", commit)
+	authz.AddAuditDetail(r, "status", status)
+
+	stored, gerr := s.store.GetStack(r.Context(), st.ID)
+	if gerr != nil {
+		writeMapped(w, r, gerr)
+		return
+	}
+	ok(w, toStackView(stored))
+}
+
+// StackDiff fetches the compose document from the stack's git repository at HEAD
+// of the pinned ref and returns it alongside the stack's stored compose so the UI
+// can render a diff. It does not deploy. Perm docker.container.read at host scope.
+func (s *Server) StackDiff(w http.ResponseWriter, r *http.Request) {
+	hostID := chi.URLParam(r, "hostID")
+	id := chi.URLParam(r, "id")
+	st, err := s.store.GetStack(r.Context(), id)
+	if err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	if st.HostID != hostID {
+		authz.WriteError(w, r, authz.ErrNotFound)
+		return
+	}
+	if !st.GitConfigured() {
+		authz.WriteError(w, r, authz.Errorf(authz.ErrValidation, "This stack is not configured with a git repository."))
+		return
+	}
+
+	auth, aerr := s.stackGitAuth(st)
+	if aerr != nil {
+		authz.WriteError(w, r, authz.ErrInternal)
+		return
+	}
+
+	ctx, cancel := contextWithTimeout(r, gitSyncTimeout)
+	defer cancel()
+
+	res, serr := git.SyncTo(ctx, s.cfg.StackCloneDir(st.ID), st.GitRepoURL, st.GitRef, stackGitPath(st), auth)
+	if serr != nil {
+		authz.WriteError(w, r, mapGitErr(serr))
+		return
+	}
+	incoming := string(res.Content)
+	ok(w, stackDiffView{
+		Current:  st.ComposeYAML,
+		Incoming: incoming,
+		Changed:  incoming != st.ComposeYAML,
+		Commit:   res.Commit,
+	})
+}
+
+// RedeployWebhook is the PUBLIC redeploy hook (no session/CSRF; mounted next to
+// /healthz). It reads a secret from the X-Castor-Token header (or ?token=), looks
+// up the stack by the secret's hash, and — only when the stack has auto_deploy
+// and the secret matches in constant time — runs the same sync+deploy as
+// SyncStack with the audit actor recorded as "webhook". Any miss returns a
+// generic 404 so the endpoint never reveals whether a stack or secret exists.
+func (s *Server) RedeployWebhook(w http.ResponseWriter, r *http.Request) {
+	secret := strings.TrimSpace(r.Header.Get(webhookTokenHeader))
+	if secret == "" {
+		secret = strings.TrimSpace(r.URL.Query().Get("token"))
+	}
+	// Record the actor as "webhook" on the audit row (the route has no session).
+	authz.AddAuditDetail(r, "actor", "webhook")
+
+	// A generic 404 for every failure path (no secret, no match, wrong secret,
+	// auto_deploy off) so the hook leaks nothing about stack/secret existence.
+	deny := func() { authz.WriteError(w, r, authz.ErrNotFound) }
+
+	if secret == "" {
+		deny()
+		return
+	}
+	st, err := s.store.GetStackByWebhookHash(r.Context(), authz.HashSessionID(secret))
+	if err != nil || st == nil {
+		deny()
+		return
+	}
+	// Constant-time confirm of the stored hash vs the presented secret's hash, and
+	// require auto_deploy + a configured repo. Both hashes are already fixed-width
+	// hex, so the compare does not leak the secret.
+	if !st.AutoDeploy || !st.GitConfigured() ||
+		!authz.ConstantTimeEqualString(st.WebhookSecretHash, authz.HashSessionID(secret)) {
+		deny()
+		return
+	}
+	authz.SetAuditTarget(r, "stack", st.ProjectName, st.Name)
+
+	status, commit, derr := s.syncAndDeploy(r.Context(), st, r, true)
+	if derr != nil {
+		writeMapped(w, r, derr)
+		return
+	}
+	authz.AddAuditDetail(r, "commit", commit)
+	authz.AddAuditDetail(r, "status", status)
+	ok(w, map[string]any{"ok": true, "status": status, "commit": commit})
+}
+
+// syncAndDeploy is the shared sync path for SyncStack and RedeployWebhook: it
+// pulls the compose from git, validates+plans it, enforces the host-mount guard,
+// deploys it, and records compose+commit+status on the row. When public is true
+// the caller is the anonymous webhook, so host bind mounts are always rejected
+// (there is no admin to opt in). It returns the resulting status and commit.
+func (s *Server) syncAndDeploy(ctx context.Context, st *store.Stack, r *http.Request, public bool) (status, commit string, err error) {
+	auth, aerr := s.stackGitAuth(st)
+	if aerr != nil {
+		return "", "", authz.ErrInternal
+	}
+
+	gctx, gcancel := context.WithTimeout(ctx, gitSyncTimeout)
+	res, serr := git.SyncTo(gctx, s.cfg.StackCloneDir(st.ID), st.GitRepoURL, st.GitRef, stackGitPath(st), auth)
+	gcancel()
+	if serr != nil {
+		return "", "", mapGitErr(serr)
+	}
+	composeYAML := string(res.Content)
+
+	// Parse+plan the pulled compose. A document outside Castor's supported subset
+	// is a clean 422 (ErrValidation), never a panic.
+	model, plan, perr := s.parseAndPlan(composeYAML, st.Name)
+	if perr != nil {
+		return "", "", mapComposeErr(perr)
+	}
+
+	// Host-mount escalation guard. A host bind mount is admin-only; the public
+	// webhook and any non-admin sync are rejected (403). For an interactive sync
+	// by a global superuser the binds are permitted (still subject to the
+	// always-blocked host paths in the provider).
+	if err := s.authorizeSyncHostMounts(plan, r, public); err != nil {
+		return "", "", err
+	}
+
+	// Deploy on a background-derived timeout so a client disconnect mid-pull does
+	// not orphan a half-built stack.
+	dctx, dcancel := context.WithTimeout(context.Background(), stackDeployTimeout)
+	defer dcancel()
+
+	status, derr := s.deployPlan(dctx, plan)
+
+	// Persist the synced compose + commit + status regardless of deploy outcome so
+	// the row reflects what was applied and is teardownable by project label.
+	_ = s.store.UpdateStackSynced(ctx, st.ID, composeYAML, res.Commit, status, len(model.Services))
+	if derr != nil {
+		return status, res.Commit, derr
+	}
+	return status, res.Commit, nil
+}
+
+// authorizeSyncHostMounts applies the host-mount escalation guard to a synced
+// plan. The public webhook (public=true) has no principal, so any host bind is
+// rejected. An interactive sync consults the request's user: a global superuser
+// may deploy host binds; everyone else is denied 403.
+func (s *Server) authorizeSyncHostMounts(plan *compose.Plan, r *http.Request, public bool) error {
+	hostPaths := plan.HostMountSources()
+	if len(hostPaths) == 0 {
+		return nil
+	}
+	isAdmin := false
+	if !public {
+		if u := authz.UserFrom(r); u != nil {
+			isAdmin = u.HasGlobalSuperuser()
+		}
+	}
+	if !isAdmin {
+		if r != nil {
+			authz.AddAuditDetail(r, "denied", "host_mount")
+		}
+		return authz.Errorf(authz.ErrForbidden,
+			"The synced compose declares host bind mounts, which require administrator privileges; use named volumes instead.")
+	}
+	for i := range plan.Specs {
+		plan.Specs[i].AllowHostMounts = true
+	}
+	return nil
+}
+
+// stackGitAuth builds the optional git BasicAuth from a stack's sealed PAT. It
+// returns nil (anonymous) when no token is stored. The plaintext token is used
+// only to construct the auth and is never logged or returned.
+func (s *Server) stackGitAuth(st *store.Stack) (*git.BasicAuth, error) {
+	if !st.HasGitToken() {
+		return nil, nil
+	}
+	tok, err := authz.OpenSecret(s.cfg.SecretKey, st.GitTokenEnc)
+	if err != nil {
+		return nil, err
+	}
+	// The username is not stored; a git PAT authenticates as basic-auth password
+	// with a placeholder username (providers ignore it for token auth).
+	return &git.BasicAuth{Username: "castor", Token: string(tok)}, nil
+}
+
+// stackGitPath returns the compose path to read from the repo, defaulting to the
+// conventional file when the stack stored none.
+func stackGitPath(st *store.Stack) string {
+	if p := strings.TrimSpace(st.GitPath); p != "" {
+		return p
+	}
+	return "docker-compose.yml"
+}
+
+// mapGitErr maps a git-package error to the API envelope. A git error is
+// operator-facing (bad ref, auth, missing file) and already sanitized of
+// credentials by the git package, so it surfaces as a 422 so the caller can fix
+// the repo/ref/token without a 5xx.
+func mapGitErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	return authz.Errorf(authz.ErrValidation, err.Error())
+}
+
 // BuilderGenerate turns a structured service list into a compose YAML document.
 // Pure: it builds a compose.Model, marshals it with yaml.v3, and returns the
 // document. No validation against a daemon and no deploy. Perm
@@ -537,16 +904,22 @@ func deployOrder(plan *compose.Plan) []string {
 
 func toStackView(st *store.Stack) stackView {
 	return stackView{
-		ID:           st.ID,
-		Name:         st.Name,
-		ProjectName:  st.ProjectName,
-		HostID:       st.HostID,
-		ComposeYAML:  st.ComposeYAML,
-		Status:       st.Status,
-		ServiceCount: st.ServiceCount,
-		CreatedBy:    st.CreatedBy,
-		CreatedAt:    st.CreatedAt,
-		UpdatedAt:    st.UpdatedAt,
+		ID:               st.ID,
+		Name:             st.Name,
+		ProjectName:      st.ProjectName,
+		HostID:           st.HostID,
+		ComposeYAML:      st.ComposeYAML,
+		Status:           st.Status,
+		ServiceCount:     st.ServiceCount,
+		CreatedBy:        st.CreatedBy,
+		CreatedAt:        st.CreatedAt,
+		UpdatedAt:        st.UpdatedAt,
+		GitRepoURL:       st.GitRepoURL,
+		GitRef:           st.GitRef,
+		GitPath:          st.GitPath,
+		HasGitToken:      st.HasGitToken(),
+		AutoDeploy:       st.AutoDeploy,
+		LastSyncedCommit: st.LastSyncedCommit,
 	}
 }
 

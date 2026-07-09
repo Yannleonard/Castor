@@ -11,12 +11,13 @@ import (
 // Compose object-label keys, matching the docker compose CLI so the resulting
 // containers are discoverable/teardownable exactly like CLI-deployed stacks.
 const (
-	LabelProject       = "com.docker.compose.project"
-	LabelService       = "com.docker.compose.service"
-	LabelContainerNum  = "com.docker.compose.container-number"
-	LabelManagedBy     = "com.docker.compose.oneoff" // present=false marker for non-oneoff
-	LabelCastorStack   = "io.castor.stack"           // Castor marker (=project)
-	LabelCastorManaged = "io.castor.managed"         // "true" on everything Castor deploys
+	LabelProject        = "com.docker.compose.project"
+	LabelService        = "com.docker.compose.service"
+	LabelContainerNum   = "com.docker.compose.container-number"
+	LabelManagedBy      = "com.docker.compose.oneoff" // present=false marker for non-oneoff
+	LabelCastorStack    = "io.castor.stack"           // Castor marker (=project)
+	LabelCastorManaged  = "io.castor.managed"         // "true" on everything Castor deploys
+	LabelCastorTemplate = "io.castor.template"        // marketplace template slug a container was deployed from
 )
 
 // Plan is the ordered deployment plan derived from a compose Model: the specs

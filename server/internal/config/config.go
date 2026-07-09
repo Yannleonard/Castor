@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -41,6 +42,12 @@ type Config struct {
 
 	// DBPath is the SQLite database file path. Default "/data/castor.db".
 	DBPath string
+
+	// DataDir is the writable directory for Castor's persistent working state
+	// beyond the SQLite file (e.g. GitOps stack clones under <DataDir>/stacks/).
+	// Env CASTOR_DATA_DIR; default filepath.Dir(DBPath) so it sits alongside the
+	// database (the same volume operators already mount).
+	DataDir string
 
 	// Kubeconfig is the path to a kubeconfig file for read-only K8s. Empty means
 	// the kube provider is disabled.
@@ -115,6 +122,7 @@ func Load() *Config {
 		BootstrapToken:         os.Getenv("CASTOR_BOOTSTRAP_TOKEN"),
 		PublicURL:              strings.TrimRight(strings.TrimSpace(os.Getenv("CASTOR_PUBLIC_URL")), "/"),
 		DBPath:                 envStr("CASTOR_DB_PATH", "/data/castor.db"),
+		DataDir:                strings.TrimSpace(os.Getenv("CASTOR_DATA_DIR")),
 		Kubeconfig:             os.Getenv("CASTOR_KUBECONFIG"),
 		SelfContainerID:        os.Getenv("CASTOR_SELF_CONTAINER_ID"),
 		AllowedOrigins:         envList("CASTOR_ALLOWED_ORIGINS"),
@@ -127,6 +135,11 @@ func Load() *Config {
 		EventReconnectCap:      envDur("CASTOR_EVENT_RECONNECT_CAP", 30*time.Second),
 		SessionTTL:             envDur("CASTOR_SESSION_TTL", 12*time.Hour),
 		SessionAbsoluteTTL:     envDur("CASTOR_SESSION_ABSOLUTE_TTL", 24*time.Hour),
+	}
+	// Default the data dir to the directory that holds the SQLite file so GitOps
+	// clones live on the same mounted volume as the database.
+	if c.DataDir == "" {
+		c.DataDir = filepath.Dir(c.DBPath)
 	}
 	// If DOCKER_HOST is explicitly provided via CASTOR_DOCKER_HOST, export it so
 	// the Docker SDK's FromEnv picks it up.
@@ -146,6 +159,12 @@ func (c *Config) Validate() error {
 
 // KubeEnabled reports whether a kubeconfig path was provided.
 func (c *Config) KubeEnabled() bool { return strings.TrimSpace(c.Kubeconfig) != "" }
+
+// StackCloneDir returns the per-stack GitOps working directory
+// (<DataDir>/stacks/<stackID>). The caller creates it with os.MkdirAll(dir, 0o750).
+func (c *Config) StackCloneDir(stackID string) string {
+	return filepath.Join(c.DataDir, "stacks", stackID)
+}
 
 func envStr(key, def string) string {
 	if v := os.Getenv(key); v != "" {
