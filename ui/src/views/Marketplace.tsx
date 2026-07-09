@@ -32,6 +32,8 @@ import {
   IconTrash,
 } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
+import { useT } from "../i18n";
+import { marketplaceDict } from "../i18n/locales/marketplace";
 import type { Template } from "../lib/types";
 import { DeployTemplateModal } from "./marketplace/DeployTemplateModal";
 import { CustomTemplateModal } from "./marketplace/CustomTemplateModal";
@@ -49,6 +51,7 @@ const EMPTY_WORKLOADS: Workload[] = [];
 const ALL = "__all__";
 
 export function Marketplace() {
+  const t = useT(marketplaceDict);
   const hostId = useSelectedHost();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -82,8 +85,8 @@ export function Marketplace() {
   // containers" (there is no dedicated "create" capability token in V1).
   const canDeploy = !!caps && caps.includes("start") && can("docker.container.create");
   const deployReason = !caps?.includes("start")
-    ? "This provider cannot create containers"
-    : "Requires docker.container.create";
+    ? t("deploy.noCreate")
+    : t("deploy.needPermission");
 
   const canCreate = can("marketplace.template.create");
   const canUpdate = can("marketplace.template.update");
@@ -119,19 +122,19 @@ export function Marketplace() {
     <div className="page">
       <PageHeader
         title="Marketplace"
-        subtitle="Deploy curated app templates to your host in one click, or publish your own."
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             <ActionButton
               variant="primary"
               disabled={!canCreate}
-              tooltip={canCreate ? undefined : "Requires marketplace.template.create (admin)"}
+              tooltip={canCreate ? undefined : t("header.addTemplateDenied")}
               onClick={() => setCreateOpen(true)}
             >
               <IconPlus size={15} />
-              Add template
+              {t("header.addTemplate")}
             </ActionButton>
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="marketplace" />
@@ -147,14 +150,14 @@ export function Marketplace() {
           </span>
           <input
             className="input"
-            placeholder="Search by name, description or image…"
+            placeholder={t("filter.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ maxWidth: 420 }}
           />
           <span className="spacer" />
           <span className="text-sm muted">
-            {filtered.length} of {templates.length}
+            {t("filter.count", { shown: filtered.length, total: templates.length })}
           </span>
         </div>
         <div className="mkt-filters">
@@ -163,7 +166,7 @@ export function Marketplace() {
             onClick={() => setCategory(ALL)}
             type="button"
           >
-            All <span className="mkt-pill-count">{templates.length}</span>
+            {t("filter.all")} <span className="mkt-pill-count">{templates.length}</span>
           </button>
           {categories.map(([cat, count]) => (
             <button
@@ -179,16 +182,16 @@ export function Marketplace() {
       </div>
 
       {query.isLoading ? (
-        <LoadingFill label="Loading templates…" />
+        <LoadingFill label={t("list.loading")} />
       ) : filtered.length === 0 ? (
         <div className="card">
           <EmptyState
             icon={<IconMarketplace size={40} />}
-            title={templates.length === 0 ? "No templates" : "No matching templates"}
+            title={templates.length === 0 ? t("empty.noneTitle") : t("empty.noMatchTitle")}
             message={
               templates.length === 0
-                ? "The catalog is empty. Add a custom template to get started."
-                : "Try a different search term or category."
+                ? t("empty.noneMessage")
+                : t("empty.noMatchMessage")
             }
           />
         </div>
@@ -248,23 +251,24 @@ export function Marketplace() {
 
       <ConfirmDestructiveDialog
         open={!!deleteTarget}
-        title="Delete template"
+        title={t("dialog.deleteTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete the custom template <strong>{deleteTarget?.name}</strong>? Containers already deployed from it are
-            not affected.
+            {t("dialog.deleteBefore")}
+            <strong>{deleteTarget?.name}</strong>
+            {t("dialog.deleteAfter")}
           </>
         }
         onConfirm={async () => {
           if (!deleteTarget) return;
           try {
             await api.templateDelete(deleteTarget.id);
-            toast.success("Template deleted", deleteTarget.name);
+            toast.success(t("toast.deletedTitle"), deleteTarget.name);
             invalidate();
           } catch (err) {
-            toastError("Delete failed", err);
+            toastError(t("toast.deleteFailed"), err);
             throw err;
           }
         }}
@@ -288,7 +292,7 @@ interface CardProps {
 }
 
 function TemplateCard({
-  t,
+  t: tpl,
   canDeploy,
   deployReason,
   canEdit,
@@ -299,16 +303,17 @@ function TemplateCard({
   onDelete,
   onShowDeployed,
 }: CardProps) {
+  const t = useT(marketplaceDict);
   return (
     <div className="mkt-card">
       <div className="mkt-card-head">
-        <TemplateLogo name={t.name} logo={t.logo} />
+        <TemplateLogo name={tpl.name} logo={tpl.logo} />
         <div className="col" style={{ gap: 4, minWidth: 0, flex: 1 }}>
           <div className="row" style={{ gap: 6, justifyContent: "space-between" }}>
-            <span className="mkt-card-title truncate" title={t.name}>
-              {t.name}
+            <span className="mkt-card-title truncate" title={tpl.name}>
+              {tpl.name}
             </span>
-            {t.source === "custom" ? (
+            {tpl.source === "custom" ? (
               <span className="pill" style={{ color: "var(--warm)", background: "rgba(139,94,60,0.16)" }}>
                 custom
               </span>
@@ -316,23 +321,23 @@ function TemplateCard({
           </div>
           <div className="row" style={{ gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             <span className="chip text-xs" style={{ textTransform: "capitalize", alignSelf: "flex-start" }}>
-              {t.category || "other"}
+              {tpl.category || "other"}
             </span>
             <DeployedBadge count={deployedCount} onOpen={onShowDeployed} />
           </div>
         </div>
       </div>
 
-      <p className="mkt-card-desc">{t.description || "No description provided."}</p>
+      <p className="mkt-card-desc">{tpl.description || t("card.noDescription")}</p>
 
       <div className="mkt-card-foot">
-        <span className="mkt-card-image mono" title={t.image}>
-          {t.image}
+        <span className="mkt-card-image mono" title={tpl.image}>
+          {tpl.image}
         </span>
         <span className="row" style={{ gap: 4 }}>
           {canEdit ? (
-            <ActionButton size="sm" variant="ghost" tooltip="Edit template" onClick={onEdit}>
-              Edit
+            <ActionButton size="sm" variant="ghost" tooltip={t("card.editTooltip")} onClick={onEdit}>
+              {t("card.edit")}
             </ActionButton>
           ) : null}
           {canRemove ? (
@@ -340,8 +345,8 @@ function TemplateCard({
               size="sm"
               variant="ghost"
               iconOnly
-              aria-label="Delete template"
-              tooltip="Delete template"
+              aria-label={t("card.delete")}
+              tooltip={t("card.delete")}
               onClick={onDelete}
               style={{ color: "var(--danger)" }}
             >
@@ -354,11 +359,11 @@ function TemplateCard({
                 size="sm"
                 variant="primary"
                 disabled={!allowed}
-                tooltip={allowed ? "Deploy to host" : reason}
+                tooltip={allowed ? t("card.deployTooltip") : reason}
                 onClick={onDeploy}
               >
                 <IconPlay size={13} />
-                Deploy
+                {t("card.deploy")}
               </ActionButton>
             )}
           </CapabilityGate>

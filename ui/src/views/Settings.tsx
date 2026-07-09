@@ -24,6 +24,8 @@ import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog
 import { TextField, SelectField } from "../components/Field";
 import { IconPlus, IconClose, IconShield, IconTrash } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
+import { useT } from "../i18n";
+import { settingsDict } from "../i18n/locales/settings";
 import type {
   NotificationChannel,
   NotificationChannelInput,
@@ -32,6 +34,7 @@ import type {
 } from "../lib/types";
 
 export function Settings() {
+  const t = useT(settingsDict);
   const queryClient = useQueryClient();
   const { can } = useAuth();
   const settingsQ = useSettings();
@@ -53,7 +56,7 @@ export function Settings() {
     }
   }, [settingsQ.data]);
 
-  if (settingsQ.isLoading) return <LoadingFill label="Loading settings…" />;
+  if (settingsQ.isLoading) return <LoadingFill label={t("header.loading")} />;
   const data = settingsQ.data;
 
   const addLabel = () => {
@@ -76,11 +79,11 @@ export function Settings() {
         "security.protected_labels": labels,
         "session.ttl_seconds": ttl,
       });
-      toast.success("Settings saved");
+      toast.success(t("toast.saved"));
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       setDirty(false);
     } catch (err) {
-      toastError("Save failed", err);
+      toastError(t("toast.saveFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -89,12 +92,12 @@ export function Settings() {
   return (
     <div className="page">
       <PageHeader
-        title="Settings"
-        subtitle="Instance security and behavior."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
-            <ActionButton variant="primary" disabled={!canUpdate || !dirty} loading={busy} tooltip={canUpdate ? undefined : "Requires settings.update"} onClick={save}>
-              Save changes
+            <ActionButton variant="primary" disabled={!canUpdate || !dirty} loading={busy} tooltip={canUpdate ? undefined : t("header.saveDenied")} onClick={save}>
+              {t("header.save")}
             </ActionButton>
             <HelpButton topic="settings" />
           </div>
@@ -103,17 +106,16 @@ export function Settings() {
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Security</span>
+          <span className="card-title">{t("sec.title")}</span>
         </div>
         <div className="card-body col" style={{ gap: "var(--sp-5)" }}>
           <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
             <div className="col" style={{ gap: 2, maxWidth: 540 }}>
               <span className="text-sm" style={{ fontWeight: 600 }}>
-                Require 2FA for mutating actions
+                {t("sec.totpLabel")}
               </span>
               <span className="text-xs muted">
-                When enabled, users with TOTP configured must have an authentication assurance level of
-                pwd+totp to perform any state-changing operation.
+                {t("sec.totpHint")}
               </span>
             </div>
             <Toggle checked={totpRequired} disabled={!canUpdate} onChange={(v) => { setTotpRequired(v); setDirty(true); }} />
@@ -121,7 +123,7 @@ export function Settings() {
 
           <div className="col" style={{ gap: "var(--sp-2)" }}>
             <span className="text-sm" style={{ fontWeight: 600 }}>
-              Session lifetime
+              {t("sec.sessionLabel")}
             </span>
             <div className="row" style={{ gap: "var(--sp-2)" }}>
               <input
@@ -134,19 +136,18 @@ export function Settings() {
                 disabled={!canUpdate}
                 onChange={(e) => { setTtl(Number(e.target.value)); setDirty(true); }}
               />
-              <span className="text-sm muted">seconds ({Math.round(ttl / 3600)}h sliding window)</span>
+              <span className="text-sm muted">{t("sec.sessionUnit", { hours: Math.round(ttl / 3600) })}</span>
             </div>
           </div>
 
           <div className="col" style={{ gap: "var(--sp-2)" }}>
             <span className="text-sm" style={{ fontWeight: 600 }}>
               <span className="row" style={{ gap: 6 }}>
-                <IconShield size={15} /> Protected labels
+                <IconShield size={15} /> {t("sec.labelsLabel")}
               </span>
             </span>
             <span className="text-xs muted" style={{ maxWidth: 540 }}>
-              Containers carrying any of these labels are treated as protected and cannot be removed without
-              an audited admin override.
+              {t("sec.labelsHint")}
             </span>
             <div className="row-wrap" style={{ gap: 6, marginTop: 4 }}>
               {labels.map((l) => (
@@ -157,14 +158,14 @@ export function Settings() {
                       className="toast-close"
                       style={{ marginLeft: 4 }}
                       onClick={() => removeLabel(l)}
-                      aria-label={`Remove ${l}`}
+                      aria-label={t("sec.removeLabel", { label: l })}
                     >
                       <IconClose size={12} />
                     </button>
                   ) : null}
                 </span>
               ))}
-              {labels.length === 0 ? <span className="muted text-sm">No protected labels.</span> : null}
+              {labels.length === 0 ? <span className="muted text-sm">{t("sec.labelsEmpty")}</span> : null}
             </div>
             {canUpdate ? (
               <div className="row" style={{ gap: "var(--sp-2)", marginTop: 4 }}>
@@ -178,7 +179,7 @@ export function Settings() {
                 />
                 <ActionButton variant="ghost" size="sm" onClick={addLabel} disabled={!newLabel.trim()}>
                   <IconPlus size={14} />
-                  Add
+                  {t("sec.add")}
                 </ActionButton>
               </div>
             ) : null}
@@ -188,14 +189,14 @@ export function Settings() {
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Instance</span>
+          <span className="card-title">{t("inst.title")}</span>
         </div>
         <div className="card-body">
           <dl className="dl">
-            <dt>Instance ID</dt>
+            <dt>{t("inst.id")}</dt>
             <dd className="mono">{data?.["instance.id"] ?? "—"}</dd>
-            <dt>Bootstrap</dt>
-            <dd>{data?.["bootstrap.completed"] ? "Completed" : "Pending"}</dd>
+            <dt>{t("inst.bootstrap")}</dt>
+            <dd>{data?.["bootstrap.completed"] ? t("inst.bootstrapCompleted") : t("inst.bootstrapPending")}</dd>
           </dl>
         </div>
       </div>
@@ -207,30 +208,33 @@ export function Settings() {
 
 /* ===================== Notifications ===================== */
 
-const CHANNEL_TYPE_OPTIONS: { value: NotificationChannelType; label: string }[] = [
-  { value: "discord", label: "Discord" },
-  { value: "slack", label: "Slack" },
-  { value: "ntfy", label: "ntfy" },
-  { value: "webhook", label: "Webhook" },
+// Channel types and events pair a technical `value` (sent to / echoed from the
+// API, never translated) with the settingsDict key for its display label.
+const CHANNEL_TYPE_OPTIONS: { value: NotificationChannelType; labelKey: string }[] = [
+  { value: "discord", labelKey: "channel.type.discord" },
+  { value: "slack", labelKey: "channel.type.slack" },
+  { value: "ntfy", labelKey: "channel.type.ntfy" },
+  { value: "webhook", labelKey: "channel.type.webhook" },
 ];
 
-const CHANNEL_TYPE_LABEL: Record<string, string> = Object.fromEntries(
-  CHANNEL_TYPE_OPTIONS.map((t) => [t.value, t.label]),
+const CHANNEL_TYPE_LABEL_KEY: Record<string, string> = Object.fromEntries(
+  CHANNEL_TYPE_OPTIONS.map((c) => [c.value, c.labelKey]),
 );
 
-const EVENT_OPTIONS: { value: NotificationEvent; label: string }[] = [
-  { value: "container.down", label: "Container went down" },
-  { value: "update.available", label: "Image update available" },
+const EVENT_OPTIONS: { value: NotificationEvent; labelKey: string }[] = [
+  { value: "container.down", labelKey: "channel.event.containerDown" },
+  { value: "update.available", labelKey: "channel.event.updateAvailable" },
 ];
 
-const EVENT_LABEL: Record<string, string> = Object.fromEntries(
-  EVENT_OPTIONS.map((e) => [e.value, e.label]),
+const EVENT_LABEL_KEY: Record<string, string> = Object.fromEntries(
+  EVENT_OPTIONS.map((e) => [e.value, e.labelKey]),
 );
 
 // Alert channel management. Unlike the settings above, every change here is an
 // immediate API call (create/update/delete/test) — nothing is staged behind the
 // page-level "Save changes" button.
 function NotificationsSection() {
+  const t = useT(settingsDict);
   const queryClient = useQueryClient();
   const { can } = useAuth();
   const canManage = can("notifications.manage");
@@ -250,9 +254,9 @@ function NotificationsSection() {
     setTestingId(ch.id);
     try {
       await api.notificationChannelTest(ch.id);
-      toast.success("Test notification sent", ch.name);
+      toast.success(t("toast.testSent"), ch.name);
     } catch (err) {
-      toastError("Test failed", err);
+      toastError(t("toast.testFailed"), err);
     } finally {
       setTestingId(null);
     }
@@ -268,10 +272,10 @@ function NotificationsSection() {
         events: ch.events,
         enabled,
       });
-      toast.success(enabled ? "Channel enabled" : "Channel disabled", ch.name);
+      toast.success(enabled ? t("toast.channelEnabled") : t("toast.channelDisabled"), ch.name);
       invalidate();
     } catch (err) {
-      toastError("Update failed", err);
+      toastError(t("toast.updateFailed"), err);
     } finally {
       setTogglingId(null);
     }
@@ -282,35 +286,34 @@ function NotificationsSection() {
   return (
     <div className="card">
       <div className="card-header">
-        <span className="card-title">Notifications</span>
+        <span className="card-title">{t("notif.title")}</span>
         <ActionButton
           size="sm"
           disabled={!canManage}
-          tooltip={canManage ? undefined : "Requires notifications.manage"}
+          tooltip={canManage ? undefined : t("notif.addDenied")}
           onClick={() => setCreateOpen(true)}
         >
           <IconPlus size={14} />
-          Add channel
+          {t("notif.addChannel")}
         </ActionButton>
       </div>
       <div className="card-body col" style={{ gap: "var(--sp-4)" }}>
         <span className="text-xs muted" style={{ maxWidth: 540 }}>
-          Alert channels for container and image-update events. Webhook URLs are stored encrypted
-          and never displayed again.
+          {t("notif.intro")}
         </span>
 
         {!canManage ? (
           <span className="text-sm muted">
-            Managing notification channels requires the notifications.manage permission.
+            {t("notif.noPermission")}
           </span>
         ) : channelsQ.isLoading ? (
-          <span className="text-sm muted">Loading channels…</span>
+          <span className="text-sm muted">{t("notif.loading")}</span>
         ) : channelsQ.isError ? (
           <span className="text-sm" style={{ color: "var(--danger)" }}>
-            Failed to load notification channels.
+            {t("notif.loadError")}
           </span>
         ) : channels.length === 0 ? (
-          <span className="text-sm muted">No notification channels configured.</span>
+          <span className="text-sm muted">{t("notif.empty")}</span>
         ) : (
           <div className="col" style={{ gap: "var(--sp-4)" }}>
             {channels.map((ch) => (
@@ -324,17 +327,17 @@ function NotificationsSection() {
                     <span className="text-sm truncate" style={{ fontWeight: 600 }}>
                       {ch.name}
                     </span>
-                    <span className="chip">{CHANNEL_TYPE_LABEL[ch.type] ?? ch.type}</span>
+                    <span className="chip">{CHANNEL_TYPE_LABEL_KEY[ch.type] ? t(CHANNEL_TYPE_LABEL_KEY[ch.type]) : ch.type}</span>
                   </div>
                   <div className="row-wrap" style={{ gap: 6 }}>
                     {ch.events.length > 0 ? (
                       ch.events.map((e) => (
                         <span key={e} className="chip text-xs">
-                          {EVENT_LABEL[e] ?? e}
+                          {EVENT_LABEL_KEY[e] ? t(EVENT_LABEL_KEY[e]) : e}
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs muted">No events subscribed.</span>
+                      <span className="text-xs muted">{t("notif.noEvents")}</span>
                     )}
                   </div>
                 </div>
@@ -349,20 +352,20 @@ function NotificationsSection() {
                     variant="ghost"
                     loading={testingId === ch.id}
                     disabled={testingId !== null}
-                    tooltip="Send a test notification"
+                    tooltip={t("notif.testTooltip")}
                     onClick={() => runTest(ch)}
                   >
-                    Test
+                    {t("notif.test")}
                   </ActionButton>
-                  <ActionButton size="sm" variant="ghost" tooltip="Edit" onClick={() => setEditTarget(ch)}>
-                    Edit
+                  <ActionButton size="sm" variant="ghost" tooltip={t("notif.edit")} onClick={() => setEditTarget(ch)}>
+                    {t("notif.edit")}
                   </ActionButton>
                   <ActionButton
                     size="sm"
                     variant="ghost"
                     iconOnly
-                    tooltip="Delete channel"
-                    aria-label={`Delete ${ch.name}`}
+                    tooltip={t("notif.deleteTooltip")}
+                    aria-label={t("notif.deleteAria", { name: ch.name })}
                     style={{ color: "var(--danger)" }}
                     onClick={() => setDeleteTarget(ch)}
                   >
@@ -382,23 +385,22 @@ function NotificationsSection() {
 
       <ConfirmDestructiveDialog
         open={!!deleteTarget}
-        title="Delete channel"
+        title={t("dialog.deleteTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete notification channel <strong>{deleteTarget?.name}</strong>? Alerts routed to it
-            will stop immediately.
+            {t("dialog.deleteBody1")} <strong>{deleteTarget?.name}</strong>{t("dialog.deleteBody2")}
           </>
         }
         onConfirm={async () => {
           if (!deleteTarget) return;
           try {
             await api.notificationChannelDelete(deleteTarget.id);
-            toast.success("Channel deleted", deleteTarget.name);
+            toast.success(t("toast.channelDeleted"), deleteTarget.name);
             invalidate();
           } catch (err) {
-            toastError("Delete failed", err);
+            toastError(t("toast.deleteFailed"), err);
             throw err;
           }
         }}
@@ -417,6 +419,7 @@ function ChannelModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT(settingsDict);
   const editing = !!channel;
   const [name, setName] = useState(channel?.name ?? "");
   const [type, setType] = useState<NotificationChannelType>(channel?.type ?? "discord");
@@ -445,15 +448,15 @@ function ChannelModal({
       if (url.trim()) body.url = url.trim();
       if (editing) {
         await api.notificationChannelUpdate(channel!.id, body);
-        toast.success("Channel updated", body.name);
+        toast.success(t("toast.channelUpdated"), body.name);
       } else {
         await api.notificationChannelCreate(body);
-        toast.success("Channel added", body.name);
+        toast.success(t("toast.channelAdded"), body.name);
       }
       onDone();
       onClose();
     } catch (err) {
-      toastError(editing ? "Update failed" : "Create failed", err);
+      toastError(editing ? t("toast.updateFailed") : t("toast.createFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -462,51 +465,51 @@ function ChannelModal({
   return (
     <Modal
       open
-      title={editing ? `Edit ${channel!.name}` : "Add channel"}
+      title={editing ? t("modal.editTitle", { name: channel!.name }) : t("modal.addTitle")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("modal.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            {editing ? "Save" : "Add"}
+            {editing ? t("modal.save") : t("modal.add")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-3)" }}>
         <TextField
-          label="Name"
+          label={t("modal.name")}
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          hint="A label for this channel."
+          hint={t("modal.nameHint")}
         />
-        <SelectField label="Type" value={type} onChange={(e) => setType(e.target.value as NotificationChannelType)}>
-          {CHANNEL_TYPE_OPTIONS.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
+        <SelectField label={t("modal.type")} value={type} onChange={(e) => setType(e.target.value as NotificationChannelType)}>
+          {CHANNEL_TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {t(opt.labelKey)}
             </option>
           ))}
         </SelectField>
         <TextField
-          label="Webhook URL"
+          label={t("modal.url")}
           type="password"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           autoComplete="new-password"
-          placeholder={editing && channel?.urlSet ? "•••••• (unchanged)" : "https://…"}
+          placeholder={editing && channel?.urlSet ? t("modal.urlPlaceholderKept") : "https://…"}
           hint={
             editing && channel?.urlSet
-              ? "A URL is already stored. Leave blank to keep it, or type a new one to replace it."
-              : "Absolute http(s) endpoint. Stored encrypted; never displayed again."
+              ? t("modal.urlHintKept")
+              : t("modal.urlHintNew")
           }
         />
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <span className="text-sm" style={{ fontWeight: 600 }}>
-            Events
+            {t("modal.events")}
           </span>
           {EVENT_OPTIONS.map((ev) => (
             <label key={ev.value} className="checkbox-row">
@@ -515,7 +518,7 @@ function ChannelModal({
                 checked={events.includes(ev.value)}
                 onChange={(e) => toggleEvent(ev.value, e.target.checked)}
               />
-              <span>{ev.label}</span>
+              <span>{t(ev.labelKey)}</span>
             </label>
           ))}
         </div>

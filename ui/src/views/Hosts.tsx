@@ -15,13 +15,16 @@ import { EmptyState } from "../components/EmptyState";
 import { ActionButton } from "../components/ActionButton";
 import { HelpButton } from "../components/HelpButton";
 import { IconHosts, IconRefresh, IconExternal } from "../components/icons";
+import { useT } from "../i18n";
+import { hostsDict } from "../i18n/locales/hosts";
 import type { Capability, HostSummaryEntry, ProviderInfo } from "../lib/types";
 
 export function Hosts() {
+  const t = useT(hostsDict);
   const hostsQ = useHosts();
   const providersQ = useProviders();
 
-  if (hostsQ.isLoading) return <LoadingFill label="Loading hosts…" />;
+  if (hostsQ.isLoading) return <LoadingFill label={t("header.loading")} />;
 
   const hosts = hostsQ.data ?? [];
   const providers = providersQ.data ?? [];
@@ -29,11 +32,11 @@ export function Hosts() {
   return (
     <div className="page">
       <PageHeader
-        title="Hosts"
-        subtitle="Connected engines and the orchestrators they expose."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => hostsQ.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => hostsQ.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="dashboard" />
@@ -42,7 +45,7 @@ export function Hosts() {
       />
 
       {hosts.length === 0 ? (
-        <EmptyState icon={<IconHosts size={40} />} title="No hosts registered" />
+        <EmptyState icon={<IconHosts size={40} />} title={t("empty.title")} />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: "var(--sp-4)" }}>
           {hosts.map((h) => (
@@ -55,6 +58,7 @@ export function Hosts() {
 }
 
 function HostCard({ host, providers }: { host: HostSummaryEntry; providers: ProviderInfo[] }) {
+  const t = useT(hostsDict);
   const navigate = useNavigate();
   const setSelectedHost = useHostStore((s) => s.setSelectedHost);
   const detailQ = useHost(host.id);
@@ -66,7 +70,7 @@ function HostCard({ host, providers }: { host: HostSummaryEntry; providers: Prov
   const owned = providers.filter((p) => host.providerIds.includes(p.id));
 
   const statusLabel =
-    host.status === "connected" ? "Connected" : host.status === "pending" ? "Pending" : "Down";
+    host.status === "connected" ? t("status.connected") : host.status === "pending" ? t("status.pending") : t("status.down");
 
   return (
     <div className="card">
@@ -87,25 +91,25 @@ function HostCard({ host, providers }: { host: HostSummaryEntry; providers: Prov
           }}
         >
           {statusLabel}
-          {host.degraded ? " · degraded" : ""}
+          {host.degraded ? ` · ${t("status.degraded")}` : ""}
         </span>
       </div>
       <div className="card-body col" style={{ gap: "var(--sp-4)" }}>
         <div className="col" style={{ gap: "var(--sp-2)" }}>
-          <span className="text-xs muted">Orchestrators</span>
+          <span className="text-xs muted">{t("section.orchestrators")}</span>
           <div className="row-wrap">
             {owned.map((p) => (
               <OrchestratorBadge key={p.id} kind={p.kind} readonly={p.capabilities.includes("readonly")} />
             ))}
-            {owned.length === 0 ? <span className="muted text-sm">None</span> : null}
+            {owned.length === 0 ? <span className="muted text-sm">{t("section.orchestratorsNone")}</span> : null}
           </div>
         </div>
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>
-          <span className="text-xs muted">Capabilities</span>
+          <span className="text-xs muted">{t("section.capabilities")}</span>
           <div className="row-wrap" style={{ gap: 4 }}>
             {unionCaps(owned).map((c) => (
-              <span key={c} className="chip text-xs" title={`capability: ${c}`}>
+              <span key={c} className="chip text-xs" title={t("chip.capability", { name: c })}>
                 {c}
               </span>
             ))}
@@ -113,28 +117,28 @@ function HostCard({ host, providers }: { host: HostSummaryEntry; providers: Prov
         </div>
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>
-          <span className="text-xs muted">System</span>
+          <span className="text-xs muted">{t("section.system")}</span>
           <div className="kv-grid">
-            <Counter label="CPU" value={e ? `${e.ncpu} vCPU` : "—"} />
-            <Counter label="Memory" value={e ? fmtBytes(e.memTotalBytes) : "—"} />
-            <Counter label="Engine" value={e?.engineVersion ? `v${e.engineVersion}` : "—"} />
-            <Counter label="API" value={e?.apiVersion ? `v${e.apiVersion}` : "—"} />
-            <Counter label="OS" value={e?.osType || "—"} />
-            <Counter label="Arch" value={e?.architecture || "—"} />
-            <Counter label="Kernel" value={e?.kernelVersion || "—"} />
-            <Counter label="Hostname" value={e?.name || "—"} />
+            <Counter label={t("sys.cpu")} value={e ? `${e.ncpu} vCPU` : "—"} />
+            <Counter label={t("sys.memory")} value={e ? fmtBytes(e.memTotalBytes) : "—"} />
+            <Counter label={t("sys.engine")} value={e?.engineVersion ? `v${e.engineVersion}` : "—"} />
+            <Counter label={t("sys.api")} value={e?.apiVersion ? `v${e.apiVersion}` : "—"} />
+            <Counter label={t("sys.os")} value={e?.osType || "—"} />
+            <Counter label={t("sys.arch")} value={e?.architecture || "—"} />
+            <Counter label={t("sys.kernel")} value={e?.kernelVersion || "—"} />
+            <Counter label={t("sys.hostname")} value={e?.name || "—"} />
           </div>
         </div>
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>
-          <span className="text-xs muted">Summary</span>
+          <span className="text-xs muted">{t("section.summary")}</span>
           <div className="kv-grid">
-            <Counter label="Containers" value={s ? `${s.running}/${s.containers}` : "—"} />
-            <Counter label="Images" value={s ? s.images : "—"} />
-            <Counter label="Networks" value={s ? s.networks : "—"} />
-            <Counter label="Volumes" value={s ? s.volumes : "—"} />
-            <Counter label="Swarm tasks" value={s ? s.swarmTasks : "—"} />
-            <Counter label="K8s pods" value={s ? s.k8sPods : "—"} />
+            <Counter label={t("summary.containers")} value={s ? `${s.running}/${s.containers}` : "—"} />
+            <Counter label={t("summary.images")} value={s ? s.images : "—"} />
+            <Counter label={t("summary.networks")} value={s ? s.networks : "—"} />
+            <Counter label={t("summary.volumes")} value={s ? s.volumes : "—"} />
+            <Counter label={t("summary.swarmTasks")} value={s ? s.swarmTasks : "—"} />
+            <Counter label={t("summary.k8sPods")} value={s ? s.k8sPods : "—"} />
           </div>
         </div>
 
@@ -148,7 +152,7 @@ function HostCard({ host, providers }: { host: HostSummaryEntry; providers: Prov
             }}
           >
             <IconExternal size={14} />
-            Open workloads
+            {t("action.openWorkloads")}
           </ActionButton>
         </div>
       </div>

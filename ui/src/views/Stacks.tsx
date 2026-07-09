@@ -25,31 +25,36 @@ import { StatusDot } from "../components/StatusDot";
 import { IconStacks, IconPlus, IconTrash, IconRefresh, IconSearch, IconExternal } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { timeAgo } from "../lib/format";
+import { useT } from "../i18n";
+import { t as tr } from "../i18n";
+import { stacksDict } from "../i18n/locales/stacks";
 import type { Stack, StackStatus, WorkloadState } from "../lib/types";
 
 const EMPTY_STACKS: Stack[] = [];
 
-// Map a stack status to the workload-state palette reused by StatusDot, plus a
-// human label.
-const STATUS_META: Record<StackStatus, { dot: WorkloadState; label: string; fg: string; bg: string }> = {
-  running: { dot: "running", label: "Running", fg: "var(--state-running)", bg: "var(--success-bg)" },
-  partial: { dot: "paused", label: "Partial", fg: "var(--state-paused)", bg: "var(--warning-bg)" },
-  pending: { dot: "pending", label: "Pending", fg: "var(--state-pending)", bg: "rgba(142,124,195,0.18)" },
-  stopped: { dot: "stopped", label: "Stopped", fg: "var(--state-stopped)", bg: "rgba(110,138,166,0.16)" },
-  error: { dot: "unknown", label: "Error", fg: "var(--danger)", bg: "var(--danger-bg)" },
+// Map a stack status to the workload-state palette reused by StatusDot, plus the
+// stacksDict key for its human label.
+const STATUS_META: Record<StackStatus, { dot: WorkloadState; labelKey: string; fg: string; bg: string }> = {
+  running: { dot: "running", labelKey: "badge.running", fg: "var(--state-running)", bg: "var(--success-bg)" },
+  partial: { dot: "paused", labelKey: "badge.partial", fg: "var(--state-paused)", bg: "var(--warning-bg)" },
+  pending: { dot: "pending", labelKey: "badge.pending", fg: "var(--state-pending)", bg: "rgba(142,124,195,0.18)" },
+  stopped: { dot: "stopped", labelKey: "badge.stopped", fg: "var(--state-stopped)", bg: "rgba(110,138,166,0.16)" },
+  error: { dot: "unknown", labelKey: "badge.error", fg: "var(--danger)", bg: "var(--danger-bg)" },
 };
 
 function StackStatusBadge({ status }: { status: StackStatus }) {
+  const t = useT(stacksDict);
   const meta = STATUS_META[status] ?? STATUS_META.pending;
   return (
     <span className="pill" style={{ background: meta.bg, color: meta.fg, borderColor: "transparent" }} title={status}>
       <StatusDot state={meta.dot} pulse={status === "running"} />
-      {meta.label}
+      {t(meta.labelKey)}
     </span>
   );
 }
 
 export function Stacks() {
+  const t = useT(stacksDict);
   const hostId = useSelectedHost();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -77,10 +82,10 @@ export function Stacks() {
     if (!downTarget) return;
     try {
       await api.stackDelete(hostId, downTarget.id);
-      toast.success("Stack removed", downTarget.name);
+      toast.success(tr(stacksDict, "toast.removedTitle"), downTarget.name);
       queryClient.invalidateQueries({ queryKey: qk.stacks(hostId) });
     } catch (err) {
-      toastError("Bring down failed", err);
+      toastError(tr(stacksDict, "toast.downFailed"), err);
       throw err;
     }
   };
@@ -88,7 +93,7 @@ export function Stacks() {
   const columns: Column<Stack>[] = [
     {
       key: "name",
-      header: "Name",
+      header: t("col.name"),
       sortValue: (st) => st.name,
       cell: (st) => (
         <div className="col" style={{ gap: 2 }}>
@@ -97,10 +102,14 @@ export function Stacks() {
             {st.gitRepoUrl ? (
               <span
                 className="pill"
-                title={`Tracked from ${st.gitRepoUrl}${st.gitRef ? ` (${st.gitRef})` : ""}`}
+                title={
+                  st.gitRef
+                    ? t("row.gitTrackedRef", { url: st.gitRepoUrl, ref: st.gitRef })
+                    : t("row.gitTracked", { url: st.gitRepoUrl })
+                }
                 style={{ color: "var(--accent)", borderColor: "var(--accent)", background: "transparent" }}
               >
-                <IconExternal size={11} /> Git
+                <IconExternal size={11} /> {t("row.gitBadge")}
               </span>
             ) : null}
           </span>
@@ -110,20 +119,20 @@ export function Stacks() {
     },
     {
       key: "status",
-      header: "Status",
+      header: t("col.status"),
       sortValue: (st) => st.status,
       cell: (st) => <StackStatusBadge status={st.status} />,
     },
     {
       key: "services",
-      header: "Services",
+      header: t("col.services"),
       align: "right",
       sortValue: (st) => st.serviceCount,
       cell: (st) => <span className="mono">{st.serviceCount}</span>,
     },
     {
       key: "created",
-      header: "Created",
+      header: t("col.created"),
       sortValue: (st) => st.createdAt,
       cell: (st) => <span className="text-xs muted nowrap">{timeAgo(st.createdAt)}</span>,
     },
@@ -135,7 +144,7 @@ export function Stacks() {
       cell: (st) => (
         <CapabilityGate
           allowed={!!canDown}
-          reason={!caps?.includes("remove") ? "Provider does not support removal" : "Requires docker.container.remove"}
+          reason={!caps?.includes("remove") ? t("row.noRemoveSupport") : t("row.needRemovePerm")}
         >
           {(allowed, reason) => (
             <ActionButton
@@ -143,8 +152,8 @@ export function Stacks() {
               iconOnly
               variant="ghost"
               disabled={!allowed}
-              tooltip={allowed ? "Bring stack down" : reason}
-              aria-label="Bring stack down"
+              tooltip={allowed ? t("row.bringDown") : reason}
+              aria-label={t("row.bringDown")}
               onClick={(e) => {
                 e.stopPropagation();
                 setDownTarget(st);
@@ -162,13 +171,13 @@ export function Stacks() {
   return (
     <div className="page">
       <PageHeader
-        title="Stacks"
-        subtitle="Multi-container compose stacks on this host."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             <CapabilityGate
               allowed={!!canDeploy}
-              reason={!caps?.includes("start") ? "Provider does not support deploy" : "Requires docker.container.create"}
+              reason={!caps?.includes("start") ? t("row.noDeploySupport") : t("row.needCreatePerm")}
             >
               {(allowed, reason) => (
                 <ActionButton
@@ -178,11 +187,11 @@ export function Stacks() {
                   onClick={() => navigate("/stacks/new")}
                 >
                   <IconPlus size={15} />
-                  Deploy stack
+                  {t("header.deploy")}
                 </ActionButton>
               )}
             </CapabilityGate>
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="stacks" />
@@ -197,33 +206,33 @@ export function Stacks() {
           </span>
           <input
             className="input"
-            placeholder="Search stacks…"
+            placeholder={t("filter.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ maxWidth: 360 }}
           />
           <span className="spacer" />
           <span className="text-sm muted">
-            {filtered.length} of {stacks.length}
+            {t("filter.count", { shown: filtered.length, total: stacks.length })}
           </span>
         </div>
       </div>
 
       {query.isLoading ? (
-        <LoadingFill label="Loading stacks…" />
+        <LoadingFill label={t("list.loading")} />
       ) : stacks.length === 0 ? (
         // No stacks on the host: springboard into the compose editor (the same
         // flow as the header "Deploy stack" button), shown only when allowed.
         <div className="card">
           <EmptyState
             icon={<IconStacks size={40} />}
-            title="No stacks"
-            message="Deploy a multi-container stack from a compose file to get started."
+            title={t("empty.title")}
+            message={t("empty.message")}
             action={
               canDeploy ? (
                 <ActionButton variant="primary" onClick={() => navigate("/stacks/new")}>
                   <IconPlus size={15} />
-                  Create your first stack
+                  {t("empty.action")}
                 </ActionButton>
               ) : undefined
             }
@@ -237,21 +246,20 @@ export function Stacks() {
           defaultSortKey="name"
           onRowClick={(st) => navigate(`/stacks/${encodeURIComponent(hostId)}/${encodeURIComponent(st.id)}`)}
           emptyIcon={<IconStacks size={40} />}
-          emptyTitle="No stacks"
-          emptyMessage="Deploy a stack from a compose file to get started."
+          emptyTitle={t("list.emptyTitle")}
+          emptyMessage={t("list.emptyMessage")}
         />
       )}
 
       <ConfirmDestructiveDialog
         open={!!downTarget}
-        title="Bring stack down"
+        title={t("dialog.title")}
         variant="danger"
-        confirmLabel="Bring down"
+        confirmLabel={t("dialog.confirm")}
         description={
           <>
-            Bring down <strong className="mono">{downTarget?.name}</strong>? All{" "}
-            {downTarget?.serviceCount ?? 0} container(s) in this stack will be stopped and removed, along with the
-            stack's network(s). Named volumes are left intact.
+            {t("dialog.descPrefix")} <strong className="mono">{downTarget?.name}</strong>
+            {t("dialog.descSuffix", { count: downTarget?.serviceCount ?? 0 })}
           </>
         }
         onConfirm={doDown}

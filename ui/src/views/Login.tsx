@@ -23,28 +23,32 @@ import { TextField } from "../components/Field";
 import { ActionButton } from "../components/ActionButton";
 import { IconMicrosoft, IconDirectory } from "../components/icons";
 import type { LoginResponse, PublicAuthProvider } from "../lib/types";
+import { useT, t as tr } from "../i18n";
+import { loginDict } from "../i18n/locales/login";
 
 interface LocationState {
   from?: { pathname: string };
 }
 
-// Friendly text for the bounded ?sso_error codes emitted by the OIDC callback.
-const SSO_ERROR_TEXT: Record<string, string> = {
-  invalid_state: "Your sign-in session expired or was already used. Please try again.",
-  invalid_request: "The sign-in response was malformed. Please try again.",
-  provider_unavailable: "That sign-in method is no longer available. Contact an administrator.",
-  idp_unreachable: "The identity provider could not be reached. Please try again shortly.",
-  code_exchange_failed: "Sign-in could not be completed with the identity provider. Please try again.",
-  token_verification_failed: "The identity provider's response could not be verified. Please try again.",
-  access_denied: "Sign-in was cancelled.",
-  server_error: "Something went wrong completing sign-in. Please try again.",
+// Maps the bounded ?sso_error codes emitted by the OIDC callback to dictionary
+// keys. Resolved through `tr` at call time so the banner respects the language.
+const SSO_ERROR_KEY: Record<string, string> = {
+  invalid_state: "sso.invalidState",
+  invalid_request: "sso.invalidRequest",
+  provider_unavailable: "sso.providerUnavailable",
+  idp_unreachable: "sso.idpUnreachable",
+  code_exchange_failed: "sso.codeExchangeFailed",
+  token_verification_failed: "sso.tokenVerificationFailed",
+  access_denied: "sso.accessDenied",
+  server_error: "sso.serverError",
 };
 
 function ssoErrorText(code: string): string {
-  return SSO_ERROR_TEXT[code] ?? "Single sign-on failed. Please try again or use another method.";
+  return tr(loginDict, SSO_ERROR_KEY[code] ?? "sso.generic");
 }
 
 export function Login() {
+  const t = useT(loginDict);
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -139,9 +143,9 @@ export function Login() {
   const handleAuthError = (err: unknown) => {
     if (err instanceof ApiError) {
       if (err.code === "account_locked") {
-        setError("This account is temporarily locked. Try again later.");
+        setError(tr(loginDict, "auth.accountLocked"));
       } else if (err.status === 401) {
-        setError("Invalid username or password.");
+        setError(tr(loginDict, "auth.invalidCredentials"));
       } else if (err.code === "bootstrap_required") {
         navigate("/bootstrap", { replace: true });
         return;
@@ -149,7 +153,7 @@ export function Login() {
         setError(err.message);
       }
     } else {
-      setError("Unable to reach the server.");
+      setError(tr(loginDict, "auth.serverUnreachable"));
     }
   };
 
@@ -219,7 +223,7 @@ export function Login() {
         <form className="auth-form" onSubmit={submit}>
           <TextField
             name="username"
-            label="Username"
+            label={t("form.username")}
             autoComplete="username"
             autoFocus
             value={username}
@@ -229,7 +233,7 @@ export function Login() {
           <TextField
             name="password"
             type="password"
-            label="Password"
+            label={t("form.password")}
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -241,14 +245,14 @@ export function Login() {
             </div>
           ) : null}
           <ActionButton type="submit" variant="primary" size="lg" className="btn-block" loading={busy} disabled={!username || !password}>
-            Sign in
+            {t("form.signIn")}
           </ActionButton>
         </form>
 
         {hasSso ? (
           <div className="auth-sso col" style={{ gap: "var(--sp-3)", marginTop: "var(--sp-4)" }}>
             <div className="auth-divider">
-              <span>or continue with</span>
+              <span>{t("divider.continueWith")}</span>
             </div>
 
             {oidcProviders.map((p) => (
@@ -261,7 +265,7 @@ export function Login() {
                 onClick={() => startOidc(p.id)}
               >
                 <IconMicrosoft size={18} />
-                Sign in with {p.name || "Microsoft"}
+                {t("oidc.signInWith", { provider: p.name || t("oidc.defaultProvider") })}
               </ActionButton>
             ))}
 
@@ -272,7 +276,7 @@ export function Login() {
                     className="select"
                     value={ldapProviderId}
                     onChange={(e) => setLdapProviderId(e.target.value)}
-                    aria-label="Directory"
+                    aria-label={t("ldap.directoryLabel")}
                   >
                     {ldapProviders.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -286,22 +290,22 @@ export function Login() {
                   size="lg"
                   className="btn-block"
                   disabled={credsDisabled}
-                  tooltip={credsDisabled ? "Enter your directory username and password above" : undefined}
+                  tooltip={credsDisabled ? t("ldap.enterCredsTooltip") : undefined}
                   onClick={(e) => submitLdap(e)}
                 >
                   <IconDirectory size={16} />
-                  Sign in with {ldapProviders.length === 1 ? ldapProviders[0].name : "directory"} (LDAP)
+                  {t("ldap.signInWith", {
+                    provider: ldapProviders.length === 1 ? ldapProviders[0].name : t("ldap.defaultProvider"),
+                  })}
                 </ActionButton>
-                <span className="field-hint">
-                  Use the username and password fields above with your corporate directory credentials.
-                </span>
+                <span className="field-hint">{t("ldap.hint")}</span>
               </div>
             ) : null}
           </div>
         ) : null}
 
         <div className="auth-footnote">
-          First time here? <Link to="/bootstrap">Initialize Castor</Link>
+          {t("footer.firstTime")} <Link to="/bootstrap">{t("footer.initialize")}</Link>
         </div>
       </div>
     </div>

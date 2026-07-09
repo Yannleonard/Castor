@@ -20,6 +20,8 @@ import {
   type DockerSwarmResourcesDraft,
 } from "../../components/ResourceFields";
 import { toast, toastError } from "../../lib/toast";
+import { useT, t as tr } from "../../i18n";
+import { mktDeployTemplateDict } from "../../i18n/locales/mktDeployTemplate";
 import type { DeployPortMap, DeployVolMount, Template } from "../../lib/types";
 import { TemplateLogo } from "./TemplateLogo";
 import {
@@ -57,6 +59,7 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
   const [allowHostMounts, setAllowHostMounts] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const t = useT(mktDeployTemplateDict);
   const { can } = useAuth();
   const isSuperuser = can("*");
 
@@ -121,10 +124,16 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
         // rejects the always-blocked paths and non-admins regardless.
         allowHostMounts: isSuperuser && allowHostMounts && optInBinds.length > 0 ? true : undefined,
       });
-      toast.success("Deploying", `${res.name || template.name} is starting from ${res.image}.`);
+      toast.success(
+        tr(mktDeployTemplateDict, "toast.deployingTitle"),
+        tr(mktDeployTemplateDict, "toast.deployingBody", {
+          name: res.name || template.name,
+          image: res.image,
+        }),
+      );
       onDeployed();
     } catch (err) {
-      toastError("Deploy failed", err);
+      toastError(tr(mktDeployTemplateDict, "toast.failedTitle"), err);
     } finally {
       setBusy(false);
     }
@@ -139,7 +148,7 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
         <span className="row" style={{ gap: "var(--sp-3)" }}>
           <TemplateLogo name={template.name} logo={template.logo} />
           <span className="col" style={{ gap: 0 }}>
-            <span>Deploy {template.name}</span>
+            <span>{t("title.deploy", { name: template.name })}</span>
             <span className="text-xs muted mono">{template.image}</span>
           </span>
         </span>
@@ -148,7 +157,7 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("action.cancel")}
           </button>
           <ActionButton
             variant="primary"
@@ -156,71 +165,69 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
             disabled={!valid}
             tooltip={
               !nameOk
-                ? "Invalid container name"
+                ? t("tooltip.invalidName")
                 : missingRequired.length
-                  ? `Fill required: ${missingRequired.join(", ")}`
+                  ? t("tooltip.fillRequired", { fields: missingRequired.join(", ") })
                   : blockedBinds.length
-                    ? "Remove the protected host path mount to deploy"
+                    ? t("tooltip.removeProtected")
                     : optInBinds.length && !isSuperuser
-                      ? "Host path mounts require an administrator"
+                      ? t("tooltip.needAdmin")
                       : optInBinds.length && !allowHostMounts
-                        ? "Tick “Allow host path mounts” to deploy with a host bind"
+                        ? t("tooltip.tickAllow")
                         : undefined
             }
             onClick={submit}
           >
-            Deploy
+            {t("action.deploy")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-5)" }}>
         <TextField
-          label="Container name"
+          label={t("form.nameLabel")}
           mono
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          error={!nameOk ? "Use letters, digits, and _ . - (must start alphanumeric)." : undefined}
-          hint={nameOk ? "Leave blank to let Docker assign a random name." : undefined}
+          error={!nameOk ? t("form.nameError") : undefined}
+          hint={nameOk ? t("form.nameHint") : undefined}
         />
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>
-          <span className="mkt-section-label">Port mappings</span>
+          <span className="mkt-section-label">{t("section.ports")}</span>
           <PortRowsEditor rows={ports} onChange={setPorts} />
-          <span className="field-hint">host : container — leave host blank to publish on a random port.</span>
+          <span className="field-hint">{t("hint.ports")}</span>
         </div>
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>
-          <span className="mkt-section-label">Environment</span>
+          <span className="mkt-section-label">{t("section.env")}</span>
           <EnvRowsEditor rows={env} onChange={setEnv} />
           {missingRequired.length ? (
-            <span className="field-error">Required variables need a value: {missingRequired.join(", ")}.</span>
+            <span className="field-error">{t("form.envRequiredError", { fields: missingRequired.join(", ") })}</span>
           ) : (
-            <span className="field-hint">Values for KEY/TOKEN/SECRET/PASSWORD names are masked.</span>
+            <span className="field-hint">{t("hint.envMasked")}</span>
           )}
         </div>
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>
-          <span className="mkt-section-label">Volumes</span>
+          <span className="mkt-section-label">{t("section.volumes")}</span>
           <VolRowsEditor rows={volumes} onChange={setVolumes} />
-          <span className="field-hint">
-            Source is a named volume (auto-created) or an absolute host path; target is the in-container path.
-          </span>
+          <span className="field-hint">{t("hint.volumes")}</span>
 
           {/* Host-bind security UX (mirrors the server policy). */}
           {blockedBinds.length > 0 ? (
             <div className="banner danger" style={{ display: "flex", gap: "var(--sp-2)", alignItems: "flex-start" }}>
               <IconAlert size={16} />
               <span>
-                <strong>Protected host path.</strong> Mounting{" "}
+                <strong>{t("banner.protectedTitle")}</strong> {t("banner.protectedBefore")}{" "}
                 {blockedBinds.map((v, i) => (
                   <span key={i}>
                     {i > 0 ? ", " : ""}
                     <span className="mono">{v.source}</span>
                   </span>
                 ))}{" "}
-                is never allowed — it would grant the container control of the host. Remove it to deploy.
+                {t("banner.protectedAfter")}
               </span>
             </div>
           ) : optInBinds.length > 0 ? (
@@ -228,15 +235,15 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
               <div className="banner danger" style={{ display: "flex", gap: "var(--sp-2)", alignItems: "flex-start" }}>
                 <IconAlert size={16} />
                 <span>
-                  This deploy uses a host path mount (
+                  {t("banner.nonAdminBefore")}
                   {optInBinds.map((v, i) => (
                     <span key={i}>
                       {i > 0 ? ", " : ""}
                       <span className="mono">{v.source}</span>
                     </span>
                   ))}
-                  ). Host binds are root-equivalent, so only an administrator may use them — the server will reject this
-                  with a <span className="mono">403 forbidden</span>. Use a named volume instead.
+                  {t("banner.nonAdminMiddle")} <span className="mono">403 forbidden</span>
+                  {t("banner.nonAdminAfter")}
                 </span>
               </div>
             ) : (
@@ -246,16 +253,14 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
               >
                 <div className="row" style={{ gap: "var(--sp-2)", color: "var(--warning)", fontWeight: 600 }}>
                   <IconLock size={15} />
-                  Host path mount detected
+                  {t("banner.adminTitle")}
                 </div>
                 <span className="text-xs secondary">
-                  Binding a host path ({optInBinds.map((v) => v.source).join(", ")}) gives the container access to the
-                  host filesystem. As an administrator you may opt in; protected paths (docker.sock, /, /etc, …) stay
-                  blocked regardless.
+                  {t("banner.adminBody", { paths: optInBinds.map((v) => v.source).join(", ") })}
                 </span>
                 <label className="checkbox-row">
                   <input type="checkbox" checked={allowHostMounts} onChange={(e) => setAllowHostMounts(e.target.checked)} />
-                  <span>Allow host path mounts for this deploy</span>
+                  <span>{t("banner.adminCheckbox")}</span>
                 </label>
               </div>
             )
@@ -263,7 +268,7 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
         </div>
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>
-          <span className="mkt-section-label">Resources</span>
+          <span className="mkt-section-label">{t("section.resources")}</span>
           <DockerSwarmResourceFields draft={resources} onChange={setResources} />
         </div>
       </div>

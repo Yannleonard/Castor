@@ -28,6 +28,8 @@ import { StatusDot } from "../components/StatusDot";
 import { IconVolumes, IconTrash, IconRefresh, IconSearch, IconDownload, IconRestart } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { formatBytes, timeAgo } from "../lib/format";
+import { useT } from "../i18n";
+import { backupsDict } from "../i18n/locales/backups";
 import type { Backup, BackupStatus } from "../lib/types";
 
 const EMPTY_BACKUPS: Backup[] = [];
@@ -40,20 +42,23 @@ const STATUS_TINT: Record<BackupStatus, { bg: string; fg: string }> = {
 };
 
 function StatusPill({ status, error }: { status: BackupStatus; error?: string }) {
+  const t = useT(backupsDict);
   const tint = STATUS_TINT[status] ?? STATUS_TINT.pending;
+  const label = status === "completed" ? t("status.completed") : status === "failed" ? t("status.failed") : t("status.pending");
   return (
     <span
       className="pill"
       style={{ background: tint.bg, color: tint.fg, borderColor: "transparent" }}
-      title={status === "failed" && error ? error : status}
+      title={status === "failed" && error ? error : label}
     >
       <StatusDot state={status === "completed" ? "running" : status === "failed" ? "stopped" : "pending"} pulse={status === "pending"} />
-      {status === "completed" ? "Completed" : status === "failed" ? "Failed" : "Pending"}
+      {label}
     </span>
   );
 }
 
 export function Backups() {
+  const t = useT(backupsDict);
   const hostId = useSelectedHost();
   const queryClient = useQueryClient();
   const { can } = useAuth();
@@ -96,11 +101,11 @@ export function Backups() {
     setRestoring(true);
     try {
       await api.backupRestore(hostId, restoreTarget.id, { target });
-      toast.success("Restore complete", `Volume ${target} was restored from the archive.`);
+      toast.success(t("toast.restoreOkTitle"), t("toast.restoreOkBody", { target }));
       setRestoreTarget(null);
       queryClient.invalidateQueries({ queryKey: ["volumes", hostId] });
     } catch (err) {
-      toastError("Restore failed", err);
+      toastError(t("toast.restoreFailed"), err);
     } finally {
       setRestoring(false);
     }
@@ -110,10 +115,10 @@ export function Backups() {
     if (!deleteTarget) return;
     try {
       await api.backupDelete(hostId, deleteTarget.id);
-      toast.success("Backup deleted", deleteTarget.targetName);
+      toast.success(t("toast.deletedTitle"), deleteTarget.targetName);
       invalidate();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -123,7 +128,7 @@ export function Backups() {
     try {
       await api.backupDownload(hostId, b.id, `${b.targetName}-${b.id}.tar.gz`);
     } catch (err) {
-      toastError("Download failed", err);
+      toastError(t("toast.downloadFailed"), err);
     } finally {
       setDownloadingId(null);
     }
@@ -132,7 +137,7 @@ export function Backups() {
   const columns: Column<Backup>[] = [
     {
       key: "target",
-      header: "Volume",
+      header: t("col.volume"),
       sortValue: (b) => b.targetName,
       cell: (b) => (
         <div className="col" style={{ gap: 2 }}>
@@ -145,20 +150,20 @@ export function Backups() {
     },
     {
       key: "size",
-      header: "Size",
+      header: t("col.size"),
       align: "right",
       sortValue: (b) => b.sizeBytes,
       cell: (b) => <span className="mono">{b.status === "completed" ? formatBytes(b.sizeBytes) : "—"}</span>,
     },
     {
       key: "status",
-      header: "Status",
+      header: t("col.status"),
       sortValue: (b) => b.status,
       cell: (b) => <StatusPill status={b.status} error={b.error} />,
     },
     {
       key: "created",
-      header: "Created",
+      header: t("col.created"),
       sortValue: (b) => b.createdAt,
       cell: (b) => <span className="text-xs muted nowrap">{timeAgo(b.createdAt)}</span>,
     },
@@ -177,8 +182,8 @@ export function Backups() {
               variant="ghost"
               loading={downloadingId === b.id}
               disabled={!ready}
-              tooltip={ready ? "Download archive" : "Archive is not available"}
-              aria-label="Download backup"
+              tooltip={ready ? t("row.download") : t("row.archiveUnavailable")}
+              aria-label={t("row.downloadAria")}
               onClick={() => doDownload(b)}
             >
               <IconDownload size={15} />
@@ -188,10 +193,10 @@ export function Backups() {
               allowed={!!canRestore && ready}
               reason={
                 !hasVolumesCap
-                  ? "Provider does not manage volumes"
+                  ? t("gate.noVolumes")
                   : !ready
-                    ? "Archive is not available"
-                    : "Requires docker.volume.restore (admin)"
+                    ? t("row.archiveUnavailable")
+                    : t("gate.needRestore")
               }
             >
               {(allowed, reason) => (
@@ -200,8 +205,8 @@ export function Backups() {
                   iconOnly
                   variant="ghost"
                   disabled={!allowed}
-                  tooltip={allowed ? "Restore into a volume" : reason}
-                  aria-label="Restore backup"
+                  tooltip={allowed ? t("row.restore") : reason}
+                  aria-label={t("row.restoreAria")}
                   onClick={() => openRestore(b)}
                 >
                   <IconRestart size={15} />
@@ -211,7 +216,7 @@ export function Backups() {
 
             <CapabilityGate
               allowed={!!canDelete}
-              reason={!hasVolumesCap ? "Provider does not manage volumes" : "Requires docker.volume.backup"}
+              reason={!hasVolumesCap ? t("gate.noVolumes") : t("gate.needBackup")}
             >
               {(allowed, reason) => (
                 <ActionButton
@@ -219,8 +224,8 @@ export function Backups() {
                   iconOnly
                   variant="ghost"
                   disabled={!allowed}
-                  tooltip={allowed ? "Delete backup" : reason}
-                  aria-label="Delete backup"
+                  tooltip={allowed ? t("row.delete") : reason}
+                  aria-label={t("row.deleteAria")}
                   onClick={() => setDeleteTarget(b)}
                   style={allowed ? { color: "var(--danger)" } : undefined}
                 >
@@ -237,11 +242,11 @@ export function Backups() {
   return (
     <div className="page">
       <PageHeader
-        title="Backups"
-        subtitle="Volume tar archives. Create a backup from the Volumes page; restore or download here."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="volumes" />
@@ -256,20 +261,20 @@ export function Backups() {
           </span>
           <input
             className="input"
-            placeholder="Search backups…"
+            placeholder={t("filter.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ maxWidth: 360 }}
           />
           <span className="spacer" />
           <span className="text-sm muted">
-            {filtered.length} of {backups.length}
+            {t("filter.count", { shown: filtered.length, total: backups.length })}
           </span>
         </div>
       </div>
 
       {query.isLoading ? (
-        <LoadingFill label="Loading backups…" />
+        <LoadingFill label={t("list.loading")} />
       ) : (
         <DataTable
           columns={columns}
@@ -278,43 +283,43 @@ export function Backups() {
           defaultSortKey="created"
           defaultSortDir="desc"
           emptyIcon={<IconVolumes size={40} />}
-          emptyTitle="No backups"
-          emptyMessage="Back up a volume from the Volumes page to create an archive."
+          emptyTitle={t("empty.title")}
+          emptyMessage={t("empty.message")}
         />
       )}
 
       {/* Restore */}
       <Modal
         open={!!restoreTarget}
-        title="Restore backup"
+        title={t("restore.title")}
         busy={restoring}
         onClose={() => setRestoreTarget(null)}
         footer={
           <>
             <button className="btn" onClick={() => setRestoreTarget(null)} disabled={restoring}>
-              Cancel
+              {t("restore.cancel")}
             </button>
             <ActionButton variant="primary" loading={restoring} disabled={!restoreVolume.trim()} onClick={doRestore}>
-              Restore
+              {t("restore.confirm")}
             </ActionButton>
           </>
         }
       >
         <div className="col" style={{ gap: "var(--sp-3)" }}>
           <div className="text-sm secondary">
-            Restore the archive of{" "}
-            <strong className="mono">{restoreTarget?.targetName}</strong> into the destination volume below. Existing
-            contents of the destination are overwritten.
+            {t("restore.descPrefix")}
+            <strong className="mono">{restoreTarget?.targetName}</strong>
+            {t("restore.descSuffix")}
           </div>
           <SelectField
-            label="Destination volume"
+            label={t("restore.volumeLabel")}
             value={restoreVolume}
             onChange={(e) => setRestoreVolume(e.target.value)}
-            hint="Defaults to the original volume. Pick another existing volume to restore elsewhere."
+            hint={t("restore.volumeHint")}
           >
             {/* Ensure the original target is always selectable even if absent from the live list. */}
             {restoreTarget && !volumes.some((v) => v.name === restoreTarget.targetName) ? (
-              <option value={restoreTarget.targetName}>{restoreTarget.targetName} (original)</option>
+              <option value={restoreTarget.targetName}>{t("restore.original", { name: restoreTarget.targetName })}</option>
             ) : null}
             {volumes.map((v) => (
               <option key={v.name} value={v.name}>
@@ -328,13 +333,14 @@ export function Backups() {
       {/* Delete */}
       <ConfirmDestructiveDialog
         open={!!deleteTarget}
-        title="Delete backup"
+        title={t("delete.title")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("delete.confirm")}
         description={
           <>
-            Delete the backup archive of <strong className="mono">{deleteTarget?.targetName}</strong>? The tar file is
-            removed from the server permanently.
+            {t("delete.descPrefix")}
+            <strong className="mono">{deleteTarget?.targetName}</strong>
+            {t("delete.descSuffix")}
           </>
         }
         onConfirm={doDelete}

@@ -24,39 +24,43 @@ import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog
 import { IconShield, IconCopy, IconCheck, IconDownload, IconPlus, IconTerminal } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { timeAgo, formatDateTime } from "../lib/format";
+import { useT, t as tr } from "../i18n";
+import { profileDict } from "../i18n/locales/profile";
+import { commonDict } from "../i18n/locales/common";
 import type { TotpEnrollResponse, APIToken, CreateTokenResponse } from "../lib/types";
 
 export function Profile() {
   const { user, refresh, amr } = useAuth();
+  const t = useT(profileDict);
 
   return (
     <div className="page">
-      <PageHeader title="Profile & security" subtitle="Manage your password and two-factor authentication." actions={<HelpButton topic="profile" />} />
+      <PageHeader title={t("header.title")} subtitle={t("header.subtitle")} actions={<HelpButton topic="profile" />} />
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Account</span>
+          <span className="card-title">{t("account.title")}</span>
         </div>
         <div className="card-body">
           <dl className="dl">
-            <dt>Username</dt>
+            <dt>{t("account.username")}</dt>
             <dd>{user?.username}</dd>
-            <dt>Email</dt>
+            <dt>{t("account.email")}</dt>
             <dd>{user?.email || "—"}</dd>
-            <dt>Assurance level</dt>
+            <dt>{t("account.assurance")}</dt>
             <dd>
               <span className="pill" style={{ color: "var(--accent)", borderColor: "var(--accent)", background: "transparent" }}>
                 {amr ?? "pwd"}
               </span>
             </dd>
-            <dt>Two-factor</dt>
+            <dt>{t("account.twoFactor")}</dt>
             <dd>
               {user?.totpEnabled ? (
                 <span className="pill" style={{ color: "var(--success)", background: "var(--success-bg)", borderColor: "transparent" }}>
-                  <IconShield size={12} /> enabled
+                  <IconShield size={12} /> {t("account.twoFactorEnabled")}
                 </span>
               ) : (
-                <span className="text-sm muted">not configured</span>
+                <span className="text-sm muted">{t("account.twoFactorNotConfigured")}</span>
               )}
             </dd>
           </dl>
@@ -73,6 +77,7 @@ export function Profile() {
 }
 
 function ChangePasswordCard() {
+  const t = useT(profileDict);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -87,15 +92,15 @@ function ChangePasswordCard() {
     setBusy(true);
     try {
       await api.changePassword(current, next);
-      toast.success("Password changed", "Other sessions were signed out.");
+      toast.success(tr(profileDict, "password.toastTitle"), tr(profileDict, "password.toastBody"));
       setCurrent("");
       setNext("");
       setConfirm("");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 422) setError(err.message || "Password does not meet the policy.");
-      else if (err instanceof ApiError && err.status === 401) setError("Current password is incorrect.");
+      if (err instanceof ApiError && err.status === 422) setError(err.message || tr(profileDict, "password.errPolicy"));
+      else if (err instanceof ApiError && err.status === 401) setError(tr(profileDict, "password.errIncorrect"));
       else {
-        toastError("Password change failed", err);
+        toastError(tr(profileDict, "password.errFailed"), err);
       }
     } finally {
       setBusy(false);
@@ -105,23 +110,23 @@ function ChangePasswordCard() {
   return (
     <div className="card">
       <div className="card-header">
-        <span className="card-title">Change password</span>
+        <span className="card-title">{t("password.title")}</span>
       </div>
       <div className="card-body col" style={{ gap: "var(--sp-3)", maxWidth: 440 }}>
-        <TextField label="Current password" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
-        <TextField label="New password" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} hint="At least 10 characters." />
+        <TextField label={t("password.current")} type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
+        <TextField label={t("password.new")} type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} hint={t("password.newHint")} />
         <TextField
-          label="Confirm new password"
+          label={t("password.confirm")}
           type="password"
           autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          error={confirm && next !== confirm ? "Passwords do not match." : undefined}
+          error={confirm && next !== confirm ? t("password.mismatch") : undefined}
         />
         {error ? <div className="banner danger">{error}</div> : null}
         <div className="row">
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Update password
+            {t("password.submit")}
           </ActionButton>
         </div>
       </div>
@@ -130,34 +135,33 @@ function ChangePasswordCard() {
 }
 
 function TotpCard({ enabled, onChanged }: { enabled: boolean; onChanged: () => Promise<unknown> }) {
+  const t = useT(profileDict);
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [disableOpen, setDisableOpen] = useState(false);
 
   return (
     <div className="card">
       <div className="card-header">
-        <span className="card-title">Two-factor authentication</span>
+        <span className="card-title">{t("totp.title")}</span>
         {enabled ? (
           <span className="pill" style={{ color: "var(--success)", background: "var(--success-bg)", borderColor: "transparent" }}>
-            <IconShield size={12} /> active
+            <IconShield size={12} /> {t("totp.active")}
           </span>
         ) : null}
       </div>
       <div className="card-body col" style={{ gap: "var(--sp-3)", maxWidth: 540 }}>
         <span className="text-sm secondary">
-          {enabled
-            ? "An authenticator app is protecting your account. You can disable it if you no longer need it."
-            : "Add a time-based one-time password (TOTP) from an authenticator app for stronger protection."}
+          {enabled ? t("totp.descEnabled") : t("totp.descDisabled")}
         </span>
         <div className="row">
           {enabled ? (
             <ActionButton variant="danger" onClick={() => setDisableOpen(true)}>
-              Disable 2FA
+              {t("totp.disable")}
             </ActionButton>
           ) : (
             <ActionButton variant="primary" onClick={() => setEnrollOpen(true)}>
               <IconShield size={15} />
-              Enable 2FA
+              {t("totp.enable")}
             </ActionButton>
           )}
         </div>
@@ -170,6 +174,8 @@ function TotpCard({ enabled, onChanged }: { enabled: boolean; onChanged: () => P
 }
 
 function EnrollModal({ onClose, onDone }: { onClose: () => void; onDone: () => Promise<unknown> }) {
+  const t = useT(profileDict);
+  const tc = useT(commonDict);
   const [step, setStep] = useState<"loading" | "scan" | "codes">("loading");
   const [enroll, setEnroll] = useState<TotpEnrollResponse | null>(null);
   const [code, setCode] = useState("");
@@ -189,7 +195,7 @@ function EnrollModal({ onClose, onDone }: { onClose: () => void; onDone: () => P
       })
       .catch((err) => {
         if (!alive) return;
-        toastError("Could not start enrollment", err);
+        toastError(tr(profileDict, "enroll.errStartTitle"), err);
         onClose();
       });
     return () => {
@@ -208,8 +214,8 @@ function EnrollModal({ onClose, onDone }: { onClose: () => void; onDone: () => P
       setStep("codes");
       await onDone();
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) setError("That code did not match. Try the current code.");
-      else setError(err instanceof Error ? err.message : "Confirmation failed.");
+      if (err instanceof ApiError && err.status === 401) setError(tr(profileDict, "enroll.errCodeMismatch"));
+      else setError(err instanceof Error ? err.message : tr(profileDict, "enroll.errConfirmFailed"));
     } finally {
       setBusy(false);
     }
@@ -218,12 +224,12 @@ function EnrollModal({ onClose, onDone }: { onClose: () => void; onDone: () => P
   const copySecret = async () => {
     if (!enroll) return;
     await navigator.clipboard.writeText(enroll.secret).catch(() => {});
-    toast.success("Secret copied");
+    toast.success(tr(profileDict, "enroll.toastSecretCopied"));
   };
 
   const copyCodes = async () => {
     await navigator.clipboard.writeText(recovery.join("\n")).catch(() => {});
-    toast.success("Recovery codes copied");
+    toast.success(tr(profileDict, "enroll.toastCodesCopied"));
   };
 
   const downloadCodes = () => {
@@ -239,7 +245,7 @@ function EnrollModal({ onClose, onDone }: { onClose: () => void; onDone: () => P
   return (
     <Modal
       open
-      title={step === "codes" ? "Save your recovery codes" : "Enable two-factor authentication"}
+      title={step === "codes" ? t("enroll.titleCodes") : t("enroll.titleScan")}
       busy={busy || step === "loading"}
       // Recovery codes are shown exactly once — an accidental Escape/scrim
       // click at that step would lose them, so only the footer action closes.
@@ -249,15 +255,15 @@ function EnrollModal({ onClose, onDone }: { onClose: () => void; onDone: () => P
         step === "scan" ? (
           <>
             <button className="btn" onClick={onClose} disabled={busy}>
-              Cancel
+              {tc("cancel")}
             </button>
             <ActionButton variant="primary" loading={busy} disabled={code.trim().length < 6} onClick={confirm}>
-              Confirm
+              {t("enroll.confirm")}
             </ActionButton>
           </>
         ) : step === "codes" ? (
           <ActionButton variant="primary" onClick={onClose}>
-            I have saved them
+            {t("enroll.savedCodes")}
           </ActionButton>
         ) : null
       }
@@ -268,30 +274,30 @@ function EnrollModal({ onClose, onDone }: { onClose: () => void; onDone: () => P
         </div>
       ) : step === "scan" && enroll ? (
         <div className="col" style={{ gap: "var(--sp-4)" }}>
-          <span className="text-sm secondary">Scan this QR code with your authenticator app, then enter the 6-digit code to confirm.</span>
+          <span className="text-sm secondary">{t("enroll.scanInstructions")}</span>
           <div className="row" style={{ justifyContent: "center" }}>
             <div style={{ padding: "var(--sp-3)", background: "#fff", borderRadius: "var(--radius-md)" }}>
-              <img src={`data:image/png;base64,${enroll.qrPngBase64}`} alt="TOTP QR code" width={180} height={180} />
+              <img src={`data:image/png;base64,${enroll.qrPngBase64}`} alt={t("enroll.qrAlt")} width={180} height={180} />
             </div>
           </div>
           <div className="col" style={{ gap: "var(--sp-1)" }}>
-            <span className="text-xs muted">Or enter this secret manually:</span>
+            <span className="text-xs muted">{t("enroll.manualSecret")}</span>
             <div className="row" style={{ gap: "var(--sp-2)" }}>
               <code className="code-block" style={{ padding: "var(--sp-2) var(--sp-3)", flex: 1, whiteSpace: "normal", wordBreak: "break-all" }}>
                 {enroll.secret}
               </code>
-              <ActionButton size="sm" variant="ghost" iconOnly tooltip="Copy secret" aria-label="Copy secret" onClick={copySecret}>
+              <ActionButton size="sm" variant="ghost" iconOnly tooltip={t("enroll.copySecret")} aria-label={t("enroll.copySecret")} onClick={copySecret}>
                 <IconCopy size={15} />
               </ActionButton>
             </div>
           </div>
-          <TextField label="Authentication code" mono inputMode="numeric" autoComplete="one-time-code" placeholder="123456" value={code} onChange={(e) => setCode(e.target.value)} error={error || undefined} />
+          <TextField label={t("enroll.codeLabel")} mono inputMode="numeric" autoComplete="one-time-code" placeholder="123456" value={code} onChange={(e) => setCode(e.target.value)} error={error || undefined} />
         </div>
       ) : (
         <div className="col" style={{ gap: "var(--sp-4)" }}>
           <div className="banner warning">
             <IconCheck size={16} />
-            <span>Store these single-use codes somewhere safe. They are shown only once and let you sign in if you lose your device.</span>
+            <span>{t("enroll.codesWarning")}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--sp-2)" }}>
             {recovery.map((c) => (
@@ -302,10 +308,10 @@ function EnrollModal({ onClose, onDone }: { onClose: () => void; onDone: () => P
           </div>
           <div className="row">
             <ActionButton size="sm" variant="ghost" onClick={copyCodes}>
-              <IconCopy size={14} /> Copy
+              <IconCopy size={14} /> {t("enroll.copyCodes")}
             </ActionButton>
             <ActionButton size="sm" variant="ghost" onClick={downloadCodes}>
-              <IconDownload size={14} /> Download
+              <IconDownload size={14} /> {t("enroll.downloadCodes")}
             </ActionButton>
           </div>
         </div>
@@ -315,6 +321,8 @@ function EnrollModal({ onClose, onDone }: { onClose: () => void; onDone: () => P
 }
 
 function DisableModal({ onClose, onDone }: { onClose: () => void; onDone: () => Promise<unknown> }) {
+  const t = useT(profileDict);
+  const tc = useT(commonDict);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -325,12 +333,12 @@ function DisableModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
     setBusy(true);
     try {
       await api.totpDisable(password);
-      toast.success("2FA disabled");
+      toast.success(tr(profileDict, "disable.toastDone"));
       await onDone();
       onClose();
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) setError("Password incorrect or a fresh 2FA login is required.");
-      else setError(err instanceof Error ? err.message : "Could not disable 2FA.");
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) setError(tr(profileDict, "disable.errPassword"));
+      else setError(err instanceof Error ? err.message : tr(profileDict, "disable.errFailed"));
     } finally {
       setBusy(false);
     }
@@ -339,16 +347,16 @@ function DisableModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
   return (
     <Modal
       open
-      title="Disable two-factor authentication"
+      title={t("disable.title")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {tc("cancel")}
           </button>
           <ActionButton variant="danger" loading={busy} disabled={!password} onClick={submit}>
-            Disable 2FA
+            {t("totp.disable")}
           </ActionButton>
         </>
       }
@@ -356,9 +364,9 @@ function DisableModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
       <div className="col" style={{ gap: "var(--sp-3)" }}>
         <div className="banner danger">
           <IconShield size={16} />
-          <span>Disabling 2FA weakens your account security. Confirm with your password to continue.</span>
+          <span>{t("disable.warning")}</span>
         </div>
-        <TextField label="Password" type="password" autoComplete="current-password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} error={error || undefined} />
+        <TextField label={t("disable.passwordLabel")} type="password" autoComplete="current-password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} error={error || undefined} />
       </div>
     </Modal>
   );
@@ -367,6 +375,7 @@ function DisableModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
 /* ===================== API tokens ===================== */
 
 function APITokensCard() {
+  const t = useT(profileDict);
   const queryClient = useQueryClient();
   const tokensQ = useAPITokens();
   const [createOpen, setCreateOpen] = useState(false);
@@ -379,41 +388,41 @@ function APITokensCard() {
   const columns: Column<APIToken>[] = [
     {
       key: "name",
-      header: "Name",
-      sortValue: (t) => t.name,
-      cell: (t) => <span style={{ fontWeight: 600 }}>{t.name}</span>,
+      header: t("col.name"),
+      sortValue: (tok) => tok.name,
+      cell: (tok) => <span style={{ fontWeight: 600 }}>{tok.name}</span>,
     },
     {
       key: "prefix",
-      header: "Token",
-      cell: (t) => <code className="mono text-sm muted">{t.prefix}…</code>,
+      header: t("col.token"),
+      cell: (tok) => <code className="mono text-sm muted">{tok.prefix}…</code>,
     },
     {
       key: "created",
-      header: "Created",
-      sortValue: (t) => t.createdAt,
-      cell: (t) => <span className="text-xs muted nowrap">{timeAgo(t.createdAt)}</span>,
+      header: t("col.created"),
+      sortValue: (tok) => tok.createdAt,
+      cell: (tok) => <span className="text-xs muted nowrap">{timeAgo(tok.createdAt)}</span>,
     },
     {
       key: "expires",
-      header: "Expires",
-      sortValue: (t) => t.expiresAt ?? Number.MAX_SAFE_INTEGER,
-      cell: (t) =>
-        t.expiresAt !== undefined ? (
-          <span className="text-xs nowrap">{formatDateTime(t.expiresAt)}</span>
+      header: t("col.expires"),
+      sortValue: (tok) => tok.expiresAt ?? Number.MAX_SAFE_INTEGER,
+      cell: (tok) =>
+        tok.expiresAt !== undefined ? (
+          <span className="text-xs nowrap">{formatDateTime(tok.expiresAt)}</span>
         ) : (
-          <span className="text-xs muted">Never</span>
+          <span className="text-xs muted">{t("tokens.never")}</span>
         ),
     },
     {
       key: "lastUsed",
-      header: "Last used",
-      sortValue: (t) => t.lastUsedAt ?? 0,
-      cell: (t) =>
-        t.lastUsedAt !== undefined ? (
-          <span className="text-xs muted nowrap">{timeAgo(t.lastUsedAt)}</span>
+      header: t("col.lastUsed"),
+      sortValue: (tok) => tok.lastUsedAt ?? 0,
+      cell: (tok) =>
+        tok.lastUsedAt !== undefined ? (
+          <span className="text-xs muted nowrap">{timeAgo(tok.lastUsedAt)}</span>
         ) : (
-          <span className="text-xs muted">Never</span>
+          <span className="text-xs muted">{t("tokens.never")}</span>
         ),
     },
     {
@@ -421,12 +430,12 @@ function APITokensCard() {
       header: "",
       align: "right",
       width: "110px",
-      cell: (t) =>
-        t.revokedAt !== undefined ? (
-          <span className="text-xs muted">revoked</span>
+      cell: (tok) =>
+        tok.revokedAt !== undefined ? (
+          <span className="text-xs muted">{t("tokens.revoked")}</span>
         ) : (
-          <ActionButton size="sm" variant="ghost" style={{ color: "var(--danger)" }} onClick={() => setRevokeTarget(t)}>
-            Revoke
+          <ActionButton size="sm" variant="ghost" style={{ color: "var(--danger)" }} onClick={() => setRevokeTarget(tok)}>
+            {t("tokens.revoke")}
           </ActionButton>
         ),
     },
@@ -435,15 +444,17 @@ function APITokensCard() {
   return (
     <div className="card">
       <div className="card-header">
-        <span className="card-title">API tokens</span>
+        <span className="card-title">{t("tokens.title")}</span>
         <ActionButton size="sm" variant="primary" onClick={() => setCreateOpen(true)}>
           <IconPlus size={14} />
-          New token
+          {t("tokens.new")}
         </ActionButton>
       </div>
       <div className="card-body col" style={{ gap: "var(--sp-3)" }}>
         <span className="text-sm secondary">
-          Automate Castor through its API — send a token in the <code>Authorization: Bearer</code> header.
+          {t("tokens.introBefore")}
+          <code>Authorization: Bearer</code>
+          {t("tokens.introAfter")}
         </span>
         {tokensQ.isLoading ? (
           <div className="center-fill" style={{ minHeight: 100 }}>
@@ -453,12 +464,12 @@ function APITokensCard() {
           <DataTable
             columns={columns}
             rows={tokens}
-            rowKey={(t) => t.id}
+            rowKey={(tok) => tok.id}
             defaultSortKey="created"
             defaultSortDir="desc"
             emptyIcon={<IconTerminal size={40} />}
-            emptyTitle="No API tokens"
-            emptyMessage="Create a token to call the Castor API from scripts and CI."
+            emptyTitle={t("tokens.emptyTitle")}
+            emptyMessage={t("tokens.emptyMessage")}
           />
         )}
       </div>
@@ -467,22 +478,24 @@ function APITokensCard() {
 
       <ConfirmDestructiveDialog
         open={!!revokeTarget}
-        title="Revoke API token"
+        title={t("tokens.revokeTitle")}
         variant="danger"
-        confirmLabel="Revoke"
+        confirmLabel={t("tokens.revokeConfirm")}
         description={
           <>
-            Revoke token <strong>{revokeTarget?.name}</strong>? Requests using it will be rejected immediately. This cannot be undone.
+            {t("tokens.revokeDescBefore")}
+            <strong>{revokeTarget?.name}</strong>
+            {t("tokens.revokeDescAfter")}
           </>
         }
         onConfirm={async () => {
           if (!revokeTarget) return;
           try {
             await api.apiTokenRevoke(revokeTarget.id);
-            toast.success("Token revoked", revokeTarget.name);
+            toast.success(tr(profileDict, "tokens.revokeToastTitle"), revokeTarget.name);
             invalidate();
           } catch (err) {
-            toastError("Revoke failed", err);
+            toastError(tr(profileDict, "tokens.revokeErr"), err);
             throw err;
           }
         }}
@@ -493,14 +506,18 @@ function APITokensCard() {
 }
 
 // Expiration presets offered at creation ("" means the token never expires).
+// `value` is the technical day-count sent to the API; `labelKey` resolves the
+// display label through profileDict.
 const EXPIRY_OPTIONS = [
-  { value: "30", label: "30 days" },
-  { value: "90", label: "90 days" },
-  { value: "365", label: "365 days" },
-  { value: "", label: "Never" },
+  { value: "30", labelKey: "expiry.30" },
+  { value: "90", labelKey: "expiry.90" },
+  { value: "365", labelKey: "expiry.365" },
+  { value: "", labelKey: "expiry.never" },
 ] as const;
 
 function CreateTokenModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const t = useT(profileDict);
+  const tc = useT(commonDict);
   const [name, setName] = useState("");
   const [expiry, setExpiry] = useState("90");
   const [busy, setBusy] = useState(false);
@@ -521,7 +538,7 @@ function CreateTokenModal({ onClose, onCreated }: { onClose: () => void; onCreat
       onCreated();
     } catch (err) {
       // PAT-authenticated callers get a 403 here (tokens cannot manage tokens).
-      toastError("Could not create token", err);
+      toastError(tr(profileDict, "create.errCreate"), err);
     } finally {
       setBusy(false);
     }
@@ -532,17 +549,17 @@ function CreateTokenModal({ onClose, onCreated }: { onClose: () => void; onCreat
     try {
       await navigator.clipboard.writeText(createdToken.token);
       setCopied(true);
-      toast.success("Token copied");
+      toast.success(tr(profileDict, "create.toastCopied"));
       setTimeout(() => setCopied(false), 1600);
     } catch {
-      toast.error("Copy failed");
+      toast.error(tr(profileDict, "create.errCopy"));
     }
   };
 
   return (
     <Modal
       open
-      title={createdToken ? "Copy your new token" : "New API token"}
+      title={createdToken ? t("create.titleReveal") : t("create.titleForm")}
       busy={busy}
       // The raw token appears only in this response and is never shown again —
       // the reveal step must survive Escape/scrim/X until explicitly closed.
@@ -551,15 +568,15 @@ function CreateTokenModal({ onClose, onCreated }: { onClose: () => void; onCreat
       footer={
         createdToken ? (
           <ActionButton variant="primary" onClick={onClose}>
-            I've saved my token
+            {t("create.savedToken")}
           </ActionButton>
         ) : (
           <>
             <button className="btn" onClick={onClose} disabled={busy}>
-              Cancel
+              {tc("cancel")}
             </button>
             <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-              Create token
+              {t("create.createBtn")}
             </ActionButton>
           </>
         )
@@ -569,34 +586,36 @@ function CreateTokenModal({ onClose, onCreated }: { onClose: () => void; onCreat
         <div className="col" style={{ gap: "var(--sp-4)" }}>
           <div className="banner warning">
             <IconShield size={16} />
-            <span>Copy this token now — you won't be able to see it again.</span>
+            <span>{t("create.revealWarning")}</span>
           </div>
           <div className="row" style={{ gap: "var(--sp-2)" }}>
             <code className="code-block" style={{ padding: "var(--sp-2) var(--sp-3)", flex: 1, whiteSpace: "normal", wordBreak: "break-all" }}>
               {createdToken.token}
             </code>
-            <ActionButton size="sm" variant="ghost" iconOnly tooltip="Copy token" aria-label="Copy token" onClick={copyToken}>
+            <ActionButton size="sm" variant="ghost" iconOnly tooltip={t("create.copyToken")} aria-label={t("create.copyToken")} onClick={copyToken}>
               {copied ? <IconCheck size={15} /> : <IconCopy size={15} />}
             </ActionButton>
           </div>
           <span className="text-xs muted">
-            Send it as <code>Authorization: Bearer &lt;token&gt;</code> on API requests.
+            {t("create.sendHintBefore")}
+            <code>Authorization: Bearer &lt;token&gt;</code>
+            {t("create.sendHintAfter")}
           </span>
         </div>
       ) : (
         <div className="col" style={{ gap: "var(--sp-3)" }}>
           <TextField
-            label="Name"
+            label={t("create.nameLabel")}
             autoFocus
             maxLength={64}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            hint="A label to recognize this token later (e.g. “CI deploy”)."
+            hint={t("create.nameHint")}
           />
-          <SelectField label="Expiration" value={expiry} onChange={(e) => setExpiry(e.target.value)} hint="Expired tokens are rejected; revocation works at any time.">
+          <SelectField label={t("create.expiryLabel")} value={expiry} onChange={(e) => setExpiry(e.target.value)} hint={t("create.expiryHint")}>
             {EXPIRY_OPTIONS.map((o) => (
-              <option key={o.label} value={o.value}>
-                {o.label}
+              <option key={o.labelKey} value={o.value}>
+                {t(o.labelKey)}
               </option>
             ))}
           </SelectField>

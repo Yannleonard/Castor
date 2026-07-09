@@ -15,6 +15,7 @@ import { ActionButton } from "./ActionButton";
 import { IconCopy, IconCheck, IconExternal } from "./icons";
 import { toast } from "../lib/toast";
 import { getHelpCard } from "../help/registry";
+import { useLang, setLang } from "../i18n";
 import type { HelpBlock, HelpBody, Lang } from "../help/types";
 
 interface HelpPanelProps {
@@ -141,7 +142,9 @@ function Body({ body, copyLabel }: { body: HelpBody; copyLabel: string }) {
 /* ------------------------------------------------------------------ */
 
 export function HelpPanel({ topic, open, onClose }: HelpPanelProps) {
-  const [lang, setLang] = useState<Lang>("en");
+  // Help language now follows the global app language (langStore) instead of a
+  // local state, so the EN/FR toggle here switches the whole app's language.
+  const lang = useLang() as Lang;
   const card = getHelpCard(topic);
 
   // Unknown topic → render nothing rather than crash. A unit test guards the

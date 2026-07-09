@@ -25,11 +25,15 @@ import { StatusDot } from "../components/StatusDot";
 import { IconNetworks, IconPlus, IconTrash, IconRefresh } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { timeAgo } from "../lib/format";
+import { useT } from "../i18n";
+import { catalogsDict } from "../i18n/locales/catalogs";
+import { commonDict } from "../i18n/locales/common";
 import type { RemoteCatalog } from "../lib/types";
 
 const EMPTY: RemoteCatalog[] = [];
 
 export function Catalogs() {
+  const t = useT(catalogsDict);
   const queryClient = useQueryClient();
   const { can } = useAuth();
   const catalogsQ = useCatalogs();
@@ -50,13 +54,17 @@ export function Catalogs() {
     try {
       const fresh = await api.catalogRefresh(c.id);
       if (fresh.lastError) {
-        toast.warning(`${c.name}: refresh failed`, fresh.lastError);
+        toast.warning(t("toast.refreshFailedTitle", { name: c.name }), fresh.lastError);
       } else {
-        toast.success(`${c.name} refreshed`, `${fresh.templateCount} template${fresh.templateCount === 1 ? "" : "s"}`);
+        const count = fresh.templateCount;
+        toast.success(
+          t("toast.refreshedTitle", { name: c.name }),
+          count === 1 ? t("toast.refreshedOne", { count }) : t("toast.refreshedMany", { count }),
+        );
       }
       invalidate();
     } catch (err) {
-      toastError("Refresh failed", err);
+      toastError(t("toast.refreshFailed"), err);
     } finally {
       setRefreshingId(null);
     }
@@ -67,10 +75,10 @@ export function Catalogs() {
     try {
       // PUT requires name + url; carry the row values and flip enabled.
       await api.catalogUpdate(c.id, { name: c.name, url: c.url, enabled: !c.enabled });
-      toast.success(c.enabled ? "Catalog disabled" : "Catalog enabled", c.name);
+      toast.success(c.enabled ? t("toast.disabledTitle") : t("toast.enabledTitle"), c.name);
       invalidate();
     } catch (err) {
-      toastError("Update failed", err);
+      toastError(t("toast.updateFailed"), err);
     } finally {
       setTogglingId(null);
     }
@@ -79,7 +87,7 @@ export function Catalogs() {
   const columns: Column<RemoteCatalog>[] = [
     {
       key: "name",
-      header: "Name",
+      header: t("col.name"),
       sortValue: (c) => c.name,
       cell: (c) => (
         <div className="col" style={{ gap: 2 }}>
@@ -92,33 +100,33 @@ export function Catalogs() {
     },
     {
       key: "enabled",
-      header: "Status",
+      header: t("col.status"),
       sortValue: (c) => (c.enabled ? 1 : 0),
       cell: (c) => (
         <span className="row" style={{ gap: 6 }}>
           <StatusDot color={c.enabled ? "var(--success)" : "var(--state-stopped)"} />
-          <span className="text-sm secondary">{c.enabled ? "Enabled" : "Disabled"}</span>
+          <span className="text-sm secondary">{c.enabled ? t("badge.enabled") : t("badge.disabled")}</span>
         </span>
       ),
     },
     {
       key: "count",
-      header: "Templates",
+      header: t("col.templates"),
       align: "right",
       sortValue: (c) => c.templateCount,
       cell: (c) => <span className="mono text-sm">{c.templateCount}</span>,
     },
     {
       key: "fetched",
-      header: "Last fetched",
+      header: t("col.lastFetched"),
       sortValue: (c) => c.lastFetchedAt ?? 0,
       cell: (c) =>
         c.lastError ? (
           <span className="pill" style={{ color: "var(--danger)", background: "var(--danger-bg)", borderColor: "transparent" }} title={c.lastError}>
-            error
+            {t("badge.error")}
           </span>
         ) : (
-          <span className="text-xs muted nowrap">{c.lastFetchedAt ? timeAgo(c.lastFetchedAt) : "never"}</span>
+          <span className="text-xs muted nowrap">{c.lastFetchedAt ? timeAgo(c.lastFetchedAt) : t("badge.never")}</span>
         ),
     },
     {
@@ -133,29 +141,29 @@ export function Catalogs() {
             variant="ghost"
             loading={refreshingId === c.id}
             disabled={!canWrite || refreshingId !== null}
-            tooltip={canWrite ? "Re-fetch templates from this catalog" : "Requires marketplace.catalog.write"}
+            tooltip={canWrite ? t("action.refreshTip") : t("header.requiresWrite")}
             onClick={() => refresh(c)}
           >
             <IconRefresh size={14} />
-            Refresh
+            {t("action.refresh")}
           </ActionButton>
           <ActionButton
             size="sm"
             variant="ghost"
             loading={togglingId === c.id}
             disabled={!canWrite || togglingId !== null}
-            tooltip={canWrite ? (c.enabled ? "Disable" : "Enable") : "Requires marketplace.catalog.write"}
+            tooltip={canWrite ? (c.enabled ? t("action.disable") : t("action.enable")) : t("header.requiresWrite")}
             onClick={() => toggleEnabled(c)}
           >
-            {c.enabled ? "Disable" : "Enable"}
+            {c.enabled ? t("action.disable") : t("action.enable")}
           </ActionButton>
           <ActionButton
             size="sm"
             variant="ghost"
             iconOnly
             disabled={!canWrite}
-            tooltip={canWrite ? "Delete catalog" : "Requires marketplace.catalog.write"}
-            aria-label="Delete catalog"
+            tooltip={canWrite ? t("action.delete") : t("header.requiresWrite")}
+            aria-label={t("action.delete")}
             onClick={() => setDeleteTarget(c)}
             style={canWrite ? { color: "var(--danger)" } : undefined}
           >
@@ -169,20 +177,20 @@ export function Catalogs() {
   return (
     <div className="page">
       <PageHeader
-        title="Catalogs"
-        subtitle="Remote catalog sources that import community templates into the Marketplace."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             <ActionButton
               variant="primary"
               disabled={!canWrite}
-              tooltip={canWrite ? undefined : "Requires marketplace.catalog.write"}
+              tooltip={canWrite ? undefined : t("header.requiresWrite")}
               onClick={() => setCreateOpen(true)}
             >
               <IconPlus size={15} />
-              Add catalog
+              {t("header.add")}
             </ActionButton>
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => catalogsQ.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => catalogsQ.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="registries" />
@@ -191,7 +199,7 @@ export function Catalogs() {
       />
 
       {catalogsQ.isLoading ? (
-        <LoadingFill label="Loading catalogs…" />
+        <LoadingFill label={t("list.loading")} />
       ) : (
         <DataTable
           columns={columns}
@@ -199,8 +207,8 @@ export function Catalogs() {
           rowKey={(c) => c.id}
           defaultSortKey="name"
           emptyIcon={<IconNetworks size={40} />}
-          emptyTitle="No catalogs"
-          emptyMessage="Add a catalog URL to import community templates into the Marketplace."
+          emptyTitle={t("empty.title")}
+          emptyMessage={t("empty.message")}
         />
       )}
 
@@ -208,23 +216,23 @@ export function Catalogs() {
 
       <ConfirmDestructiveDialog
         open={!!deleteTarget}
-        title="Delete catalog"
+        title={t("dialog.deleteTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Remove catalog <strong>{deleteTarget?.name}</strong>? Its templates will no longer appear in the Marketplace. Already-deployed
-            containers are unaffected.
+            {t("dialog.deleteLead")} <strong>{deleteTarget?.name}</strong>
+            {t("dialog.deleteBody")}
           </>
         }
         onConfirm={async () => {
           if (!deleteTarget) return;
           try {
             await api.catalogDelete(deleteTarget.id);
-            toast.success("Catalog deleted", deleteTarget.name);
+            toast.success(t("toast.deletedTitle"), deleteTarget.name);
             invalidate();
           } catch (err) {
-            toastError("Delete failed", err);
+            toastError(t("toast.deleteFailed"), err);
             throw err;
           }
         }}
@@ -235,6 +243,8 @@ export function Catalogs() {
 }
 
 function CatalogModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const t = useT(catalogsDict);
+  const tc = useT(commonDict);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
@@ -246,11 +256,11 @@ function CatalogModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
     setBusy(true);
     try {
       await api.catalogCreate({ name: name.trim(), url: url.trim() });
-      toast.success("Catalog added", name.trim());
+      toast.success(t("toast.addedTitle"), name.trim());
       onDone();
       onClose();
     } catch (err) {
-      toastError("Create failed", err);
+      toastError(t("toast.createFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -259,29 +269,29 @@ function CatalogModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
   return (
     <Modal
       open
-      title="Add catalog"
+      title={t("form.addTitle")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {tc("cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Add
+            {t("form.add")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-3)" }}>
-        <TextField label="Name" autoFocus value={name} onChange={(e) => setName(e.target.value)} hint="A label for this source." />
+        <TextField label={t("form.nameLabel")} autoFocus value={name} onChange={(e) => setName(e.target.value)} hint={t("form.nameHint")} />
         <TextField
-          label="Catalog URL"
+          label={t("form.urlLabel")}
           value={url}
           mono
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://example.com/templates.json"
-          hint="An http(s) URL serving Castor-native or Portainer-style template JSON."
+          hint={t("form.urlHint")}
         />
       </div>
     </Modal>

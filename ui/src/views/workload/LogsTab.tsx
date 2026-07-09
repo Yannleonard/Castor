@@ -10,6 +10,8 @@ import { subscribeLogs } from "../../lib/ws";
 import { api } from "../../lib/api";
 import { LogViewer, type LogLine } from "../../components/LogViewer";
 import { toastError } from "../../lib/toast";
+import { useT, t as tr } from "../../i18n";
+import { wlLogsTabDict } from "../../i18n/locales/wlLogsTab";
 import type { WsRefKind } from "../../lib/types";
 
 interface Props {
@@ -25,6 +27,7 @@ interface Props {
 const MAX_LINES = 5000;
 
 export function LogsTab({ hostId, workloadId, refKind, containers }: Props) {
+  const t = useT(wlLogsTabDict);
   const [lines, setLines] = useState<LogLine[]>([]);
   const [follow, setFollow] = useState(true);
   const [connected, setConnected] = useState(false);
@@ -82,7 +85,7 @@ export function LogsTab({ hostId, workloadId, refKind, containers }: Props) {
           setError(err.message || err.code);
           setConnected(false);
           if (err.code === "forbidden" || err.code === "unsupported") {
-            toastError("Logs", new Error(err.message || err.code));
+            toastError(tr(wlLogsTabDict, "toast.title"), new Error(err.message || err.code));
           }
         },
         onEnd: () => setConnected(false),
@@ -96,7 +99,7 @@ export function LogsTab({ hostId, workloadId, refKind, containers }: Props) {
     <div className="col" style={{ gap: "var(--sp-3)" }}>
       {showContainerPicker ? (
         <div className="row-wrap" style={{ gap: "var(--sp-2)" }}>
-          <span className="text-sm muted">Container</span>
+          <span className="text-sm muted">{t("picker.container")}</span>
           <select
             className="select"
             style={{ width: 180 }}
@@ -113,7 +116,7 @@ export function LogsTab({ hostId, workloadId, refKind, containers }: Props) {
       ) : null}
       {error ? (
         <div className="banner danger">
-          Log stream error: {error}
+          {t("banner.streamError", { error })}
         </div>
       ) : null}
       <LogViewer
@@ -121,7 +124,7 @@ export function LogsTab({ hostId, workloadId, refKind, containers }: Props) {
         follow={follow}
         onToggleFollow={setFollow}
         onClear={() => setLines([])}
-        status={connected ? "streaming" : "connecting…"}
+        status={connected ? t("status.streaming") : t("status.connecting")}
       />
     </div>
   );

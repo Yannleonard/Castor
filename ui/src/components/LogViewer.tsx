@@ -7,6 +7,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { IconSearch, IconDownload } from "./icons";
+import { useT } from "../i18n";
+import { logViewerDict } from "../i18n/locales/logViewer";
 
 export interface LogLine {
   seq: number;
@@ -31,6 +33,7 @@ const ROW_H = 18;
 const OVERSCAN = 12;
 
 export function LogViewer({ lines, follow, onToggleFollow, status, onClear, height = 480 }: Props) {
+  const t = useT(logViewerDict);
   const [filter, setFilter] = useState("");
   const [scrollTop, setScrollTop] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -87,10 +90,10 @@ export function LogViewer({ lines, follow, onToggleFollow, status, onClear, heig
           <input
             className="input input-mono"
             style={{ height: 30, maxWidth: 320 }}
-            placeholder="Filter log lines…"
+            placeholder={t("filter.placeholder")}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            aria-label="Filter logs"
+            aria-label={t("filter.aria")}
           />
           {status ? (
             <span className="chip" style={{ marginLeft: "var(--sp-2)" }}>
@@ -98,20 +101,20 @@ export function LogViewer({ lines, follow, onToggleFollow, status, onClear, heig
             </span>
           ) : null}
           <span className="text-xs muted" style={{ marginLeft: "var(--sp-2)" }}>
-            {total.toLocaleString()} {filter ? "matched" : "lines"}
+            {total.toLocaleString()} {filter ? t("count.matched") : t("count.lines")}
           </span>
         </div>
         <div className="row">
           <label className="checkbox-row">
             <input type="checkbox" checked={follow} onChange={(e) => onToggleFollow(e.target.checked)} />
-            <span>Follow</span>
+            <span>{t("action.follow")}</span>
           </label>
-          <button className="btn btn-ghost btn-sm btn-icon" title="Download logs" onClick={download}>
+          <button className="btn btn-ghost btn-sm btn-icon" title={t("action.download")} onClick={download}>
             <IconDownload size={15} />
           </button>
           {onClear ? (
-            <button className="btn btn-ghost btn-sm" onClick={onClear} title="Clear buffer">
-              Clear
+            <button className="btn btn-ghost btn-sm" onClick={onClear} title={t("action.clearTooltip")}>
+              {t("action.clear")}
             </button>
           ) : null}
         </div>
@@ -131,7 +134,7 @@ export function LogViewer({ lines, follow, onToggleFollow, status, onClear, heig
       >
         {total === 0 ? (
           <div className="center-fill" style={{ minHeight: height }}>
-            <span className="text-sm muted">{filter ? "No lines match the filter." : "Waiting for log output…"}</span>
+            <span className="text-sm muted">{filter ? t("empty.noMatch") : t("empty.waiting")}</span>
           </div>
         ) : (
           <div style={{ paddingTop: padTop, paddingBottom: padBottom }}>

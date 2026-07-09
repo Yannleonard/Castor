@@ -51,6 +51,8 @@ import {
 } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { timeAgo, prettyJson } from "../lib/format";
+import { useT, t as tr } from "../i18n";
+import { helmDict } from "../i18n/locales/helm";
 import type {
   HelmChart,
   HelmRelease,
@@ -252,6 +254,7 @@ function StatusBadge({ status }: { status: HelmReleaseStatus | string }) {
 /* ============================ Page ============================ */
 
 export function Helm() {
+  const t = useT(helmDict);
   const hostId = useSelectedHost();
   const queryClient = useQueryClient();
   const { permissions } = useAuth();
@@ -299,11 +302,11 @@ export function Helm() {
     setReposBusy(true);
     try {
       await api.helmUpdateRepos(hostId);
-      toast.success("Repositories updated", "Chart indexes refreshed.");
+      toast.success(tr(helmDict, "toast.updatedTitle"), tr(helmDict, "toast.updatedBody"));
       invalidateRepos();
       invalidateCharts();
     } catch (err) {
-      toastError("Update failed", err);
+      toastError(tr(helmDict, "toast.updateFailed"), err);
     } finally {
       setReposBusy(false);
     }
@@ -313,11 +316,11 @@ export function Helm() {
     if (!removeRepoTarget) return;
     try {
       await api.helmRemoveRepo(hostId, removeRepoTarget);
-      toast.success("Repository removed", removeRepoTarget);
+      toast.success(tr(helmDict, "toast.repoRemovedTitle"), removeRepoTarget);
       invalidateRepos();
       invalidateCharts();
     } catch (err) {
-      toastError("Remove failed", err);
+      toastError(tr(helmDict, "toast.removeFailed"), err);
       throw err;
     }
   };
@@ -326,20 +329,20 @@ export function Helm() {
     if (!uninstallTarget) return;
     try {
       await api.helmUninstall(hostId, uninstallTarget.namespace, uninstallTarget.name);
-      toast.success("Release uninstalled", `${uninstallTarget.namespace}/${uninstallTarget.name}`);
+      toast.success(tr(helmDict, "toast.uninstalledTitle"), `${uninstallTarget.namespace}/${uninstallTarget.name}`);
       invalidateReleases();
     } catch (err) {
-      toastError("Uninstall failed", err);
+      toastError(tr(helmDict, "toast.uninstallFailed"), err);
       throw err;
     }
   };
 
   /* ---- columns: repositories ---- */
   const repoCols: Column<{ name: string; url: string }>[] = [
-    { key: "name", header: "Repository", sortValue: (r) => r.name, cell: (r) => <span style={{ fontWeight: 600 }}>{r.name}</span> },
+    { key: "name", header: t("repo.colName"), sortValue: (r) => r.name, cell: (r) => <span style={{ fontWeight: 600 }}>{r.name}</span> },
     {
       key: "url",
-      header: "URL",
+      header: t("repo.colUrl"),
       sortValue: (r) => r.url,
       cell: (r) => (
         <a className="row mono text-xs" href={r.url} target="_blank" rel="noreferrer" style={{ gap: 4, color: "var(--text-link)" }}>
@@ -361,8 +364,8 @@ export function Helm() {
           iconOnly
           variant="ghost"
           disabled={!canRepoWrite}
-          tooltip={canRepoWrite ? "Remove repository" : "You lack the helm.repo.write permission"}
-          aria-label="Remove repository"
+          tooltip={canRepoWrite ? t("repo.remove") : t("repo.removeNoPerm")}
+          aria-label={t("repo.remove")}
           onClick={() => setRemoveRepoTarget(r.name)}
           style={canRepoWrite ? { color: "var(--danger)" } : undefined}
         >
@@ -376,7 +379,7 @@ export function Helm() {
   const releaseCols: Column<HelmRelease>[] = [
     {
       key: "name",
-      header: "Release",
+      header: t("release.colName"),
       sortValue: (r) => r.name,
       cell: (r) => (
         <div className="col" style={{ gap: 2 }}>
@@ -385,11 +388,11 @@ export function Helm() {
         </div>
       ),
     },
-    { key: "namespace", header: "Namespace", sortValue: (r) => r.namespace, cell: (r) => <span className="chip">{r.namespace}</span> },
-    { key: "revision", header: "Rev", align: "right", sortValue: (r) => r.revision, cell: (r) => <span className="mono">{r.revision}</span> },
-    { key: "status", header: "Status", sortValue: (r) => String(r.status), cell: (r) => <StatusBadge status={r.status} /> },
-    { key: "appVersion", header: "App version", sortValue: (r) => r.appVersion, cell: (r) => <span className="mono text-xs">{r.appVersion || "—"}</span> },
-    { key: "updated", header: "Updated", sortValue: (r) => r.updated, cell: (r) => <span className="text-xs muted nowrap">{r.updated ? timeAgo(r.updated) : "—"}</span> },
+    { key: "namespace", header: t("release.colNamespace"), sortValue: (r) => r.namespace, cell: (r) => <span className="chip">{r.namespace}</span> },
+    { key: "revision", header: t("release.colRevision"), align: "right", sortValue: (r) => r.revision, cell: (r) => <span className="mono">{r.revision}</span> },
+    { key: "status", header: t("release.colStatus"), sortValue: (r) => String(r.status), cell: (r) => <StatusBadge status={r.status} /> },
+    { key: "appVersion", header: t("release.colAppVersion"), sortValue: (r) => r.appVersion, cell: (r) => <span className="mono text-xs">{r.appVersion || "—"}</span> },
+    { key: "updated", header: t("release.colUpdated"), sortValue: (r) => r.updated, cell: (r) => <span className="text-xs muted nowrap">{r.updated ? timeAgo(r.updated) : "—"}</span> },
     {
       key: "actions",
       header: "",
@@ -401,8 +404,8 @@ export function Helm() {
             size="sm"
             iconOnly
             variant="ghost"
-            tooltip="Values & history"
-            aria-label="Inspect release"
+            tooltip={t("release.inspect")}
+            aria-label={t("release.inspectAria")}
             onClick={() => setInspectTarget(r)}
           >
             <IconInspect size={15} />
@@ -412,8 +415,8 @@ export function Helm() {
             iconOnly
             variant="ghost"
             disabled={!canUpgrade}
-            tooltip={canUpgrade ? "Upgrade" : "You lack the helm.release.upgrade permission"}
-            aria-label="Upgrade release"
+            tooltip={canUpgrade ? t("release.upgrade") : t("release.upgradeNoPerm")}
+            aria-label={t("release.upgradeAria")}
             onClick={() => setUpgradeTarget(r)}
           >
             <IconScale size={15} />
@@ -423,8 +426,8 @@ export function Helm() {
             iconOnly
             variant="ghost"
             disabled={!canRollback}
-            tooltip={canRollback ? "Rollback" : "You lack the helm.release.rollback permission"}
-            aria-label="Rollback release"
+            tooltip={canRollback ? t("release.rollback") : t("release.rollbackNoPerm")}
+            aria-label={t("release.rollbackAria")}
             onClick={() => setRollbackTarget(r)}
           >
             <IconRestart size={15} />
@@ -434,8 +437,8 @@ export function Helm() {
             iconOnly
             variant="ghost"
             disabled={!canUninstall}
-            tooltip={canUninstall ? "Uninstall" : "You lack the helm.release.uninstall permission"}
-            aria-label="Uninstall release"
+            tooltip={canUninstall ? t("release.uninstall") : t("release.uninstallNoPerm")}
+            aria-label={t("release.uninstallAria")}
             onClick={() => setUninstallTarget(r)}
             style={canUninstall ? { color: "var(--danger)" } : undefined}
           >
@@ -454,8 +457,8 @@ export function Helm() {
   return (
     <div className="page">
       <PageHeader
-        title="Helm"
-        subtitle="Manage chart repositories, browse charts, and operate installed releases."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             {tab === "repos" ? (
@@ -464,24 +467,24 @@ export function Helm() {
                   variant="default"
                   loading={reposBusy}
                   disabled={!canRepoWrite || reposBusy}
-                  tooltip={canRepoWrite ? "Refresh all chart indexes" : "You lack the helm.repo.write permission"}
+                  tooltip={canRepoWrite ? t("header.updateTooltip") : t("header.noRepoWrite")}
                   onClick={updateRepos}
                 >
                   <IconDownload size={15} />
-                  Update
+                  {t("header.update")}
                 </ActionButton>
                 <ActionButton
                   variant="primary"
                   disabled={!canRepoWrite}
-                  tooltip={canRepoWrite ? undefined : "You lack the helm.repo.write permission"}
+                  tooltip={canRepoWrite ? undefined : t("header.noRepoWrite")}
                   onClick={() => setAddRepoOpen(true)}
                 >
                   <IconPlus size={15} />
-                  Add repo
+                  {t("header.addRepo")}
                 </ActionButton>
               </>
             ) : null}
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={refetch}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={refetch}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="helm" />
@@ -491,31 +494,31 @@ export function Helm() {
 
       <div className="tabs">
         <button className={`tab${tab === "repos" ? " active" : ""}`} onClick={() => setTab("repos")}>
-          Repositories
+          {t("tab.repos")}
         </button>
         <button className={`tab${tab === "charts" ? " active" : ""}`} onClick={() => setTab("charts")}>
-          Charts
+          {t("tab.charts")}
         </button>
         <button className={`tab${tab === "releases" ? " active" : ""}`} onClick={() => setTab("releases")}>
-          Releases
+          {t("tab.releases")}
         </button>
       </div>
 
       {/* ---------------- Repositories ---------------- */}
       {tab === "repos" ? (
         reposQ.isLoading ? (
-          <LoadingFill label="Loading repositories…" />
+          <LoadingFill label={t("repo.loading")} />
         ) : (reposQ.data ?? []).length === 0 ? (
           <div className="card">
             <EmptyState
               icon={<IconStacks size={40} />}
-              title="No chart repositories"
-              message="Add a Helm chart repository (for example Bitnami at https://charts.bitnami.com/bitnami) to browse and install charts."
+              title={t("repo.emptyTitle")}
+              message={t("repo.emptyMessage")}
               action={
                 canRepoWrite ? (
                   <ActionButton variant="primary" onClick={() => setAddRepoOpen(true)}>
                     <IconPlus size={15} />
-                    Add repository
+                    {t("repo.emptyAction")}
                   </ActionButton>
                 ) : undefined
               }
@@ -528,7 +531,7 @@ export function Helm() {
             rowKey={(r) => r.name}
             defaultSortKey="name"
             emptyIcon={<IconStacks size={40} />}
-            emptyTitle="No repositories"
+            emptyTitle={t("repo.emptyTableTitle")}
           />
         )
       ) : null}
@@ -543,13 +546,13 @@ export function Helm() {
               </span>
               <input
                 className="input"
-                placeholder="Search charts (e.g. postgresql, nginx)…"
+                placeholder={t("chart.searchPlaceholder")}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 style={{ maxWidth: 420 }}
               />
               <ActionButton type="submit" variant="default">
-                Search
+                {t("chart.search")}
               </ActionButton>
               {query ? (
                 <button
@@ -560,22 +563,22 @@ export function Helm() {
                     setQuery("");
                   }}
                 >
-                  Clear
+                  {t("chart.clear")}
                 </button>
               ) : null}
               <span className="spacer" />
-              <span className="text-sm muted">{(chartsQ.data ?? []).length} chart(s)</span>
+              <span className="text-sm muted">{t("chart.count", { n: (chartsQ.data ?? []).length })}</span>
             </form>
           </div>
 
           {chartsQ.isLoading ? (
-            <LoadingFill label="Searching charts…" />
+            <LoadingFill label={t("chart.searching")} />
           ) : (chartsQ.data ?? []).length === 0 ? (
             <div className="card">
               <EmptyState
                 icon={<IconSearch size={40} />}
-                title="No charts found"
-                message="No charts matched. Add a repository and run Update on the Repositories tab, then search again."
+                title={t("chart.noneTitle")}
+                message={t("chart.noneMessage")}
               />
             </div>
           ) : (
@@ -596,7 +599,7 @@ export function Helm() {
       {/* ---------------- Releases ---------------- */}
       {tab === "releases" ? (
         releasesQ.isLoading ? (
-          <LoadingFill label="Loading releases…" />
+          <LoadingFill label={t("release.loading")} />
         ) : (
           <DataTable
             columns={releaseCols}
@@ -604,8 +607,8 @@ export function Helm() {
             rowKey={(r) => `${r.namespace}/${r.name}`}
             defaultSortKey="name"
             emptyIcon={<IconStacks size={40} />}
-            emptyTitle="No releases installed"
-            emptyMessage="Install a chart from the Charts tab to create your first release."
+            emptyTitle={t("release.emptyTitle")}
+            emptyMessage={t("release.emptyMessage")}
           />
         )
       ) : null}
@@ -657,14 +660,14 @@ export function Helm() {
 
       <ConfirmDestructiveDialog
         open={!!uninstallTarget}
-        title="Uninstall release"
+        title={t("dialog.uninstallTitle")}
         variant="danger"
-        confirmLabel="Uninstall"
+        confirmLabel={t("dialog.uninstallConfirm")}
         description={
           <>
-            Uninstall <strong className="mono">{uninstallTarget?.name}</strong> from namespace{" "}
-            <strong className="mono">{uninstallTarget?.namespace}</strong>? All resources it created are removed. This
-            cannot be undone.
+            {t("dialog.uninstallDescPrefix")} <strong className="mono">{uninstallTarget?.name}</strong>{" "}
+            {t("dialog.uninstallDescMid")} <strong className="mono">{uninstallTarget?.namespace}</strong>
+            {t("dialog.uninstallDescSuffix")}
           </>
         }
         onConfirm={uninstall}
@@ -673,13 +676,13 @@ export function Helm() {
 
       <ConfirmDestructiveDialog
         open={!!removeRepoTarget}
-        title="Remove repository"
+        title={t("dialog.removeRepoTitle")}
         variant="danger"
-        confirmLabel="Remove"
+        confirmLabel={t("dialog.removeRepoConfirm")}
         description={
           <>
-            Remove repository <strong className="mono">{removeRepoTarget}</strong>? Its cached chart index is dropped;
-            installed releases are not affected.
+            {t("dialog.removeRepoDescPrefix")} <strong className="mono">{removeRepoTarget}</strong>
+            {t("dialog.removeRepoDescSuffix")}
           </>
         }
         onConfirm={removeRepo}
@@ -700,6 +703,7 @@ function ChartCard({
   canInstall: boolean;
   onInstall: () => void;
 }) {
+  const t = useT(helmDict);
   return (
     <div className="card card-pad col" style={{ gap: "var(--sp-3)", justifyContent: "space-between" }}>
       <div className="col" style={{ gap: "var(--sp-2)" }}>
@@ -711,11 +715,11 @@ function ChartCard({
         </div>
         <div className="row" style={{ gap: "var(--sp-2)", flexWrap: "wrap" }}>
           <span className="text-xs muted">
-            chart <span className="mono">{chart.version || "—"}</span>
+            {t("chart.cardChart")} <span className="mono">{chart.version || "—"}</span>
           </span>
           {chart.appVersion ? (
             <span className="text-xs muted">
-              app <span className="mono">{chart.appVersion}</span>
+              {t("chart.cardApp")} <span className="mono">{chart.appVersion}</span>
             </span>
           ) : null}
         </div>
@@ -730,11 +734,11 @@ function ChartCard({
           size="sm"
           variant="primary"
           disabled={!canInstall}
-          tooltip={canInstall ? undefined : "You lack the helm.release.install permission"}
+          tooltip={canInstall ? undefined : t("chart.installNoPerm")}
           onClick={onInstall}
         >
           <IconDownload size={14} />
-          Install
+          {t("chart.install")}
         </ActionButton>
       </div>
     </div>
@@ -754,6 +758,7 @@ function AddRepoModal({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const t = useT(helmDict);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
@@ -773,10 +778,10 @@ function AddRepoModal({
     setBusy(true);
     try {
       await api.helmAddRepo(hostId, { name: name.trim(), url: url.trim() });
-      toast.success("Repository added", name.trim());
+      toast.success(tr(helmDict, "toast.repoAddedTitle"), name.trim());
       onAdded();
     } catch (err) {
-      toastError("Add repository failed", err);
+      toastError(tr(helmDict, "toast.addRepoFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -785,26 +790,26 @@ function AddRepoModal({
   return (
     <Modal
       open={open}
-      title="Add chart repository"
+      title={t("repo.addTitle")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("repo.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Add
+            {t("repo.add")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-3)" }}>
         <div className="text-sm secondary">
-          Adding a repository downloads its chart index so its charts become searchable.
+          {t("repo.addIntro")}
         </div>
         <TextField
-          label="Name"
+          label={t("repo.fieldName")}
           name="helm-repo-name"
           autoFocus
           placeholder="bitnami"
@@ -812,13 +817,13 @@ function AddRepoModal({
           onChange={(e) => setName(e.target.value)}
         />
         <TextField
-          label="URL"
+          label={t("repo.fieldUrl")}
           name="helm-repo-url"
           mono
           placeholder="https://charts.bitnami.com/bitnami"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          error={url.trim() !== "" && !/^https?:\/\//.test(url.trim()) ? "Must be an http(s) URL." : undefined}
+          error={url.trim() !== "" && !/^https?:\/\//.test(url.trim()) ? t("repo.urlError") : undefined}
         />
       </div>
     </Modal>
@@ -838,6 +843,7 @@ function InstallChartModal({
   onClose: () => void;
   onInstalled: () => void;
 }) {
+  const t = useT(helmDict);
   const [release, setRelease] = useState("");
   const [namespace, setNamespace] = useState("default");
   const [version, setVersion] = useState("");
@@ -860,7 +866,7 @@ function InstallChartModal({
       parseYamlValues(valuesText);
       return null;
     } catch (err) {
-      return err instanceof Error ? err.message : "Invalid YAML.";
+      return err instanceof Error ? err.message : tr(helmDict, "chart.invalidYaml");
     }
   }, [valuesText]);
 
@@ -878,10 +884,10 @@ function InstallChartModal({
         version: version.trim() || undefined,
         values,
       });
-      toast.success("Chart installed", `${release.trim()} (${chart.repo}/${chart.name})`);
+      toast.success(tr(helmDict, "toast.installedTitle"), `${release.trim()} (${chart.repo}/${chart.name})`);
       onInstalled();
     } catch (err) {
-      toastError("Install failed", err);
+      toastError(tr(helmDict, "toast.installFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -891,38 +897,38 @@ function InstallChartModal({
     <Modal
       open={!!chart}
       wide
-      title="Install chart"
+      title={t("chart.installTitle")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("chart.installCancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Install
+            {t("chart.installConfirm")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-4)" }}>
         <div className="text-sm secondary">
-          Installing <strong className="mono">{chart ? `${chart.repo}/${chart.name}` : ""}</strong>.
+          {t("chart.installIntroPrefix")} <strong className="mono">{chart ? `${chart.repo}/${chart.name}` : ""}</strong>.
         </div>
         <div className="row" style={{ gap: "var(--sp-3)", flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 200px" }}>
-            <TextField label="Release name" name="helm-install-release" value={release} onChange={(e) => setRelease(e.target.value)} />
+            <TextField label={t("chart.releaseName")} name="helm-install-release" value={release} onChange={(e) => setRelease(e.target.value)} />
           </div>
           <div style={{ flex: "1 1 160px" }}>
-            <TextField label="Namespace" name="helm-install-ns" value={namespace} onChange={(e) => setNamespace(e.target.value)} />
+            <TextField label={t("chart.namespace")} name="helm-install-ns" value={namespace} onChange={(e) => setNamespace(e.target.value)} />
           </div>
           <div style={{ flex: "0 1 160px" }}>
             <TextField
-              label="Version"
+              label={t("chart.version")}
               name="helm-install-version"
               mono
-              placeholder="latest"
-              hint="Blank = latest"
+              placeholder={t("chart.versionPlaceholder")}
+              hint={t("chart.versionHint")}
               value={version}
               onChange={(e) => setVersion(e.target.value)}
             />
@@ -930,7 +936,7 @@ function InstallChartModal({
         </div>
         <div className="field">
           <label className="field-label" htmlFor="helm-install-values">
-            Values (YAML, optional)
+            {t("chart.valuesLabel")}
           </label>
           <textarea
             id="helm-install-values"
@@ -942,7 +948,7 @@ function InstallChartModal({
             placeholder={"# overrides only\nreplicaCount: 2\nservice:\n  type: ClusterIP"}
             style={{ minHeight: 200, fontFamily: "var(--font-mono)", fontSize: 13, lineHeight: 1.5, whiteSpace: "pre", tabSize: 2 }}
           />
-          {valuesError ? <span className="field-error">{valuesError}</span> : <span className="field-hint">Leave blank to use chart defaults.</span>}
+          {valuesError ? <span className="field-error">{valuesError}</span> : <span className="field-hint">{t("chart.valuesHint")}</span>}
         </div>
       </div>
     </Modal>
@@ -962,6 +968,7 @@ function UpgradeReleaseModal({
   onClose: () => void;
   onUpgraded: () => void;
 }) {
+  const t = useT(helmDict);
   const [chart, setChart] = useState("");
   const [version, setVersion] = useState("");
   const [valuesText, setValuesText] = useState("");
@@ -992,7 +999,7 @@ function UpgradeReleaseModal({
       parseYamlValues(valuesText);
       return null;
     } catch (err) {
-      return err instanceof Error ? err.message : "Invalid YAML.";
+      return err instanceof Error ? err.message : tr(helmDict, "upgrade.invalidYaml");
     }
   }, [valuesText]);
 
@@ -1013,7 +1020,7 @@ function UpgradeReleaseModal({
       setPreview(result);
     } catch (err) {
       setPreview(null);
-      toastError("Preview failed", err);
+      toastError(tr(helmDict, "toast.previewFailed"), err);
     } finally {
       setPreviewBusy(false);
     }
@@ -1029,10 +1036,10 @@ function UpgradeReleaseModal({
         version: version.trim() || undefined,
         values,
       });
-      toast.success("Release upgraded", `${target.namespace}/${target.name}`);
+      toast.success(tr(helmDict, "toast.upgradedTitle"), `${target.namespace}/${target.name}`);
       onUpgraded();
     } catch (err) {
-      toastError("Upgrade failed", err);
+      toastError(tr(helmDict, "toast.upgradeFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -1042,55 +1049,56 @@ function UpgradeReleaseModal({
     <Modal
       open={!!target}
       wide
-      title="Upgrade release"
+      title={t("upgrade.title")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("upgrade.cancel")}
           </button>
           <ActionButton
             variant="default"
             loading={previewBusy}
             disabled={!valid || previewBusy}
-            tooltip="Dry-run: render the change and diff it against the current release"
+            tooltip={t("upgrade.previewTooltip")}
             onClick={runPreview}
           >
             <IconInspect size={15} />
-            Preview
+            {t("upgrade.preview")}
           </ActionButton>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Upgrade
+            {t("upgrade.confirm")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-4)" }}>
         <div className="text-sm secondary">
-          Upgrade <strong className="mono">{target?.name}</strong> in namespace{" "}
-          <strong className="mono">{target?.namespace}</strong> (currently revision{" "}
-          <span className="mono">{target?.revision}</span>, chart <span className="mono">{target?.chart}</span>).
+          {t("upgrade.introPrefix")} <strong className="mono">{target?.name}</strong> {t("upgrade.introNamespace")}{" "}
+          <strong className="mono">{target?.namespace}</strong> {t("upgrade.introRevision")}{" "}
+          <span className="mono">{target?.revision}</span>{t("upgrade.introChart")}{" "}
+          <span className="mono">{target?.chart}</span>).
         </div>
         <div className="row" style={{ gap: "var(--sp-3)", flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 240px" }}>
             <TextField
-              label="Chart"
+              label={t("upgrade.fieldChart")}
               name="helm-upgrade-chart"
               mono
               placeholder="bitnami/postgresql"
-              hint="repo/chart reference"
+              hint={t("upgrade.chartHint")}
               value={chart}
               onChange={(e) => setChart(e.target.value)}
             />
           </div>
           <div style={{ flex: "0 1 180px" }}>
             <TextField
-              label="Version"
+              label={t("upgrade.fieldVersion")}
               name="helm-upgrade-version"
               mono
-              placeholder="latest"
-              hint="Blank = latest"
+              placeholder={t("upgrade.versionPlaceholder")}
+              hint={t("upgrade.versionHint")}
               value={version}
               onChange={(e) => setVersion(e.target.value)}
             />
@@ -1098,7 +1106,7 @@ function UpgradeReleaseModal({
         </div>
         <div className="field">
           <label className="field-label" htmlFor="helm-upgrade-values">
-            Values (YAML, optional)
+            {t("upgrade.valuesLabel")}
           </label>
           <textarea
             id="helm-upgrade-values"
@@ -1110,7 +1118,7 @@ function UpgradeReleaseModal({
             placeholder={"# overrides only\nreplicaCount: 3"}
             style={{ minHeight: 180, fontFamily: "var(--font-mono)", fontSize: 13, lineHeight: 1.5, whiteSpace: "pre", tabSize: 2 }}
           />
-          {valuesError ? <span className="field-error">{valuesError}</span> : <span className="field-hint">Merged over the release's existing values.</span>}
+          {valuesError ? <span className="field-error">{valuesError}</span> : <span className="field-hint">{t("upgrade.valuesHint")}</span>}
         </div>
 
         {preview ? <UpgradeDiff preview={preview} /> : null}
@@ -1127,6 +1135,7 @@ function UpgradeReleaseModal({
 // An install preview (current === "") shows as a pure-addition diff.
 
 function UpgradeDiff({ preview }: { preview: HelmUpgradePreview }) {
+  const t = useT(helmDict);
   const lines = useMemo(() => diffLines(preview.current, preview.pending), [preview]);
   const added = lines.filter((l) => l.kind === "add").length;
   const removed = lines.filter((l) => l.kind === "del").length;
@@ -1137,7 +1146,7 @@ function UpgradeDiff({ preview }: { preview: HelmUpgradePreview }) {
     <div className="col" style={{ gap: 6 }}>
       <div className="row" style={{ gap: "var(--sp-2)", alignItems: "baseline" }}>
         <span className="field-label" style={{ margin: 0 }}>
-          Preview diff
+          {t("upgrade.previewDiff")}
         </span>
         <span className="text-xs" style={{ color: "var(--success)" }}>
           +{added}
@@ -1145,10 +1154,10 @@ function UpgradeDiff({ preview }: { preview: HelmUpgradePreview }) {
         <span className="text-xs" style={{ color: "var(--danger)" }}>
           −{removed}
         </span>
-        {isInstall ? <span className="text-xs muted">(first install — everything is new)</span> : null}
+        {isInstall ? <span className="text-xs muted">{t("upgrade.firstInstall")}</span> : null}
       </div>
       {noChange ? (
-        <div className="text-sm muted">No manifest changes — the rendered output is identical.</div>
+        <div className="text-sm muted">{t("upgrade.noChange")}</div>
       ) : (
         <pre
           className="input-mono"
@@ -1194,6 +1203,7 @@ function RollbackReleaseModal({
   onClose: () => void;
   onRolledBack: () => void;
 }) {
+  const t = useT(helmDict);
   const historyQ = useHelmReleaseHistory(hostId, target?.namespace ?? "", target?.name ?? "", !!target);
   const [revision, setRevision] = useState<number>(0);
   const [busy, setBusy] = useState(false);
@@ -1217,13 +1227,14 @@ function RollbackReleaseModal({
     setBusy(true);
     try {
       await api.helmRollback(hostId, target.namespace, target.name, { revision });
+      const revLabel = revision === 0 ? tr(helmDict, "toast.rolledBackPrevious") : String(revision);
       toast.success(
-        "Release rolled back",
-        `${target.namespace}/${target.name} → revision ${revision === 0 ? "previous" : revision}`,
+        tr(helmDict, "toast.rolledBackTitle"),
+        tr(helmDict, "toast.rolledBackBody", { target: `${target.namespace}/${target.name}`, rev: revLabel }),
       );
       onRolledBack();
     } catch (err) {
-      toastError("Rollback failed", err);
+      toastError(tr(helmDict, "toast.rollbackFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -1233,29 +1244,28 @@ function RollbackReleaseModal({
     <Modal
       open={!!target}
       wide
-      title="Rollback release"
+      title={t("rollback.title")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("rollback.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={busy} onClick={submit}>
-            Rollback
+            {t("rollback.confirm")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-4)" }}>
         <div className="text-sm secondary">
-          Roll <strong className="mono">{target?.name}</strong> back to an earlier revision. The chosen revision is
-          re-applied as a new revision on top.
+          {t("rollback.introPrefix")} <strong className="mono">{target?.name}</strong> {t("rollback.introSuffix")}
         </div>
 
         <div className="field" style={{ maxWidth: 280 }}>
           <label className="field-label" htmlFor="helm-rollback-rev">
-            Target revision
+            {t("rollback.targetRevision")}
           </label>
           <select
             id="helm-rollback-rev"
@@ -1263,7 +1273,7 @@ function RollbackReleaseModal({
             value={revision}
             onChange={(e) => setRevision(Number(e.target.value))}
           >
-            <option value={0}>Previous revision</option>
+            <option value={0}>{t("rollback.previousRevision")}</option>
             {candidates.map((h) => (
               <option key={h.revision} value={h.revision}>
                 #{h.revision} — {h.status} ({h.chart})
@@ -1273,22 +1283,22 @@ function RollbackReleaseModal({
         </div>
 
         {historyQ.isLoading ? (
-          <div className="text-sm muted">Loading history…</div>
+          <div className="text-sm muted">{t("rollback.loadingHistory")}</div>
         ) : candidates.length === 0 ? (
-          <div className="text-sm muted">No earlier revisions recorded; "Previous revision" will be used.</div>
+          <div className="text-sm muted">{t("rollback.noEarlier")}</div>
         ) : (
           <div className="col" style={{ gap: 4 }}>
             <span className="field-label" style={{ margin: 0 }}>
-              History
+              {t("rollback.history")}
             </span>
             <table className="dt">
               <thead>
                 <tr>
-                  <th>Rev</th>
-                  <th>Status</th>
-                  <th>Chart</th>
-                  <th>Updated</th>
-                  <th>Description</th>
+                  <th>{t("rollback.colRev")}</th>
+                  <th>{t("rollback.colStatus")}</th>
+                  <th>{t("rollback.colChart")}</th>
+                  <th>{t("rollback.colUpdated")}</th>
+                  <th>{t("rollback.colDescription")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1326,6 +1336,7 @@ function InspectReleaseModal({
   target: HelmRelease | null;
   onClose: () => void;
 }) {
+  const t = useT(helmDict);
   const [view, setView] = useState<"values" | "history">("values");
   const valuesQ = useHelmReleaseValues(hostId, target?.namespace ?? "", target?.name ?? "", !!target && view === "values");
   const historyQ = useHelmReleaseHistory(hostId, target?.namespace ?? "", target?.name ?? "", !!target && view === "history");
@@ -1342,7 +1353,7 @@ function InspectReleaseModal({
       wide
       title={
         <span className="row" style={{ gap: "var(--sp-2)" }}>
-          Release
+          {t("inspect.releaseLabel")}
           <span className="mono" style={{ fontWeight: 600 }}>
             {target?.name}
           </span>
@@ -1352,25 +1363,25 @@ function InspectReleaseModal({
       onClose={onClose}
       footer={
         <button className="btn" onClick={onClose}>
-          Close
+          {t("inspect.close")}
         </button>
       }
     >
       <div className="col" style={{ gap: "var(--sp-3)" }}>
         <div className="tabs">
           <button className={`tab${view === "values" ? " active" : ""}`} onClick={() => setView("values")}>
-            Values
+            {t("inspect.tabValues")}
           </button>
           <button className={`tab${view === "history" ? " active" : ""}`} onClick={() => setView("history")}>
-            History
+            {t("inspect.tabHistory")}
           </button>
         </div>
 
         {view === "values" ? (
           valuesQ.isLoading ? (
-            <div className="text-sm muted">Loading values…</div>
+            <div className="text-sm muted">{t("inspect.loadingValues")}</div>
           ) : valuesEmpty ? (
-            <div className="text-sm muted">This release has no user-supplied value overrides (chart defaults in effect).</div>
+            <div className="text-sm muted">{t("inspect.valuesEmpty")}</div>
           ) : (
             <pre
               className="input-mono"
@@ -1391,19 +1402,19 @@ function InspectReleaseModal({
             </pre>
           )
         ) : historyQ.isLoading ? (
-          <div className="text-sm muted">Loading history…</div>
+          <div className="text-sm muted">{t("inspect.loadingHistory")}</div>
         ) : (historyQ.data ?? []).length === 0 ? (
-          <div className="text-sm muted">No revision history recorded.</div>
+          <div className="text-sm muted">{t("inspect.historyEmpty")}</div>
         ) : (
           <table className="dt">
             <thead>
               <tr>
-                <th>Rev</th>
-                <th>Status</th>
-                <th>Chart</th>
-                <th>App</th>
-                <th>Updated</th>
-                <th>Description</th>
+                <th>{t("inspect.colRev")}</th>
+                <th>{t("inspect.colStatus")}</th>
+                <th>{t("inspect.colChart")}</th>
+                <th>{t("inspect.colApp")}</th>
+                <th>{t("inspect.colUpdated")}</th>
+                <th>{t("inspect.colDescription")}</th>
               </tr>
             </thead>
             <tbody>

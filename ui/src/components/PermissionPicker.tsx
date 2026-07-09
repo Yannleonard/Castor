@@ -6,6 +6,8 @@
 
 import { useMemo } from "react";
 import { IconCheck } from "./icons";
+import { useT } from "../i18n";
+import { permissionPickerDict } from "../i18n/locales/permissionPicker";
 
 interface Props {
   catalog: string[];
@@ -38,6 +40,7 @@ function groupOf(perm: string): string {
 const GROUP_ORDER = ["Superuser", "Docker", "Swarm", "Kubernetes", "RBAC", "Audit", "Settings", "Other"];
 
 export function PermissionPicker({ catalog, selected, onToggle, disabled }: Props) {
+  const t = useT(permissionPickerDict);
   const groups = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const p of catalog) {
@@ -59,7 +62,7 @@ export function PermissionPicker({ catalog, selected, onToggle, disabled }: Prop
           <div key={group} className="col" style={{ gap: "var(--sp-2)" }}>
             <div className="row" style={{ justifyContent: "space-between" }}>
               <span className="text-sm" style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
-                {group}
+                {t("group." + group)}
               </span>
               {!isSuper && !disabled ? (
                 <span className="text-xs muted">
@@ -103,7 +106,7 @@ export function PermissionPicker({ catalog, selected, onToggle, disabled }: Prop
       {hasWildcard ? (
         <div className="banner info">
           <IconCheck size={14} />
-          <span>The <span className="mono">*</span> superuser permission grants everything; individual toggles are implied.</span>
+          <span>{t("banner.wildcardPrefix")} <span className="mono">*</span> {t("banner.wildcardSuffix")}</span>
         </div>
       ) : null}
     </div>

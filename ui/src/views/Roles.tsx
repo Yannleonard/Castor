@@ -21,9 +21,12 @@ import { PermissionPicker } from "../components/PermissionPicker";
 import { TextField, TextAreaField } from "../components/Field";
 import { IconRoles, IconPlus, IconTrash, IconRefresh, IconLock } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
+import { useT } from "../i18n";
+import { rolesDict } from "../i18n/locales/roles";
 import type { RoleRecord } from "../lib/types";
 
 export function Roles() {
+  const t = useT(rolesDict);
   const queryClient = useQueryClient();
   const { can } = useAuth();
   const rolesQ = useRoles();
@@ -38,14 +41,14 @@ export function Roles() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["roles"] });
 
-  if (rolesQ.isLoading) return <LoadingFill label="Loading roles…" />;
+  if (rolesQ.isLoading) return <LoadingFill label={t("list.loading")} />;
 
   const roles = rolesQ.data ?? [];
 
   const columns: Column<RoleRecord>[] = [
     {
       key: "name",
-      header: "Role",
+      header: t("col.role"),
       sortValue: (r) => r.name,
       cell: (r) => (
         <div className="col" style={{ gap: 2 }}>
@@ -53,7 +56,7 @@ export function Roles() {
             <span style={{ fontWeight: 600 }}>{r.name}</span>
             {r.isBuiltin ? (
               <span className="pill" style={{ color: "var(--text-muted)", borderColor: "var(--border-strong)", background: "transparent" }}>
-                <IconLock size={11} /> built-in
+                <IconLock size={11} /> {t("badge.builtin")}
               </span>
             ) : null}
           </span>
@@ -63,12 +66,12 @@ export function Roles() {
     },
     {
       key: "perms",
-      header: "Permissions",
+      header: t("col.permissions"),
       sortValue: (r) => r.permissions.length,
       cell: (r) =>
         r.permissions.includes("*") ? (
           <span className="pill" style={{ color: "var(--warm)", borderColor: "var(--warm)", background: "transparent" }}>
-            superuser (*)
+            {t("badge.superuser")}
           </span>
         ) : (
           <span className="row-wrap" style={{ gap: 4 }}>
@@ -77,7 +80,7 @@ export function Roles() {
                 {p}
               </span>
             ))}
-            {r.permissions.length > 4 ? <span className="text-xs muted">+{r.permissions.length - 4} more</span> : null}
+            {r.permissions.length > 4 ? <span className="text-xs muted">{t("list.morePerms", { count: r.permissions.length - 4 })}</span> : null}
           </span>
         ),
     },
@@ -89,15 +92,15 @@ export function Roles() {
       cell: (r) => (
         <div className="dt-actions">
           <ActionButton size="sm" variant="ghost" onClick={() => setEditTarget(r)}>
-            {r.isBuiltin || !canUpdate ? "View" : "Edit"}
+            {r.isBuiltin || !canUpdate ? t("action.view") : t("action.edit")}
           </ActionButton>
           <ActionButton
             size="sm"
             variant="ghost"
             iconOnly
             disabled={r.isBuiltin || !canDelete}
-            tooltip={r.isBuiltin ? "Built-in roles cannot be deleted" : canDelete ? "Delete role" : "Requires rbac.role.delete"}
-            aria-label="Delete role"
+            tooltip={r.isBuiltin ? t("action.deleteBuiltin") : canDelete ? t("action.delete") : t("action.deleteDenied")}
+            aria-label={t("action.deleteAria")}
             onClick={() => setDeleteTarget(r)}
             style={!r.isBuiltin && canDelete ? { color: "var(--danger)" } : undefined}
           >
@@ -111,15 +114,15 @@ export function Roles() {
   return (
     <div className="page">
       <PageHeader
-        title="Roles"
-        subtitle="Permission bundles assigned to users. Built-in roles are immutable."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
-            <ActionButton variant="primary" disabled={!canCreate} tooltip={canCreate ? undefined : "Requires rbac.role.create"} onClick={() => setEditTarget("new")}>
+            <ActionButton variant="primary" disabled={!canCreate} tooltip={canCreate ? undefined : t("header.newRoleDenied")} onClick={() => setEditTarget("new")}>
               <IconPlus size={15} />
-              New role
+              {t("header.newRole")}
             </ActionButton>
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => rolesQ.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => rolesQ.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="rbac" />
@@ -127,7 +130,7 @@ export function Roles() {
         }
       />
 
-      <DataTable columns={columns} rows={roles} rowKey={(r) => r.id} defaultSortKey="name" emptyIcon={<IconRoles size={40} />} emptyTitle="No roles" />
+      <DataTable columns={columns} rows={roles} rowKey={(r) => r.id} defaultSortKey="name" emptyIcon={<IconRoles size={40} />} emptyTitle={t("empty.title")} />
 
       {editTarget ? (
         <RoleEditor
@@ -141,22 +144,24 @@ export function Roles() {
 
       <ConfirmDestructiveDialog
         open={!!deleteTarget}
-        title="Delete role"
+        title={t("dialog.deleteTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete role <strong>{deleteTarget?.name}</strong>? Users bound to it lose those permissions.
+            {t("dialog.deleteDescBefore")}
+            <strong>{deleteTarget?.name}</strong>
+            {t("dialog.deleteDescAfter")}
           </>
         }
         onConfirm={async () => {
           if (!deleteTarget) return;
           try {
             await api.roleDelete(deleteTarget.id);
-            toast.success("Role deleted", deleteTarget.name);
+            toast.success(t("toast.deletedTitle"), deleteTarget.name);
             invalidate();
           } catch (err) {
-            toastError("Delete failed", err);
+            toastError(t("toast.deleteFailed"), err);
             throw err;
           }
         }}
@@ -179,6 +184,7 @@ function RoleEditor({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT(rolesDict);
   const isNew = role === null;
   const readOnly = !canEdit || (role?.isBuiltin ?? false);
 
@@ -212,15 +218,15 @@ function RoleEditor({
     try {
       if (isNew) {
         await api.roleCreate({ name: name.trim(), description: description.trim() || undefined, permissions });
-        toast.success("Role created", name.trim());
+        toast.success(t("toast.createdTitle"), name.trim());
       } else if (role) {
         await api.roleUpdate(role.id, { name: name.trim(), description: description.trim() || undefined, permissions });
-        toast.success("Role updated", name.trim());
+        toast.success(t("toast.updatedTitle"), name.trim());
       }
       onDone();
       onClose();
     } catch (err) {
-      toastError(isNew ? "Create failed" : "Update failed", err);
+      toastError(isNew ? t("toast.createFailed") : t("toast.updateFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -231,16 +237,16 @@ function RoleEditor({
       open
       wide
       busy={busy}
-      title={isNew ? "New role" : readOnly ? `Role: ${role?.name}` : `Edit role: ${role?.name}`}
+      title={isNew ? t("editor.titleNew") : readOnly ? t("editor.titleView", { name: role?.name ?? "" }) : t("editor.titleEdit", { name: role?.name ?? "" })}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            {readOnly ? "Close" : "Cancel"}
+            {readOnly ? t("editor.close") : t("editor.cancel")}
           </button>
           {!readOnly ? (
             <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-              {isNew ? "Create role" : "Save changes"}
+              {isNew ? t("editor.createRole") : t("editor.saveChanges")}
             </ActionButton>
           ) : null}
         </>
@@ -250,18 +256,18 @@ function RoleEditor({
         {readOnly && role?.isBuiltin ? (
           <div className="banner info">
             <IconLock size={14} />
-            <span>This is a built-in role and cannot be modified.</span>
+            <span>{t("editor.builtinBanner")}</span>
           </div>
         ) : null}
         <div className="row-wrap" style={{ gap: "var(--sp-3)" }}>
           <div style={{ flex: "1 1 200px" }}>
-            <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} disabled={readOnly} mono />
+            <TextField label={t("editor.name")} value={name} onChange={(e) => setName(e.target.value)} disabled={readOnly} mono />
           </div>
         </div>
-        <TextAreaField label="Description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={readOnly} />
+        <TextAreaField label={t("editor.description")} value={description} onChange={(e) => setDescription(e.target.value)} disabled={readOnly} />
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <span className="text-sm" style={{ fontWeight: 600 }}>
-            Permissions <span className="muted">({selected.has("*") ? "all" : selected.size})</span>
+            {t("editor.permissions")} <span className="muted">({selected.has("*") ? t("editor.permsAll") : selected.size})</span>
           </span>
           <PermissionPicker catalog={catalog} selected={selected} onToggle={toggle} disabled={readOnly} />
         </div>

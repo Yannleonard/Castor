@@ -23,6 +23,9 @@ import { TextField, SelectField } from "../components/Field";
 import { IconNetworks, IconPlus, IconPrune, IconTrash, IconRefresh, IconSearch } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { formatBytes, shortId } from "../lib/format";
+import { useT, t as tr } from "../i18n";
+import { networksDict } from "../i18n/locales/networks";
+import { commonDict } from "../i18n/locales/common";
 import type { DockerNetwork } from "../lib/types";
 
 const SYSTEM_NETWORKS = new Set(["bridge", "host", "none"]);
@@ -32,6 +35,8 @@ const NETWORK_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
 const NETWORK_DRIVERS = ["bridge", "overlay", "macvlan", "ipvlan"];
 
 export function Networks() {
+  const t = useT(networksDict);
+  const tc = useT(commonDict);
   const hostId = useSelectedHost();
   const queryClient = useQueryClient();
   const { can } = useAuth();
@@ -67,14 +72,14 @@ export function Networks() {
     setCreating(true);
     try {
       await api.networkCreate(hostId, { name, driver: createDriver, internal: createInternal });
-      toast.success("Network created", name);
+      toast.success(tr(networksDict, "toast.createdTitle"), name);
       setCreateOpen(false);
       setCreateName("");
       setCreateDriver("bridge");
       setCreateInternal(false);
       queryClient.invalidateQueries({ queryKey: ["networks", hostId] });
     } catch (err) {
-      toastError("Create failed", err);
+      toastError(tr(networksDict, "toast.createFailed"), err);
     } finally {
       setCreating(false);
     }
@@ -83,10 +88,13 @@ export function Networks() {
   const doPrune = async () => {
     try {
       const res = await api.prune(hostId, { target: "networks" });
-      toast.success(`${res.removed.length} networks removed`, `${formatBytes(res.spaceReclaimed)} reclaimed`);
+      toast.success(
+        tr(networksDict, "toast.prunedTitle", { count: res.removed.length }),
+        tr(networksDict, "toast.prunedBody", { size: formatBytes(res.spaceReclaimed) }),
+      );
       queryClient.invalidateQueries({ queryKey: ["networks", hostId] });
     } catch (err) {
-      toastError("Prune failed", err);
+      toastError(tr(networksDict, "toast.pruneFailed"), err);
       throw err;
     }
   };
@@ -95,10 +103,10 @@ export function Networks() {
     if (!removeTarget) return;
     try {
       await api.networkDelete(hostId, removeTarget.id);
-      toast.success("Network removed", removeTarget.name);
+      toast.success(tr(networksDict, "toast.removedTitle"), removeTarget.name);
       queryClient.invalidateQueries({ queryKey: ["networks", hostId] });
     } catch (err) {
-      toastError("Remove failed", err);
+      toastError(tr(networksDict, "toast.removeFailed"), err);
       throw err;
     }
   };
@@ -106,23 +114,23 @@ export function Networks() {
   const columns: Column<DockerNetwork>[] = [
     {
       key: "name",
-      header: "Name",
+      header: t("col.name"),
       sortValue: (n) => n.name,
       cell: (n) => (
         <div className="row" style={{ gap: "var(--sp-2)" }}>
           <span style={{ fontWeight: 600 }}>{n.name}</span>
-          {SYSTEM_NETWORKS.has(n.name) ? <span className="chip text-xs">system</span> : null}
+          {SYSTEM_NETWORKS.has(n.name) ? <span className="chip text-xs">{t("badge.system")}</span> : null}
         </div>
       ),
     },
-    { key: "id", header: "ID", sortValue: (n) => n.id, cell: (n) => <span className="mono text-xs muted">{shortId(n.id)}</span> },
-    { key: "driver", header: "Driver", sortValue: (n) => n.driver, cell: (n) => <span className="chip">{n.driver}</span> },
-    { key: "scope", header: "Scope", sortValue: (n) => n.scope, cell: (n) => <span className="text-sm secondary">{n.scope}</span> },
+    { key: "id", header: t("col.id"), sortValue: (n) => n.id, cell: (n) => <span className="mono text-xs muted">{shortId(n.id)}</span> },
+    { key: "driver", header: t("col.driver"), sortValue: (n) => n.driver, cell: (n) => <span className="chip">{n.driver}</span> },
+    { key: "scope", header: t("col.scope"), sortValue: (n) => n.scope, cell: (n) => <span className="text-sm secondary">{n.scope}</span> },
     {
       key: "internal",
-      header: "Internal",
+      header: t("col.internal"),
       sortValue: (n) => (n.internal ? 1 : 0),
-      cell: (n) => (n.internal ? <span className="pill" style={{ color: "var(--accent)", borderColor: "var(--accent)" }}>internal</span> : <span className="muted">—</span>),
+      cell: (n) => (n.internal ? <span className="pill" style={{ color: "var(--accent)", borderColor: "var(--accent)" }}>{t("badge.internal")}</span> : <span className="muted">—</span>),
     },
     {
       key: "actions",
@@ -132,10 +140,10 @@ export function Networks() {
       cell: (n) => {
         const isSystem = SYSTEM_NETWORKS.has(n.name);
         const reason = !caps?.includes("networks")
-          ? "Provider does not manage networks"
+          ? t("gate.noNetworks")
           : isSystem
-            ? "System networks cannot be removed"
-            : "Requires docker.network.delete (admin)";
+            ? t("gate.systemNetwork")
+            : t("gate.needDelete");
         return (
           <CapabilityGate allowed={!!canDelete && !isSystem} reason={reason}>
             {(allowed, why) => (
@@ -144,8 +152,8 @@ export function Networks() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Remove network" : why}
-                aria-label="Remove network"
+                tooltip={allowed ? t("action.remove") : why}
+                aria-label={t("action.remove")}
                 onClick={() => setRemoveTarget(n)}
                 style={allowed ? { color: "var(--danger)" } : undefined}
               >
@@ -161,30 +169,30 @@ export function Networks() {
   return (
     <div className="page">
       <PageHeader
-        title="Networks"
-        subtitle="Docker networks on this host."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             <CapabilityGate
               allowed={!!canCreate}
-              reason={!caps?.includes("networks") ? "Provider does not manage networks" : "Requires docker.network.create"}
+              reason={!caps?.includes("networks") ? t("gate.noNetworks") : t("gate.needCreate")}
             >
               {(allowed, reason) => (
                 <ActionButton variant="primary" disabled={!allowed} tooltip={allowed ? undefined : reason} onClick={() => setCreateOpen(true)}>
                   <IconPlus size={15} />
-                  Create network
+                  {t("header.create")}
                 </ActionButton>
               )}
             </CapabilityGate>
-            <CapabilityGate allowed={!!canPrune} reason="Requires docker.system.prune (admin)">
+            <CapabilityGate allowed={!!canPrune} reason={t("gate.needPrune")}>
               {(allowed, reason) => (
-                <ActionButton variant="ghost" disabled={!allowed} tooltip={allowed ? "Prune unused networks" : reason} onClick={() => setPruneOpen(true)}>
+                <ActionButton variant="ghost" disabled={!allowed} tooltip={allowed ? t("header.pruneTooltip") : reason} onClick={() => setPruneOpen(true)}>
                   <IconPrune size={15} />
-                  Prune
+                  {t("header.prune")}
                 </ActionButton>
               )}
             </CapabilityGate>
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="networks" />
@@ -197,29 +205,29 @@ export function Networks() {
           <span className="muted">
             <IconSearch size={16} />
           </span>
-          <input className="input" placeholder="Search networks…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 360 }} />
+          <input className="input" placeholder={t("filter.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 360 }} />
           <span className="spacer" />
           <span className="text-sm muted">
-            {filtered.length} of {networks.length}
+            {t("filter.count", { shown: filtered.length, total: networks.length })}
           </span>
         </div>
       </div>
 
       {query.isLoading ? (
-        <LoadingFill label="Loading networks…" />
+        <LoadingFill label={t("list.loading")} />
       ) : networks.length === 0 ? (
         // No networks visible on the host: open the existing create modal
         // directly (only when the caller may create).
         <div className="card">
           <EmptyState
             icon={<IconNetworks size={40} />}
-            title="No networks"
-            message="Create a network to let containers talk to each other."
+            title={t("empty.title")}
+            message={t("empty.message")}
             action={
               canCreate ? (
                 <ActionButton variant="primary" onClick={() => setCreateOpen(true)}>
                   <IconPlus size={15} />
-                  Create a network
+                  {t("empty.create")}
                 </ActionButton>
               ) : undefined
             }
@@ -232,37 +240,37 @@ export function Networks() {
           rowKey={(n) => n.id}
           defaultSortKey="name"
           emptyIcon={<IconNetworks size={40} />}
-          emptyTitle="No networks"
+          emptyTitle={t("empty.title")}
         />
       )}
 
       <Modal
         open={createOpen}
-        title="Create network"
+        title={t("form.title")}
         busy={creating}
         onClose={() => setCreateOpen(false)}
         footer={
           <>
             <button className="btn" onClick={() => setCreateOpen(false)} disabled={creating}>
-              Cancel
+              {tc("cancel")}
             </button>
             <ActionButton variant="primary" loading={creating} disabled={!nameOk} onClick={doCreate}>
-              Create
+              {t("form.create")}
             </ActionButton>
           </>
         }
       >
         <div className="col" style={{ gap: "var(--sp-3)" }}>
           <TextField
-            label="Name"
+            label={t("form.name")}
             mono
             autoFocus
-            placeholder="my-network"
+            placeholder={t("form.namePlaceholder")}
             value={createName}
             onChange={(e) => setCreateName(e.target.value)}
-            error={createName && !nameOk ? "Start with a letter or digit; then letters, digits, '_', '.' or '-'." : undefined}
+            error={createName && !nameOk ? t("form.nameError") : undefined}
           />
-          <SelectField label="Driver" value={createDriver} onChange={(e) => setCreateDriver(e.target.value)}>
+          <SelectField label={t("form.driver")} value={createDriver} onChange={(e) => setCreateDriver(e.target.value)}>
             {NETWORK_DRIVERS.map((d) => (
               <option key={d} value={d}>
                 {d}
@@ -271,29 +279,29 @@ export function Networks() {
           </SelectField>
           <label className="checkbox-row">
             <input type="checkbox" checked={createInternal} onChange={(e) => setCreateInternal(e.target.checked)} />
-            <span>Internal network (no outbound access)</span>
+            <span>{t("form.internal")}</span>
           </label>
         </div>
       </Modal>
 
       <ConfirmDestructiveDialog
         open={pruneOpen}
-        title="Prune unused networks"
+        title={t("dialog.pruneTitle")}
         variant="danger"
-        confirmLabel="Prune"
-        description={<>Remove all networks not used by at least one container. This cannot be undone.</>}
+        confirmLabel={t("dialog.pruneConfirm")}
+        description={<>{t("dialog.pruneDescription")}</>}
         onConfirm={doPrune}
         onClose={() => setPruneOpen(false)}
       />
 
       <ConfirmDestructiveDialog
         open={!!removeTarget}
-        title="Remove network"
+        title={t("dialog.removeTitle")}
         variant="danger"
-        confirmLabel="Remove"
+        confirmLabel={t("dialog.removeConfirm")}
         description={
           <>
-            Remove network <strong className="mono">{removeTarget?.name}</strong>? Containers must be detached first.
+            {t("dialog.removeQuestion")} <strong className="mono">{removeTarget?.name}</strong>{t("dialog.removeHint")}
           </>
         }
         onConfirm={doRemove}

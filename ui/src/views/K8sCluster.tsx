@@ -44,6 +44,8 @@ import { Modal } from "../components/Modal";
 import { IconKube, IconRefresh, IconPlus, IconTrash } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { timeAgo, formatBytes } from "../lib/format";
+import { useT } from "../i18n";
+import { k8sClusterDict } from "../i18n/locales/k8sCluster";
 import type {
   HPAInfo,
   NamespaceInfo,
@@ -99,6 +101,7 @@ function KeysCell({ keys }: { keys: string[] }) {
 }
 
 export function K8sCluster() {
+  const t = useT(k8sClusterDict);
   const hostId = useSelectedHost();
   const queryClient = useQueryClient();
   const { permissions } = useAuth();
@@ -172,12 +175,12 @@ export function K8sCluster() {
   /* ---- columns ---- */
 
   const hpaCols: Column<HPAInfo>[] = [
-    { key: "name", header: "Name", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
-    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
-    { key: "target", header: "Target", sortValue: (v) => v.target, cell: (v) => <span className="mono text-xs">{v.target || "—"}</span> },
+    { key: "name", header: t("col.name"), sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: t("col.namespace"), sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    { key: "target", header: t("col.target"), sortValue: (v) => v.target, cell: (v) => <span className="mono text-xs">{v.target || "—"}</span> },
     {
       key: "replicas",
-      header: "Replicas",
+      header: t("col.replicas"),
       sortValue: (v) => v.currentReplicas,
       cell: (v) => (
         <span className="mono">
@@ -187,7 +190,7 @@ export function K8sCluster() {
     },
     {
       key: "cpu",
-      header: "CPU",
+      header: t("col.cpu"),
       sortValue: (v) => v.currentCpuPercent,
       cell: (v) => {
         const over = v.targetCpuPercent > 0 && v.currentCpuPercent > v.targetCpuPercent;
@@ -212,8 +215,8 @@ export function K8sCluster() {
               iconOnly
               variant="ghost"
               disabled={!allowed}
-              tooltip={allowed ? "Delete HPA" : reason}
-              aria-label="Delete HPA"
+              tooltip={allowed ? t("row.deleteHpa") : reason}
+              aria-label={t("row.deleteHpa")}
               onClick={() => setHpaDeleteTarget(v)}
               style={allowed ? { color: "var(--danger)" } : undefined}
             >
@@ -226,10 +229,10 @@ export function K8sCluster() {
   ];
 
   const nsCols: Column<NamespaceInfo>[] = [
-    { key: "name", header: "Name", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "name", header: t("col.name"), sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
     {
       key: "status",
-      header: "Status",
+      header: t("col.status"),
       sortValue: (v) => v.status,
       cell: (v) => (
         <span
@@ -244,7 +247,7 @@ export function K8sCluster() {
         </span>
       ),
     },
-    { key: "created", header: "Created", sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
+    { key: "created", header: t("col.created"), sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
     {
       key: "actions",
       header: "",
@@ -258,8 +261,8 @@ export function K8sCluster() {
               iconOnly
               variant="ghost"
               disabled={!allowed}
-              tooltip={allowed ? "Delete namespace" : reason}
-              aria-label="Delete namespace"
+              tooltip={allowed ? t("row.deleteNamespace") : reason}
+              aria-label={t("row.deleteNamespace")}
               onClick={() => setNsDeleteTarget(v)}
               style={allowed ? { color: "var(--danger)" } : undefined}
             >
@@ -272,29 +275,29 @@ export function K8sCluster() {
   ];
 
   const svcCols: Column<ServiceInfoK8s>[] = [
-    { key: "name", header: "Name", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
-    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
-    { key: "type", header: "Type", sortValue: (v) => v.type, cell: (v) => <span className="pill" style={{ background: "transparent", borderColor: "var(--border-strong)" }}>{v.type}</span> },
-    { key: "clusterIP", header: "Cluster IP", sortValue: (v) => v.clusterIP, cell: (v) => <span className="mono text-xs">{v.clusterIP || "—"}</span> },
+    { key: "name", header: t("col.name"), sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: t("col.namespace"), sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    { key: "type", header: t("col.type"), sortValue: (v) => v.type, cell: (v) => <span className="pill" style={{ background: "transparent", borderColor: "var(--border-strong)" }}>{v.type}</span> },
+    { key: "clusterIP", header: t("col.clusterIp"), sortValue: (v) => v.clusterIP, cell: (v) => <span className="mono text-xs">{v.clusterIP || "—"}</span> },
     {
       key: "ports",
-      header: "Ports",
+      header: t("col.ports"),
       cell: (v) => (
         <span className="row-wrap" style={{ gap: 4 }}>
           {v.ports.length ? v.ports.map((p) => <span key={p} className="chip text-xs mono">{p}</span>) : <span className="muted">—</span>}
         </span>
       ),
     },
-    { key: "externalIP", header: "External IP", sortValue: (v) => v.externalIP, cell: (v) => <span className="mono text-xs muted">{v.externalIP || "—"}</span> },
+    { key: "externalIP", header: t("col.externalIp"), sortValue: (v) => v.externalIP, cell: (v) => <span className="mono text-xs muted">{v.externalIP || "—"}</span> },
   ];
 
   const ingCols: Column<IngressInfo>[] = [
-    { key: "name", header: "Name", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
-    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
-    { key: "class", header: "Class", sortValue: (v) => v.class, cell: (v) => (v.class ? <span className="pill" style={{ background: "transparent", borderColor: "var(--border-strong)" }}>{v.class}</span> : <span className="muted">—</span>) },
+    { key: "name", header: t("col.name"), sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: t("col.namespace"), sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    { key: "class", header: t("col.class"), sortValue: (v) => v.class, cell: (v) => (v.class ? <span className="pill" style={{ background: "transparent", borderColor: "var(--border-strong)" }}>{v.class}</span> : <span className="muted">—</span>) },
     {
       key: "hosts",
-      header: "Hosts",
+      header: t("col.hosts"),
       cell: (v) => (
         <span className="row-wrap" style={{ gap: 4 }} title={v.hosts.join(", ")}>
           {v.hosts.length ? v.hosts.map((h) => <span key={h} className="chip text-xs mono">{h}</span>) : <span className="muted">—</span>}
@@ -303,7 +306,7 @@ export function K8sCluster() {
     },
     {
       key: "paths",
-      header: "Routes",
+      header: t("col.routes"),
       cell: (v) => {
         if (!v.paths.length) return <span className="muted">—</span>;
         const shown = v.paths.slice(0, 3);
@@ -315,12 +318,12 @@ export function K8sCluster() {
                 {p}
               </span>
             ))}
-            {extra > 0 ? <span className="text-xs muted">+{extra} more</span> : null}
+            {extra > 0 ? <span className="text-xs muted">{t("cell.moreRoutes", { count: extra })}</span> : null}
           </span>
         );
       },
     },
-    { key: "address", header: "Address", sortValue: (v) => v.address, cell: (v) => <span className="mono text-xs muted">{v.address || "—"}</span> },
+    { key: "address", header: t("col.address"), sortValue: (v) => v.address, cell: (v) => <span className="mono text-xs muted">{v.address || "—"}</span> },
     {
       key: "actions",
       header: "",
@@ -334,8 +337,8 @@ export function K8sCluster() {
               iconOnly
               variant="ghost"
               disabled={!allowed}
-              tooltip={allowed ? "Delete ingress" : reason}
-              aria-label="Delete ingress"
+              tooltip={allowed ? t("row.deleteIngress") : reason}
+              aria-label={t("row.deleteIngress")}
               onClick={() => setIngressDeleteTarget(v)}
               style={allowed ? { color: "var(--danger)" } : undefined}
             >
@@ -348,24 +351,24 @@ export function K8sCluster() {
   ];
 
   const cmCols: Column<ConfigMapInfo>[] = [
-    { key: "name", header: "Name", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
-    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
-    { key: "keys", header: "Keys", sortValue: (v) => v.keys.length, cell: (v) => <KeysCell keys={v.keys} /> },
-    { key: "created", header: "Created", sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
+    { key: "name", header: t("col.name"), sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: t("col.namespace"), sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    { key: "keys", header: t("col.keys"), sortValue: (v) => v.keys.length, cell: (v) => <KeysCell keys={v.keys} /> },
+    { key: "created", header: t("col.created"), sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
   ];
 
   const secCols: Column<SecretInfo>[] = [
-    { key: "name", header: "Name", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
-    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
-    { key: "type", header: "Type", sortValue: (v) => v.type, cell: (v) => <span className="mono text-xs">{v.type || "—"}</span> },
-    { key: "keys", header: "Keys", sortValue: (v) => v.keys.length, cell: (v) => <KeysCell keys={v.keys} /> },
-    { key: "created", header: "Created", sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
+    { key: "name", header: t("col.name"), sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: t("col.namespace"), sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    { key: "type", header: t("col.type"), sortValue: (v) => v.type, cell: (v) => <span className="mono text-xs">{v.type || "—"}</span> },
+    { key: "keys", header: t("col.keys"), sortValue: (v) => v.keys.length, cell: (v) => <KeysCell keys={v.keys} /> },
+    { key: "created", header: t("col.created"), sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
   ];
 
   const evCols: Column<EventInfo>[] = [
     {
       key: "type",
-      header: "Type",
+      header: t("col.type"),
       sortValue: (v) => v.type,
       cell: (v) => (
         <span className="pill" style={{ color: eventColor(v.type), background: "transparent", borderColor: "var(--border-strong)" }}>
@@ -373,19 +376,19 @@ export function K8sCluster() {
         </span>
       ),
     },
-    { key: "reason", header: "Reason", sortValue: (v) => v.reason, cell: (v) => <span className="text-sm" style={{ fontWeight: 600 }}>{v.reason || "—"}</span> },
-    { key: "object", header: "Object", sortValue: (v) => v.object, cell: (v) => <span className="mono text-xs">{v.object || "—"}</span> },
+    { key: "reason", header: t("col.reason"), sortValue: (v) => v.reason, cell: (v) => <span className="text-sm" style={{ fontWeight: 600 }}>{v.reason || "—"}</span> },
+    { key: "object", header: t("col.object"), sortValue: (v) => v.object, cell: (v) => <span className="mono text-xs">{v.object || "—"}</span> },
     {
       key: "message",
-      header: "Message",
+      header: t("col.message"),
       cell: (v) => (
         <span className="text-sm secondary truncate" style={{ maxWidth: 360, display: "inline-block" }} title={v.message}>
           {v.message || "—"}
         </span>
       ),
     },
-    { key: "count", header: "Count", align: "right", sortValue: (v) => v.count, cell: (v) => <span className="mono text-xs">{v.count > 1 ? `×${v.count}` : ""}</span> },
-    { key: "age", header: "Age", sortValue: (v) => v.lastSeen, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.lastSeen)}</span> },
+    { key: "count", header: t("col.count"), align: "right", sortValue: (v) => v.count, cell: (v) => <span className="mono text-xs">{v.count > 1 ? `×${v.count}` : ""}</span> },
+    { key: "age", header: t("col.age"), sortValue: (v) => v.lastSeen, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.lastSeen)}</span> },
   ];
 
   const loading =
@@ -402,10 +405,10 @@ export function K8sCluster() {
     if (!hpaDeleteTarget) return;
     try {
       await api.k8sDeleteHPA(hostId, hpaDeleteTarget.namespace, hpaDeleteTarget.name);
-      toast.success("HPA deleted", `${hpaDeleteTarget.namespace}/${hpaDeleteTarget.name}`);
+      toast.success(t("toast.hpaDeleted"), `${hpaDeleteTarget.namespace}/${hpaDeleteTarget.name}`);
       invalidateHPAs();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -414,10 +417,10 @@ export function K8sCluster() {
     if (!nsDeleteTarget) return;
     try {
       await api.k8sDeleteNamespace(hostId, nsDeleteTarget.name);
-      toast.success("Namespace deleted", nsDeleteTarget.name);
+      toast.success(t("toast.namespaceDeleted"), nsDeleteTarget.name);
       invalidateNamespaces();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -426,10 +429,10 @@ export function K8sCluster() {
     if (!ingressDeleteTarget) return;
     try {
       await api.k8sDeleteIngress(hostId, ingressDeleteTarget.namespace, ingressDeleteTarget.name);
-      toast.success("Ingress deleted", `${ingressDeleteTarget.namespace}/${ingressDeleteTarget.name}`);
+      toast.success(t("toast.ingressDeleted"), `${ingressDeleteTarget.namespace}/${ingressDeleteTarget.name}`);
       invalidateIngresses();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -439,16 +442,16 @@ export function K8sCluster() {
       <PageHeader
         title={
           <span className="row" style={{ gap: "var(--sp-3)" }}>
-            Cluster
+            {t("header.title")}
             <OrchestratorBadge kind="kubernetes" />
           </span>
         }
-        subtitle="Autoscalers, namespaces, services, ingresses, config and events."
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             {NAMESPACED[tab] ? (
               <select className="select" style={{ width: 200 }} value={namespace} onChange={(e) => setNamespace(e.target.value)}>
-                <option value="">All namespaces</option>
+                <option value="">{t("header.allNamespaces")}</option>
                 {namespaces.map((ns) => (
                   <option key={ns} value={ns}>
                     {ns}
@@ -461,7 +464,7 @@ export function K8sCluster() {
                 {(allowed, reason) => (
                   <ActionButton variant="primary" disabled={!allowed} tooltip={allowed ? undefined : reason} onClick={() => setCreateHpaOpen(true)}>
                     <IconPlus size={15} />
-                    Create HPA
+                    {t("header.createHpa")}
                   </ActionButton>
                 )}
               </CapabilityGate>
@@ -470,7 +473,7 @@ export function K8sCluster() {
                 {(allowed, reason) => (
                   <ActionButton variant="primary" disabled={!allowed} tooltip={allowed ? undefined : reason} onClick={() => setCreateNsOpen(true)}>
                     <IconPlus size={15} />
-                    Create namespace
+                    {t("header.createNamespace")}
                   </ActionButton>
                 )}
               </CapabilityGate>
@@ -480,14 +483,14 @@ export function K8sCluster() {
               // ingress.write permission used for delete.
               <CapabilityGate gate={ingressGate}>
                 {(allowed, reason) => (
-                  <ActionButton variant="primary" disabled={!allowed} tooltip={allowed ? "Create or update an Ingress by applying YAML" : reason} onClick={() => setApplyIngressOpen(true)}>
+                  <ActionButton variant="primary" disabled={!allowed} tooltip={allowed ? t("header.applyYamlTooltip") : reason} onClick={() => setApplyIngressOpen(true)}>
                     <IconPlus size={15} />
-                    Apply YAML
+                    {t("header.applyYaml")}
                   </ActionButton>
                 )}
               </CapabilityGate>
             ) : null}
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={refetch}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={refetch}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="kubernetes" />
@@ -497,30 +500,30 @@ export function K8sCluster() {
 
       <div className="tabs">
         <button className={`tab${tab === "hpa" ? " active" : ""}`} onClick={() => setTab("hpa")}>
-          Autoscalers
+          {t("tab.hpa")}
         </button>
         <button className={`tab${tab === "namespaces" ? " active" : ""}`} onClick={() => setTab("namespaces")}>
-          Namespaces
+          {t("tab.namespaces")}
         </button>
         <button className={`tab${tab === "services" ? " active" : ""}`} onClick={() => setTab("services")}>
-          Services
+          {t("tab.services")}
         </button>
         <button className={`tab${tab === "ingresses" ? " active" : ""}`} onClick={() => setTab("ingresses")}>
-          Ingresses
+          {t("tab.ingresses")}
         </button>
         <button className={`tab${tab === "configmaps" ? " active" : ""}`} onClick={() => setTab("configmaps")}>
-          ConfigMaps
+          {t("tab.configmaps")}
         </button>
         <button className={`tab${tab === "secrets" ? " active" : ""}`} onClick={() => setTab("secrets")}>
-          Secrets
+          {t("tab.secrets")}
         </button>
         <button className={`tab${tab === "events" ? " active" : ""}`} onClick={() => setTab("events")}>
-          Events
+          {t("tab.events")}
         </button>
       </div>
 
       {loading ? (
-        <LoadingFill label="Loading cluster data…" />
+        <LoadingFill label={t("list.loading")} />
       ) : tab === "hpa" ? (
         <div className="col" style={{ gap: "var(--sp-3)" }}>
           <NodeMetricsSummary metrics={nodeMetricsQ.data} />
@@ -530,8 +533,8 @@ export function K8sCluster() {
             rowKey={(v) => `${v.namespace}/${v.name}`}
             defaultSortKey="name"
             emptyIcon={<IconKube size={40} />}
-            emptyTitle="No autoscalers"
-            emptyMessage="No HorizontalPodAutoscalers in this scope."
+            emptyTitle={t("empty.hpaTitle")}
+            emptyMessage={t("empty.hpaMessage")}
           />
         </div>
       ) : tab === "namespaces" ? (
@@ -541,7 +544,7 @@ export function K8sCluster() {
           rowKey={(v) => v.name}
           defaultSortKey="name"
           emptyIcon={<IconKube size={40} />}
-          emptyTitle="No namespaces"
+          emptyTitle={t("empty.namespacesTitle")}
         />
       ) : tab === "services" ? (
         <DataTable
@@ -550,7 +553,7 @@ export function K8sCluster() {
           rowKey={(v) => `${v.namespace}/${v.name}`}
           defaultSortKey="name"
           emptyIcon={<IconKube size={40} />}
-          emptyTitle="No services"
+          emptyTitle={t("empty.servicesTitle")}
         />
       ) : tab === "ingresses" ? (
         <DataTable
@@ -559,8 +562,8 @@ export function K8sCluster() {
           rowKey={(v) => `${v.namespace}/${v.name}`}
           defaultSortKey="name"
           emptyIcon={<IconKube size={40} />}
-          emptyTitle="No ingresses"
-          emptyMessage="No Ingress resources in this scope. Use “Apply YAML” to create one."
+          emptyTitle={t("empty.ingressesTitle")}
+          emptyMessage={t("empty.ingressesMessage")}
         />
       ) : tab === "configmaps" ? (
         <DataTable
@@ -569,7 +572,7 @@ export function K8sCluster() {
           rowKey={(v) => `${v.namespace}/${v.name}`}
           defaultSortKey="name"
           emptyIcon={<IconKube size={40} />}
-          emptyTitle="No config maps"
+          emptyTitle={t("empty.configmapsTitle")}
         />
       ) : tab === "secrets" ? (
         <DataTable
@@ -578,8 +581,8 @@ export function K8sCluster() {
           rowKey={(v) => `${v.namespace}/${v.name}`}
           defaultSortKey="name"
           emptyIcon={<IconKube size={40} />}
-          emptyTitle="No secrets"
-          emptyMessage="Secret values are never shown — only key names."
+          emptyTitle={t("empty.secretsTitle")}
+          emptyMessage={t("empty.secretsMessage")}
         />
       ) : (
         <DataTable
@@ -588,7 +591,7 @@ export function K8sCluster() {
           rowKey={(v) => `${v.namespace}/${v.object}/${v.reason}/${v.lastSeen}`}
           defaultSortKey="age"
           emptyIcon={<IconKube size={40} />}
-          emptyTitle="No recent events"
+          emptyTitle={t("empty.eventsTitle")}
         />
       )}
 
@@ -621,16 +624,16 @@ export function K8sCluster() {
       {/* ---- Delete HPA (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!hpaDeleteTarget}
-        title="Delete autoscaler"
+        title={t("dialog.deleteHpaTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.confirmDelete")}
         description={
           <>
-            Delete HPA{" "}
+            {t("dialog.deleteHpaBefore")}{" "}
             <strong className="mono">
               {hpaDeleteTarget?.namespace}/{hpaDeleteTarget?.name}
             </strong>
-            ? The target deployment keeps its current replica count but stops autoscaling.
+            {t("dialog.deleteHpaAfter")}
           </>
         }
         onConfirm={doDeleteHPA}
@@ -640,13 +643,13 @@ export function K8sCluster() {
       {/* ---- Delete namespace (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!nsDeleteTarget}
-        title="Delete namespace"
+        title={t("dialog.deleteNamespaceTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.confirmDelete")}
         description={
           <>
-            Delete namespace <strong className="mono">{nsDeleteTarget?.name}</strong>? Every object in it (deployments,
-            services, PVCs, secrets…) is destroyed. This cannot be undone.
+            {t("dialog.deleteNamespaceBefore")} <strong className="mono">{nsDeleteTarget?.name}</strong>
+            {t("dialog.deleteNamespaceAfter")}
           </>
         }
         onConfirm={doDeleteNs}
@@ -668,16 +671,16 @@ export function K8sCluster() {
       {/* ---- Delete ingress (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!ingressDeleteTarget}
-        title="Delete ingress"
+        title={t("dialog.deleteIngressTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.confirmDelete")}
         description={
           <>
-            Delete ingress{" "}
+            {t("dialog.deleteIngressBefore")}{" "}
             <strong className="mono">
               {ingressDeleteTarget?.namespace}/{ingressDeleteTarget?.name}
             </strong>
-            ? Its routing rules stop serving immediately. This cannot be undone.
+            {t("dialog.deleteIngressAfter")}
           </>
         }
         onConfirm={doDeleteIngress}
@@ -693,13 +696,13 @@ export function K8sCluster() {
 // server is absent the API returns available:false; we show an actionable hint
 // rather than an empty/zero panel.
 function NodeMetricsSummary({ metrics }: { metrics: { available: boolean; items: NodeMetric[] } | undefined }) {
+  const t = useT(k8sClusterDict);
   if (!metrics) return null;
   if (!metrics.available) {
     return (
       <div className="card card-pad text-sm muted" style={{ display: "flex", gap: "var(--sp-2)", alignItems: "center" }}>
         <IconKube size={16} />
-        Live metrics unavailable — install <span className="mono">metrics-server</span> to see real CPU / memory usage and
-        HPA utilization.
+        {t("metrics.unavailablePrefix")} <span className="mono">metrics-server</span> {t("metrics.unavailableSuffix")}
       </div>
     );
   }
@@ -708,12 +711,12 @@ function NodeMetricsSummary({ metrics }: { metrics: { available: boolean; items:
   const totalMem = metrics.items.reduce((a, n) => a + n.memoryBytes, 0);
   return (
     <div className="card card-pad row-wrap" style={{ gap: "var(--sp-5)", alignItems: "center" }}>
-      <span className="text-xs muted">Live node usage ({metrics.items.length})</span>
+      <span className="text-xs muted">{t("metrics.liveUsage", { count: metrics.items.length })}</span>
       <span className="text-sm">
-        CPU <strong className="mono">{milliToCores(totalCpu)}</strong> cores
+        {t("metrics.cpu")} <strong className="mono">{milliToCores(totalCpu)}</strong> {t("metrics.cpuUnit")}
       </span>
       <span className="text-sm">
-        Memory <strong className="mono">{formatBytes(totalMem)}</strong>
+        {t("metrics.memory")} <strong className="mono">{formatBytes(totalMem)}</strong>
       </span>
     </div>
   );
@@ -737,6 +740,7 @@ function ApplyIngressModal({
   onClose: () => void;
   onApplied: () => void;
 }) {
+  const t = useT(k8sClusterDict);
   const skeleton = useMemo(
     () =>
       [
@@ -785,13 +789,13 @@ function ApplyIngressModal({
       const res = await api.k8sApply(hostId, { yaml });
       const errors = res.results.filter((r) => r.action === "error");
       if (errors.length === 0) {
-        toast.success("Ingress applied", `${res.results.length} resource(s).`);
+        toast.success(t("toast.ingressApplied"), t("toast.ingressAppliedBody", { count: res.results.length }));
         onApplied();
       } else {
-        toast.warning("Applied with errors", errors[0]?.error || `${errors.length} resource(s) failed.`);
+        toast.warning(t("toast.appliedWithErrors"), errors[0]?.error || t("toast.appliedWithErrorsBody", { count: errors.length }));
       }
     } catch (err) {
-      toastError("Apply failed", err);
+      toastError(t("toast.applyFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -801,24 +805,24 @@ function ApplyIngressModal({
     <Modal
       open={open}
       wide
-      title="Apply ingress YAML"
+      title={t("ingress.modalTitle")}
       busy={busy}
       onClose={close}
       footer={
         <>
           <button className="btn" onClick={close} disabled={busy}>
-            Cancel
+            {t("ingress.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!yaml.trim() || busy} onClick={submit}>
-            Apply
+            {t("ingress.apply")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-3)" }}>
         <div className="text-sm secondary">
-          Create or update an Ingress by server-side applying a <span className="mono">networking.k8s.io/v1</span>{" "}
-          manifest (field manager <span className="mono">castor</span>). Edit the skeleton below.
+          {t("ingress.introBefore")} <span className="mono">networking.k8s.io/v1</span>{" "}
+          {t("ingress.introMiddle")} <span className="mono">castor</span>{t("ingress.introAfter")}
         </div>
         <textarea
           className="textarea input-mono"
@@ -827,7 +831,7 @@ function ApplyIngressModal({
           value={yaml}
           onChange={(e) => setYaml(e.target.value)}
           style={{ minHeight: 320, fontFamily: "var(--font-mono)", fontSize: 13, lineHeight: 1.5, whiteSpace: "pre", tabSize: 2 }}
-          aria-label="Ingress YAML"
+          aria-label={t("ingress.yamlLabel")}
         />
       </div>
     </Modal>
@@ -853,6 +857,7 @@ function CreateHPAModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const t = useT(k8sClusterDict);
   const [name, setName] = useState("");
   const [ns, setNs] = useState(defaultNamespace || "default");
   const [targetDeployment, setTargetDeployment] = useState("");
@@ -900,10 +905,10 @@ function CreateHPAModal({
         maxReplicas: maxN,
         cpuPercent: cpuN,
       });
-      toast.success("HPA created", `${ns.trim()}/${name.trim()} → ${targetDeployment.trim()}`);
+      toast.success(t("toast.hpaCreated"), `${ns.trim()}/${name.trim()} → ${targetDeployment.trim()}`);
       onCreated();
     } catch (err) {
-      toastError("Create failed", err);
+      toastError(t("toast.createFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -914,37 +919,37 @@ function CreateHPAModal({
   return (
     <Modal
       open={open}
-      title="Create autoscaler"
+      title={t("hpa.modalTitle")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("hpa.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Create
+            {t("hpa.create")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-4)" }}>
         <div className="text-sm secondary">
-          A CPU-utilization HorizontalPodAutoscaler targeting a Deployment in the same namespace.
+          {t("hpa.intro")}
         </div>
 
         <div className="row" style={{ gap: "var(--sp-4)", flexWrap: "wrap" }}>
           <div className="field" style={{ minWidth: 200, flex: 1 }}>
             <label className="field-label" htmlFor="hpa-name">
-              Name
+              {t("hpa.name")}
             </label>
-            <input id="hpa-name" className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="web" />
-            {name !== "" && !nameValid ? <span className="field-error">Lowercase DNS label (a-z, 0-9, -).</span> : null}
+            <input id="hpa-name" className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t("hpa.namePlaceholder")} />
+            {name !== "" && !nameValid ? <span className="field-error">{t("hpa.nameError")}</span> : null}
           </div>
 
           <div className="field" style={{ minWidth: 200, flex: 1 }}>
             <label className="field-label" htmlFor="hpa-ns">
-              Namespace
+              {t("hpa.namespace")}
             </label>
             <select id="hpa-ns" className="select" value={ns} onChange={(e) => setNs(e.target.value)}>
               {!nsOptions.includes(ns) ? <option value={ns}>{ns}</option> : null}
@@ -959,11 +964,11 @@ function CreateHPAModal({
 
         <div className="field">
           <label className="field-label" htmlFor="hpa-target">
-            Target deployment
+            {t("hpa.targetDeployment")}
           </label>
           {nsDeployments.length ? (
             <select id="hpa-target" className="select" value={targetDeployment} onChange={(e) => setTargetDeployment(e.target.value)}>
-              <option value="">Select a deployment…</option>
+              <option value="">{t("hpa.selectDeployment")}</option>
               {nsDeployments.map((d) => (
                 <option key={d} value={d}>
                   {d}
@@ -976,39 +981,39 @@ function CreateHPAModal({
               className="input"
               value={targetDeployment}
               onChange={(e) => setTargetDeployment(e.target.value)}
-              placeholder="deployment name"
+              placeholder={t("hpa.targetPlaceholder")}
             />
           )}
           {nsDeployments.length === 0 ? (
-            <span className="field-hint">No deployments loaded for this namespace — type the name.</span>
+            <span className="field-hint">{t("hpa.noDeployments")}</span>
           ) : null}
         </div>
 
         <div className="row" style={{ gap: "var(--sp-4)", flexWrap: "wrap", alignItems: "flex-start" }}>
           <div className="field" style={{ width: 110 }}>
             <label className="field-label" htmlFor="hpa-min">
-              Min replicas
+              {t("hpa.minReplicas")}
             </label>
             <input id="hpa-min" className="input" type="number" min={1} value={minReplicas} onChange={(e) => setMinReplicas(e.target.value)} />
           </div>
           <div className="field" style={{ width: 110 }}>
             <label className="field-label" htmlFor="hpa-max">
-              Max replicas
+              {t("hpa.maxReplicas")}
             </label>
             <input id="hpa-max" className="input" type="number" min={1} value={maxReplicas} onChange={(e) => setMaxReplicas(e.target.value)} />
           </div>
           <div className="field" style={{ width: 130 }}>
             <label className="field-label" htmlFor="hpa-cpu">
-              Target CPU %
+              {t("hpa.targetCpu")}
             </label>
             <input id="hpa-cpu" className="input" type="number" min={1} max={100} value={cpuPercent} onChange={(e) => setCpuPercent(e.target.value)} />
           </div>
         </div>
 
         {minReplicas !== "" && maxReplicas !== "" && !replicasValid ? (
-          <span className="field-error">Min ≥ 1 and Max ≥ Min (whole numbers).</span>
+          <span className="field-error">{t("hpa.replicasError")}</span>
         ) : null}
-        {cpuPercent !== "" && !cpuValid ? <span className="field-error">CPU target is 1–100%.</span> : null}
+        {cpuPercent !== "" && !cpuValid ? <span className="field-error">{t("hpa.cpuError")}</span> : null}
       </div>
     </Modal>
   );
@@ -1029,6 +1034,7 @@ function CreateNamespaceModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const t = useT(k8sClusterDict);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -1048,10 +1054,10 @@ function CreateNamespaceModal({
     setBusy(true);
     try {
       await api.k8sCreateNamespace(hostId, name.trim());
-      toast.success("Namespace created", name.trim());
+      toast.success(t("toast.namespaceCreated"), name.trim());
       onCreated();
     } catch (err) {
-      toastError("Create failed", err);
+      toastError(t("toast.createFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -1060,16 +1066,16 @@ function CreateNamespaceModal({
   return (
     <Modal
       open={open}
-      title="Create namespace"
+      title={t("ns.modalTitle")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("ns.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Create
+            {t("ns.create")}
           </ActionButton>
         </>
       }
@@ -1077,13 +1083,13 @@ function CreateNamespaceModal({
       <div className="col" style={{ gap: "var(--sp-3)" }}>
         <div className="field">
           <label className="field-label" htmlFor="ns-name">
-            Name
+            {t("ns.name")}
           </label>
-          <input id="ns-name" className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="team-a" />
+          <input id="ns-name" className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t("ns.namePlaceholder")} />
           {name !== "" && !nameValid ? (
-            <span className="field-error">Lowercase DNS label (a-z, 0-9, -).</span>
+            <span className="field-error">{t("ns.nameError")}</span>
           ) : duplicate ? (
-            <span className="field-error">A namespace with that name already exists.</span>
+            <span className="field-error">{t("ns.duplicateError")}</span>
           ) : null}
         </div>
       </div>

@@ -44,6 +44,9 @@ import {
 import { IconSwarm, IconRefresh, IconPlus, IconTrash, IconRestart, IconScale, IconEdit, IconHelp, IconCopy, IconCheck, IconLock } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { cleanName, shortId, timeAgo } from "../lib/format";
+import { useT } from "../i18n";
+import { swarmServicesDict } from "../i18n/locales/swarmServices";
+import { commonDict } from "../i18n/locales/common";
 import type {
   SwarmNode,
   SwarmService,
@@ -83,6 +86,7 @@ function hasResources(r: SwarmServiceResources | undefined): boolean {
 // Compact "CPU 0.5 / Mem 512Mi" summary of a service's configured limits
 // (reservations are shown as "≥" prefixed). Returns "—" when nothing is set.
 function ResourceSummary({ r }: { r: SwarmServiceResources | undefined }) {
+  const t = useT(swarmServicesDict);
   if (!hasResources(r)) return <span className="muted">—</span>;
   const parts: string[] = [];
   if (r!.cpuLimit > 0) parts.push(`${r!.cpuLimit} cpu`);
@@ -94,7 +98,7 @@ function ResourceSummary({ r }: { r: SwarmServiceResources | undefined }) {
     <span className="col" style={{ gap: 2 }}>
       {parts.length ? <span className="mono text-xs">{parts.join(" · ")}</span> : null}
       {res.length ? (
-        <span className="mono text-xs muted" title="Reservations">
+        <span className="mono text-xs muted" title={t("resource.reservations")}>
           ≥ {res.join(" · ")}
         </span>
       ) : null}
@@ -104,21 +108,23 @@ function ResourceSummary({ r }: { r: SwarmServiceResources | undefined }) {
 
 // Small copy-able shell command used in the guided empty state.
 function InlineCommand({ command }: { command: string }) {
+  const t = useT(swarmServicesDict);
+  const tc = useT(commonDict);
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(command);
       setCopied(true);
-      toast.success("Copied to clipboard");
+      toast.success(tc("copied"));
       setTimeout(() => setCopied(false), 1600);
     } catch {
-      toast.error("Copied to clipboard", command);
+      toast.error(tc("copied"), command);
     }
   };
   return (
     <div className="help-cmd">
       <code className="help-cmd-text">{command}</code>
-      <button type="button" className="btn btn-ghost btn-sm btn-icon help-cmd-copy" onClick={copy} aria-label="Copy command" title="Copy command">
+      <button type="button" className="btn btn-ghost btn-sm btn-icon help-cmd-copy" onClick={copy} aria-label={t("command.copyAria")} title={t("command.copyAria")}>
         {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
       </button>
     </div>
@@ -126,6 +132,7 @@ function InlineCommand({ command }: { command: string }) {
 }
 
 export function SwarmServices() {
+  const t = useT(swarmServicesDict);
   const hostId = useSelectedHost();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -196,13 +203,13 @@ export function SwarmServices() {
   const invalidateConfigs = () => queryClient.invalidateQueries({ queryKey: qk.swarmConfigs(hostId) });
 
   const serviceCols: Column<SwarmService>[] = [
-    { key: "name", header: "Service", sortValue: (s) => s.name, cell: (s) => <span style={{ fontWeight: 600 }}>{s.name}</span> },
-    { key: "mode", header: "Mode", sortValue: (s) => s.mode, cell: (s) => <span className="chip">{s.mode}</span> },
-    { key: "replicas", header: "Replicas", sortValue: (s) => s.replicas, cell: (s) => <span className="mono">{s.replicas}</span> },
-    { key: "image", header: "Image", sortValue: (s) => s.image, cell: (s) => <span className="mono text-xs truncate" style={{ maxWidth: 240, display: "inline-block" }} title={s.image}>{s.image}</span> },
-    { key: "resources", header: "Resources", cell: (s) => <ResourceSummary r={s.resources} /> },
-    { key: "id", header: "ID", cell: (s) => <span className="mono text-xs muted">{shortId(s.id)}</span> },
-    { key: "created", header: "Created", sortValue: (s) => s.createdAt, cell: (s) => <span className="text-xs muted nowrap">{timeAgo(s.createdAt)}</span> },
+    { key: "name", header: t("col.service"), sortValue: (s) => s.name, cell: (s) => <span style={{ fontWeight: 600 }}>{s.name}</span> },
+    { key: "mode", header: t("col.mode"), sortValue: (s) => s.mode, cell: (s) => <span className="chip">{s.mode}</span> },
+    { key: "replicas", header: t("col.replicas"), sortValue: (s) => s.replicas, cell: (s) => <span className="mono">{s.replicas}</span> },
+    { key: "image", header: t("col.image"), sortValue: (s) => s.image, cell: (s) => <span className="mono text-xs truncate" style={{ maxWidth: 240, display: "inline-block" }} title={s.image}>{s.image}</span> },
+    { key: "resources", header: t("col.resources"), cell: (s) => <ResourceSummary r={s.resources} /> },
+    { key: "id", header: t("col.id"), cell: (s) => <span className="mono text-xs muted">{shortId(s.id)}</span> },
+    { key: "created", header: t("col.created"), sortValue: (s) => s.createdAt, cell: (s) => <span className="text-xs muted nowrap">{timeAgo(s.createdAt)}</span> },
     {
       key: "actions",
       header: "",
@@ -217,8 +224,8 @@ export function SwarmServices() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Scale" : reason}
-                aria-label="Scale service"
+                tooltip={allowed ? t("action.scale") : reason}
+                aria-label={t("action.scaleAria")}
                 onClick={() => setScaleTarget(s)}
               >
                 <IconScale size={15} />
@@ -232,8 +239,8 @@ export function SwarmServices() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Update" : reason}
-                aria-label="Update service"
+                tooltip={allowed ? t("action.update") : reason}
+                aria-label={t("action.updateAria")}
                 onClick={() => setUpdateTarget(s)}
               >
                 <IconEdit size={15} />
@@ -247,8 +254,8 @@ export function SwarmServices() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Force restart" : reason}
-                aria-label="Restart service"
+                tooltip={allowed ? t("action.forceRestart") : reason}
+                aria-label={t("action.restartAria")}
                 onClick={() => setRestartTarget(s)}
               >
                 <IconRestart size={15} />
@@ -262,8 +269,8 @@ export function SwarmServices() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Remove" : reason}
-                aria-label="Remove service"
+                tooltip={allowed ? t("action.remove") : reason}
+                aria-label={t("action.removeAria")}
                 onClick={() => setRemoveTarget(s)}
                 style={allowed ? { color: "var(--danger)" } : undefined}
               >
@@ -277,19 +284,19 @@ export function SwarmServices() {
   ];
 
   const taskCols: Column<Workload>[] = [
-    { key: "name", header: "Task", sortValue: (t) => cleanName(t.name), cell: (t) => <span className="truncate">{cleanName(t.name)}</span> },
-    { key: "state", header: "State", sortValue: (t) => t.state, cell: (t) => <StateBadge state={t.state} raw={t.stateRaw} /> },
-    { key: "node", header: "Node", sortValue: (t) => t.node ?? "", cell: (t) => <span className="text-sm secondary">{t.node || "—"}</span> },
-    { key: "image", header: "Image", sortValue: (t) => t.image, cell: (t) => <span className="mono text-xs truncate" style={{ maxWidth: 240, display: "inline-block" }} title={t.image}>{t.image}</span> },
-    { key: "group", header: "Service", sortValue: (t) => t.group ?? "", cell: (t) => (t.group ? <span className="chip">{t.group}</span> : <span className="muted">—</span>) },
-    { key: "created", header: "Created", sortValue: (t) => t.createdAt, cell: (t) => <span className="text-xs muted nowrap">{timeAgo(t.createdAt)}</span> },
+    { key: "name", header: t("col.task"), sortValue: (w) => cleanName(w.name), cell: (w) => <span className="truncate">{cleanName(w.name)}</span> },
+    { key: "state", header: t("col.state"), sortValue: (w) => w.state, cell: (w) => <StateBadge state={w.state} raw={w.stateRaw} /> },
+    { key: "node", header: t("col.node"), sortValue: (w) => w.node ?? "", cell: (w) => <span className="text-sm secondary">{w.node || "—"}</span> },
+    { key: "image", header: t("col.image"), sortValue: (w) => w.image, cell: (w) => <span className="mono text-xs truncate" style={{ maxWidth: 240, display: "inline-block" }} title={w.image}>{w.image}</span> },
+    { key: "group", header: t("col.service"), sortValue: (w) => w.group ?? "", cell: (w) => (w.group ? <span className="chip">{w.group}</span> : <span className="muted">—</span>) },
+    { key: "created", header: t("col.created"), sortValue: (w) => w.createdAt, cell: (w) => <span className="text-xs muted nowrap">{timeAgo(w.createdAt)}</span> },
   ];
 
   const nodeCols: Column<SwarmNode>[] = [
-    { key: "hostname", header: "Hostname", sortValue: (n) => n.hostname, cell: (n) => <span style={{ fontWeight: 600 }}>{n.hostname}</span> },
+    { key: "hostname", header: t("col.hostname"), sortValue: (n) => n.hostname, cell: (n) => <span style={{ fontWeight: 600 }}>{n.hostname}</span> },
     {
       key: "role",
-      header: "Role",
+      header: t("col.role"),
       sortValue: (n) => n.role,
       cell: (n) => (
         <span className="pill" style={{ color: n.role === "manager" ? "var(--accent)" : "var(--text-secondary)", borderColor: "var(--border-strong)", background: "transparent" }}>
@@ -297,10 +304,10 @@ export function SwarmServices() {
         </span>
       ),
     },
-    { key: "availability", header: "Availability", sortValue: (n) => n.availability, cell: (n) => <span className="text-sm secondary">{n.availability}</span> },
-    { key: "state", header: "State", sortValue: (n) => n.state, cell: (n) => <span className="chip">{n.state}</span> },
-    { key: "addr", header: "Address", cell: (n) => <span className="mono text-xs muted">{n.addr || "—"}</span> },
-    { key: "id", header: "ID", cell: (n) => <span className="mono text-xs muted">{shortId(n.id)}</span> },
+    { key: "availability", header: t("col.availability"), sortValue: (n) => n.availability, cell: (n) => <span className="text-sm secondary">{n.availability}</span> },
+    { key: "state", header: t("col.state"), sortValue: (n) => n.state, cell: (n) => <span className="chip">{n.state}</span> },
+    { key: "addr", header: t("col.address"), cell: (n) => <span className="mono text-xs muted">{n.addr || "—"}</span> },
+    { key: "id", header: t("col.id"), cell: (n) => <span className="mono text-xs muted">{shortId(n.id)}</span> },
     {
       key: "actions",
       header: "",
@@ -318,7 +325,7 @@ export function SwarmServices() {
                 tooltip={allowed ? undefined : reason}
                 onClick={() => setNodeTarget(n)}
               >
-                {isActive ? "Drain" : "Activate"}
+                {isActive ? t("node.drain") : t("node.activate")}
               </ActionButton>
             )}
           </CapabilityGate>
@@ -328,10 +335,10 @@ export function SwarmServices() {
   ];
 
   const secretCols: Column<SwarmSecretInfo>[] = [
-    { key: "name", header: "Name", sortValue: (s) => s.name, cell: (s) => <span className="row" style={{ gap: 6, fontWeight: 600 }}><IconLock size={13} />{s.name}</span> },
-    { key: "id", header: "ID", cell: (s) => <span className="mono text-xs muted">{shortId(s.id)}</span> },
-    { key: "created", header: "Created", sortValue: (s) => s.createdAt, cell: (s) => <span className="text-xs muted nowrap">{timeAgo(s.createdAt)}</span> },
-    { key: "updated", header: "Updated", sortValue: (s) => s.updatedAt, cell: (s) => <span className="text-xs muted nowrap">{timeAgo(s.updatedAt)}</span> },
+    { key: "name", header: t("col.name"), sortValue: (s) => s.name, cell: (s) => <span className="row" style={{ gap: 6, fontWeight: 600 }}><IconLock size={13} />{s.name}</span> },
+    { key: "id", header: t("col.id"), cell: (s) => <span className="mono text-xs muted">{shortId(s.id)}</span> },
+    { key: "created", header: t("col.created"), sortValue: (s) => s.createdAt, cell: (s) => <span className="text-xs muted nowrap">{timeAgo(s.createdAt)}</span> },
+    { key: "updated", header: t("col.updated"), sortValue: (s) => s.updatedAt, cell: (s) => <span className="text-xs muted nowrap">{timeAgo(s.updatedAt)}</span> },
     {
       key: "actions",
       header: "",
@@ -345,8 +352,8 @@ export function SwarmServices() {
               iconOnly
               variant="ghost"
               disabled={!allowed}
-              tooltip={allowed ? "Delete secret" : reason}
-              aria-label="Delete secret"
+              tooltip={allowed ? t("action.deleteSecret") : reason}
+              aria-label={t("action.deleteSecretAria")}
               onClick={() => setSecretDeleteTarget(s)}
               style={allowed ? { color: "var(--danger)" } : undefined}
             >
@@ -359,10 +366,10 @@ export function SwarmServices() {
   ];
 
   const configCols: Column<SwarmConfigInfo>[] = [
-    { key: "name", header: "Name", sortValue: (c) => c.name, cell: (c) => <span style={{ fontWeight: 600 }}>{c.name}</span> },
-    { key: "id", header: "ID", cell: (c) => <span className="mono text-xs muted">{shortId(c.id)}</span> },
-    { key: "created", header: "Created", sortValue: (c) => c.createdAt, cell: (c) => <span className="text-xs muted nowrap">{timeAgo(c.createdAt)}</span> },
-    { key: "updated", header: "Updated", sortValue: (c) => c.updatedAt, cell: (c) => <span className="text-xs muted nowrap">{timeAgo(c.updatedAt)}</span> },
+    { key: "name", header: t("col.name"), sortValue: (c) => c.name, cell: (c) => <span style={{ fontWeight: 600 }}>{c.name}</span> },
+    { key: "id", header: t("col.id"), cell: (c) => <span className="mono text-xs muted">{shortId(c.id)}</span> },
+    { key: "created", header: t("col.created"), sortValue: (c) => c.createdAt, cell: (c) => <span className="text-xs muted nowrap">{timeAgo(c.createdAt)}</span> },
+    { key: "updated", header: t("col.updated"), sortValue: (c) => c.updatedAt, cell: (c) => <span className="text-xs muted nowrap">{timeAgo(c.updatedAt)}</span> },
     {
       key: "actions",
       header: "",
@@ -376,8 +383,8 @@ export function SwarmServices() {
               iconOnly
               variant="ghost"
               disabled={!allowed}
-              tooltip={allowed ? "Delete config" : reason}
-              aria-label="Delete config"
+              tooltip={allowed ? t("action.deleteConfig") : reason}
+              aria-label={t("action.deleteConfigAria")}
               onClick={() => setConfigDeleteTarget(c)}
               style={allowed ? { color: "var(--danger)" } : undefined}
             >
@@ -403,10 +410,10 @@ export function SwarmServices() {
     const next = nodeIsActive ? "drain" : "active";
     try {
       await api.swarmNodeAvailability(hostId, nodeTarget.id, next);
-      toast.success(next === "drain" ? "Node draining" : "Node activated", nodeTarget.hostname);
+      toast.success(next === "drain" ? t("toast.nodeDraining") : t("toast.nodeActivated"), nodeTarget.hostname);
       invalidateNodes();
     } catch (err) {
-      toastError(next === "drain" ? "Drain failed" : "Activate failed", err);
+      toastError(next === "drain" ? t("toast.drainFailed") : t("toast.activateFailed"), err);
       throw err;
     }
   };
@@ -415,10 +422,10 @@ export function SwarmServices() {
     if (!restartTarget) return;
     try {
       await api.swarmServiceRestart(hostId, restartTarget.id);
-      toast.success("Service restarting", `${restartTarget.name} — tasks are being redeployed.`);
+      toast.success(t("toast.serviceRestarting"), t("toast.serviceRestartingBody", { name: restartTarget.name }));
       invalidateServices();
     } catch (err) {
-      toastError("Restart failed", err);
+      toastError(t("toast.restartFailed"), err);
       throw err;
     }
   };
@@ -427,10 +434,10 @@ export function SwarmServices() {
     if (!removeTarget) return;
     try {
       await api.swarmServiceRemove(hostId, removeTarget.id);
-      toast.success("Service removed", removeTarget.name);
+      toast.success(t("toast.serviceRemoved"), removeTarget.name);
       invalidateServices();
     } catch (err) {
-      toastError("Remove failed", err);
+      toastError(t("toast.removeFailed"), err);
       throw err;
     }
   };
@@ -439,10 +446,10 @@ export function SwarmServices() {
     if (!secretDeleteTarget) return;
     try {
       await api.swarmSecretRemove(hostId, secretDeleteTarget.id);
-      toast.success("Secret deleted", secretDeleteTarget.name);
+      toast.success(t("toast.secretDeleted"), secretDeleteTarget.name);
       invalidateSecrets();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -451,10 +458,10 @@ export function SwarmServices() {
     if (!configDeleteTarget) return;
     try {
       await api.swarmConfigRemove(hostId, configDeleteTarget.id);
-      toast.success("Config deleted", configDeleteTarget.name);
+      toast.success(t("toast.configDeleted"), configDeleteTarget.name);
       invalidateConfigs();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -468,7 +475,7 @@ export function SwarmServices() {
             <OrchestratorBadge kind="swarm" />
           </span>
         }
-        subtitle="Manage Swarm services, secrets and configs; tasks are read-only."
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             {section === "services" ? (
@@ -481,7 +488,7 @@ export function SwarmServices() {
                     onClick={() => setCreateOpen(true)}
                   >
                     <IconPlus size={15} />
-                    Deploy service
+                    {t("header.deployService")}
                   </ActionButton>
                 )}
               </CapabilityGate>
@@ -490,7 +497,7 @@ export function SwarmServices() {
                 {(allowed, reason) => (
                   <ActionButton variant="primary" disabled={!allowed} tooltip={allowed ? undefined : reason} onClick={() => setCreateSecretOpen(true)}>
                     <IconPlus size={15} />
-                    Create secret
+                    {t("header.createSecret")}
                   </ActionButton>
                 )}
               </CapabilityGate>
@@ -499,15 +506,15 @@ export function SwarmServices() {
                 {(allowed, reason) => (
                   <ActionButton variant="primary" disabled={!allowed} tooltip={allowed ? undefined : reason} onClick={() => setCreateConfigOpen(true)}>
                     <IconPlus size={15} />
-                    Create config
+                    {t("header.createConfig")}
                   </ActionButton>
                 )}
               </CapabilityGate>
             ) : null}
-            <ActionButton variant="ghost" iconOnly tooltip="Setup guide" aria-label="Setup guide" onClick={() => setHelpOpen(true)}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.setupGuide")} aria-label={t("header.setupGuide")} onClick={() => setHelpOpen(true)}>
               <IconHelp size={16} />
             </ActionButton>
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={refetch}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={refetch}>
               <IconRefresh size={16} />
             </ActionButton>
           </div>
@@ -516,36 +523,36 @@ export function SwarmServices() {
 
       <div className="tabs">
         <button className={`tab${section === "services" ? " active" : ""}`} onClick={() => setSection("services")}>
-          Services
+          {t("tab.services")}
         </button>
         <button className={`tab${section === "tasks" ? " active" : ""}`} onClick={() => setSection("tasks")}>
-          Tasks
+          {t("tab.tasks")}
         </button>
         <button className={`tab${section === "nodes" ? " active" : ""}`} onClick={() => setSection("nodes")}>
-          Nodes
+          {t("tab.nodes")}
         </button>
         <button className={`tab${section === "secrets" ? " active" : ""}`} onClick={() => setSection("secrets")}>
-          Secrets
+          {t("tab.secrets")}
         </button>
         <button className={`tab${section === "configs" ? " active" : ""}`} onClick={() => setSection("configs")}>
-          Configs
+          {t("tab.configs")}
         </button>
       </div>
 
       {loading ? (
-        <LoadingFill label="Loading swarm data…" />
+        <LoadingFill label={t("loading.data")} />
       ) : section === "services" ? (
         (servicesQ.data ?? []).length === 0 ? (
           <div className="card">
             <EmptyState
               icon={<IconSwarm size={40} />}
-              title="No swarm services"
-              message="This engine is not part of an active swarm, or has no services. Initialise a single-node swarm to start deploying, then add nodes for high availability."
+              title={t("empty.servicesTitle")}
+              message={t("empty.servicesGuideMessage")}
               action={
                 <div className="help-guide">
                   <ActionButton variant="primary" onClick={() => setHelpOpen(true)}>
                     <IconHelp size={15} />
-                    Show setup guide
+                    {t("empty.showSetupGuide")}
                   </ActionButton>
                   <div className="help-guide-cmd">
                     <InlineCommand command="docker swarm init" />
@@ -561,19 +568,19 @@ export function SwarmServices() {
             rowKey={(s) => s.id}
             defaultSortKey="name"
             emptyIcon={<IconSwarm size={40} />}
-            emptyTitle="No swarm services"
-            emptyMessage="This engine is not part of an active swarm, or has no services."
+            emptyTitle={t("empty.servicesTitle")}
+            emptyMessage={t("empty.servicesShortMessage")}
           />
         )
       ) : section === "tasks" ? (
         <DataTable
           columns={taskCols}
           rows={tasksQ.data ?? []}
-          rowKey={(t) => t.id}
+          rowKey={(w) => w.id}
           defaultSortKey="name"
-          onRowClick={(t) => navigate(`/workloads/${encodeURIComponent(hostId)}/${encodeURIComponent(t.id)}`)}
+          onRowClick={(w) => navigate(`/workloads/${encodeURIComponent(hostId)}/${encodeURIComponent(w.id)}`)}
           emptyIcon={<IconSwarm size={40} />}
-          emptyTitle="No swarm tasks"
+          emptyTitle={t("empty.tasksTitle")}
         />
       ) : section === "secrets" ? (
         <DataTable
@@ -582,8 +589,8 @@ export function SwarmServices() {
           rowKey={(s) => s.id}
           defaultSortKey="name"
           emptyIcon={<IconSwarm size={40} />}
-          emptyTitle="No swarm secrets"
-          emptyMessage="Secret values are write-only and are never shown — only names and timestamps."
+          emptyTitle={t("empty.secretsTitle")}
+          emptyMessage={t("empty.secretsMessage")}
         />
       ) : section === "configs" ? (
         <DataTable
@@ -592,7 +599,7 @@ export function SwarmServices() {
           rowKey={(c) => c.id}
           defaultSortKey="name"
           emptyIcon={<IconSwarm size={40} />}
-          emptyTitle="No swarm configs"
+          emptyTitle={t("empty.configsTitle")}
         />
       ) : (
         <DataTable
@@ -601,7 +608,7 @@ export function SwarmServices() {
           rowKey={(n) => n.id}
           defaultSortKey="hostname"
           emptyIcon={<IconSwarm size={40} />}
-          emptyTitle="No swarm nodes"
+          emptyTitle={t("empty.nodesTitle")}
         />
       )}
 
@@ -648,13 +655,14 @@ export function SwarmServices() {
       {/* ---- Restart (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!restartTarget}
-        title="Restart service"
+        title={t("dialog.restartTitle")}
         variant="primary"
-        confirmLabel="Restart"
+        confirmLabel={t("dialog.restartConfirm")}
         description={
           <>
-            Force a rolling redeploy of every task in{" "}
-            <strong className="mono">{restartTarget?.name}</strong>? The image and configuration are unchanged.
+            {t("dialog.restartDescPrefix")}
+            <strong className="mono">{restartTarget?.name}</strong>
+            {t("dialog.restartDescSuffix")}
           </>
         }
         onConfirm={doRestart}
@@ -664,12 +672,14 @@ export function SwarmServices() {
       {/* ---- Remove (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!removeTarget}
-        title="Remove service"
+        title={t("dialog.removeTitle")}
         variant="danger"
-        confirmLabel="Remove"
+        confirmLabel={t("dialog.removeConfirm")}
         description={
           <>
-            Remove <strong className="mono">{removeTarget?.name}</strong> and all of its tasks? This cannot be undone.
+            {t("dialog.removeDescPrefix")}
+            <strong className="mono">{removeTarget?.name}</strong>
+            {t("dialog.removeDescSuffix")}
           </>
         }
         onConfirm={doRemove}
@@ -679,19 +689,23 @@ export function SwarmServices() {
       {/* ---- Node drain/activate (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!nodeTarget}
-        title={nodeIsActive ? "Drain node" : "Activate node"}
+        title={nodeIsActive ? t("dialog.drainTitle") : t("dialog.activateTitle")}
         variant={nodeIsActive ? "danger" : "primary"}
-        confirmLabel={nodeIsActive ? "Drain" : "Activate"}
+        confirmLabel={nodeIsActive ? t("dialog.drainConfirm") : t("dialog.activateConfirm")}
         description={
           nodeIsActive ? (
             <>
-              Drain <strong className="mono">{nodeTarget?.hostname}</strong>? Tasks are rescheduled off this node and no
-              new tasks are placed on it.
+              {t("dialog.drainDescPrefix")}
+              <strong className="mono">{nodeTarget?.hostname}</strong>
+              {t("dialog.drainDescSuffix")}
             </>
           ) : (
             <>
-              Set <strong className="mono">{nodeTarget?.hostname}</strong> back to <strong>active</strong> so the
-              scheduler can place tasks on it again?
+              {t("dialog.activateDescPrefix")}
+              <strong className="mono">{nodeTarget?.hostname}</strong>
+              {t("dialog.activateDescMid")}
+              <strong>{t("dialog.activateDescActive")}</strong>
+              {t("dialog.activateDescSuffix")}
             </>
           )
         }
@@ -726,13 +740,14 @@ export function SwarmServices() {
       {/* ---- Delete secret (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!secretDeleteTarget}
-        title="Delete secret"
+        title={t("dialog.deleteSecretTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete secret <strong className="mono">{secretDeleteTarget?.name}</strong>? Services still referencing it must
-            be updated first; a secret in use cannot be removed.
+            {t("dialog.deleteSecretDescPrefix")}
+            <strong className="mono">{secretDeleteTarget?.name}</strong>
+            {t("dialog.deleteSecretDescSuffix")}
           </>
         }
         onConfirm={doDeleteSecret}
@@ -742,13 +757,14 @@ export function SwarmServices() {
       {/* ---- Delete config (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!configDeleteTarget}
-        title="Delete config"
+        title={t("dialog.deleteConfigTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete config <strong className="mono">{configDeleteTarget?.name}</strong>? Services still referencing it must
-            be updated first; a config in use cannot be removed.
+            {t("dialog.deleteConfigDescPrefix")}
+            <strong className="mono">{configDeleteTarget?.name}</strong>
+            {t("dialog.deleteConfigDescSuffix")}
           </>
         }
         onConfirm={doDeleteConfig}
@@ -775,18 +791,20 @@ function AttachRowsEditor({
   options: { id: string; name: string }[];
   onChange: (rows: AttachRow[]) => void;
 }) {
+  const t = useT(swarmServicesDict);
   const update = (i: number, patch: Partial<AttachRow>) =>
     onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const remove = (i: number) => onChange(rows.filter((_, idx) => idx !== i));
   const add = () => onChange([...rows, { id: "", targetFile: "" }]);
 
   const mountRoot = kind === "secret" ? "/run/secrets/" : "/";
-  const noun = kind === "secret" ? "secret" : "config";
+  const noun = kind === "secret" ? t("attach.nounSecret") : t("attach.nounConfig");
+  const tabName = kind === "secret" ? t("attach.tabSecrets") : t("attach.tabConfigs");
 
   if (options.length === 0) {
     return (
       <span className="text-xs muted">
-        No {noun}s exist yet — create one in the {noun.charAt(0).toUpperCase() + noun.slice(1)}s tab first.
+        {t("attach.noneExist", { noun, tab: tabName })}
       </span>
     );
   }
@@ -801,10 +819,10 @@ function AttachRowsEditor({
               className="select"
               value={r.id}
               onChange={(e) => update(i, { id: e.target.value })}
-              aria-label={`Select ${noun}`}
+              aria-label={t("attach.selectAria", { noun })}
               style={{ minWidth: 180, flex: 1 }}
             >
-              <option value="">Select a {noun}…</option>
+              <option value="">{t("attach.selectPlaceholder", { noun })}</option>
               {options.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name}
@@ -817,14 +835,14 @@ function AttachRowsEditor({
               placeholder={`${mountRoot}${picked?.name ?? noun}`}
               value={r.targetFile}
               onChange={(e) => update(i, { targetFile: e.target.value })}
-              aria-label="Target file"
+              aria-label={t("attach.targetFileAria")}
               style={{ flex: 1, minWidth: 160 }}
             />
             <ActionButton
               size="sm"
               iconOnly
               variant="ghost"
-              aria-label={`Remove ${noun}`}
+              aria-label={t("attach.removeAria", { noun })}
               onClick={() => remove(i)}
               style={{ color: "var(--danger)" }}
             >
@@ -836,7 +854,7 @@ function AttachRowsEditor({
       <div>
         <ActionButton size="sm" variant="ghost" onClick={add}>
           <IconPlus size={14} />
-          Attach {noun}
+          {t("attach.add", { noun })}
         </ActionButton>
       </div>
     </div>
@@ -886,6 +904,7 @@ function CreateSecretConfigModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT(swarmServicesDict);
   const [name, setName] = useState("");
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
@@ -901,7 +920,7 @@ function CreateSecretConfigModal({
   const nameOk = SECRET_NAME_RE.test(name.trim());
   const valueOk = value.length > 0;
   const valid = nameOk && valueOk && !busy;
-  const noun = kind === "secret" ? "secret" : "config";
+  const noun = kind === "secret" ? t("attach.nounSecret") : t("attach.nounConfig");
 
   const submit = async () => {
     if (!valid) return;
@@ -912,10 +931,10 @@ function CreateSecretConfigModal({
       } else {
         await api.swarmConfigCreate(hostId, { name: name.trim(), data: value });
       }
-      toast.success(`${noun.charAt(0).toUpperCase() + noun.slice(1)} created`, name.trim());
+      toast.success(kind === "secret" ? t("toast.secretCreated") : t("toast.configCreated"), name.trim());
       onDone();
     } catch (err) {
-      toastError("Create failed", err);
+      toastError(t("toast.createFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -925,34 +944,34 @@ function CreateSecretConfigModal({
     <Modal
       open={open}
       wide
-      title={`Create ${noun}`}
+      title={t("secretModal.createTitle", { noun })}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("modal.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Create
+            {t("secretModal.create")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-4)" }}>
         <TextField
-          label="Name"
+          label={t("secretModal.name")}
           mono
           autoFocus
           placeholder={kind === "secret" ? "db_password" : "nginx_conf"}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          error={name && !nameOk ? "Letters, digits, dot, dash, underscore (max 64)." : undefined}
+          error={name && !nameOk ? t("secretModal.nameError") : undefined}
           style={{ maxWidth: 360 }}
         />
         <div className="field">
           <label className="field-label" htmlFor="secret-value">
-            Value{kind === "secret" ? " (write-only)" : ""}
+            {kind === "secret" ? t("secretModal.valueWriteOnly") : t("secretModal.value")}
           </label>
           <textarea
             id="secret-value"
@@ -960,16 +979,16 @@ function CreateSecretConfigModal({
             spellCheck={false}
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder={kind === "secret" ? "super-secret-value" : "server { listen 80; }"}
+            placeholder={kind === "secret" ? t("secretModal.secretPlaceholder") : t("secretModal.configPlaceholder")}
             style={{ minHeight: 160, fontFamily: "var(--font-mono)", fontSize: 13, whiteSpace: "pre", tabSize: 2 }}
-            aria-label={`${noun} value`}
+            aria-label={t("secretModal.valueAria", { noun })}
           />
           {kind === "secret" ? (
             <span className="field-hint">
-              Stored encrypted by the swarm; the value is never shown again after creation.
+              {t("secretModal.secretHint")}
             </span>
           ) : (
-            <span className="field-hint">Configs are non-secret content mounted as files (e.g. an nginx.conf).</span>
+            <span className="field-hint">{t("secretModal.configHint")}</span>
           )}
         </div>
       </div>
@@ -1006,6 +1025,7 @@ function CreateServiceModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT(swarmServicesDict);
   const [name, setName] = useState("");
   const [image, setImage] = useState("");
   const [replicas, setReplicas] = useState("1");
@@ -1075,10 +1095,10 @@ function CreateServiceModal({
     if (cfgs.length) body.configs = cfgs;
     try {
       const res = await api.swarmServiceCreate(hostId, body);
-      toast.success("Service deployed", `${body.name} — ${shortId(res.id)}`);
+      toast.success(t("toast.serviceDeployed"), t("toast.serviceDeployedBody", { name: body.name, id: shortId(res.id) }));
       onDone();
     } catch (err) {
-      toastError("Deploy failed", err);
+      toastError(t("toast.deployFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -1088,16 +1108,16 @@ function CreateServiceModal({
     <Modal
       open={open}
       wide
-      title="Deploy service"
+      title={t("create.title")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("modal.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Deploy
+            {t("create.deploy")}
           </ActionButton>
         </>
       }
@@ -1105,15 +1125,15 @@ function CreateServiceModal({
       <div className="col" style={{ gap: "var(--sp-4)" }}>
         <div className="row" style={{ gap: "var(--sp-3)", flexWrap: "wrap", alignItems: "flex-start" }}>
           <TextField
-            label="Name"
+            label={t("create.name")}
             placeholder="web"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            error={name && !nameOk ? "Letters, digits, dot, dash, underscore (max 63)." : undefined}
+            error={name && !nameOk ? t("create.nameError") : undefined}
             style={{ minWidth: 200 }}
           />
           <TextField
-            label="Image"
+            label={t("create.image")}
             mono
             placeholder="nginx:latest"
             value={image}
@@ -1124,15 +1144,15 @@ function CreateServiceModal({
 
         <div className="row" style={{ gap: "var(--sp-3)", flexWrap: "wrap", alignItems: "flex-start" }}>
           <TextField
-            label="Replicas"
+            label={t("create.replicas")}
             type="number"
             min={0}
             value={replicas}
             onChange={(e) => setReplicas(e.target.value)}
-            error={replicas !== "" && !replicasOk ? "Whole number ≥ 0." : undefined}
+            error={replicas !== "" && !replicasOk ? t("create.replicasError") : undefined}
             style={{ width: 120 }}
           />
-          <SelectField label="Restart" value={restart} onChange={(e) => setRestart(e.target.value)}>
+          <SelectField label={t("create.restart")} value={restart} onChange={(e) => setRestart(e.target.value)}>
             {RESTART_OPTIONS.map((r) => (
               <option key={r} value={r}>
                 {r}
@@ -1142,18 +1162,18 @@ function CreateServiceModal({
         </div>
 
         <TextField
-          label="Networks"
+          label={t("create.networks")}
           mono
           placeholder="frontend backend"
           value={networks}
           onChange={(e) => setNetworks(e.target.value)}
-          hint="Attached overlay networks by name/id (space or comma separated)."
+          hint={t("create.networksHint")}
         />
 
         {/* ports */}
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <span className="field-label" style={{ margin: 0 }}>
-            Published ports
+            {t("create.publishedPorts")}
           </span>
           {ports.map((p, i) => (
             <div key={i} className="row" style={{ gap: "var(--sp-2)", alignItems: "center" }}>
@@ -1161,29 +1181,29 @@ function CreateServiceModal({
                 className="input"
                 type="number"
                 min={0}
-                placeholder="published"
+                placeholder={t("create.portPublished")}
                 value={p.published}
                 onChange={(e) => setPorts((prev) => prev.map((x, idx) => (idx === i ? { ...x, published: e.target.value } : x)))}
                 style={{ width: 110 }}
-                aria-label="Published port"
+                aria-label={t("create.portPublishedAria")}
               />
               <span className="muted">:</span>
               <input
                 className="input"
                 type="number"
                 min={1}
-                placeholder="target"
+                placeholder={t("create.portTarget")}
                 value={p.target}
                 onChange={(e) => setPorts((prev) => prev.map((x, idx) => (idx === i ? { ...x, target: e.target.value } : x)))}
                 style={{ width: 100 }}
-                aria-label="Target port"
+                aria-label={t("create.portTargetAria")}
               />
               <select
                 className="select"
                 value={p.protocol}
                 onChange={(e) => setPorts((prev) => prev.map((x, idx) => (idx === i ? { ...x, protocol: e.target.value } : x)))}
                 style={{ width: 90 }}
-                aria-label="Protocol"
+                aria-label={t("create.protocolAria")}
               >
                 <option value="tcp">tcp</option>
                 <option value="udp">udp</option>
@@ -1193,7 +1213,7 @@ function CreateServiceModal({
                 size="sm"
                 iconOnly
                 variant="ghost"
-                aria-label="Remove port"
+                aria-label={t("create.removePortAria")}
                 onClick={() => setPorts((prev) => prev.filter((_, idx) => idx !== i))}
                 style={{ color: "var(--danger)" }}
               >
@@ -1204,7 +1224,7 @@ function CreateServiceModal({
           <div>
             <ActionButton size="sm" variant="ghost" onClick={() => setPorts((prev) => [...prev, { published: "", target: "", protocol: "tcp" }])}>
               <IconPlus size={14} />
-              Add port
+              {t("create.addPort")}
             </ActionButton>
           </div>
         </div>
@@ -1212,7 +1232,7 @@ function CreateServiceModal({
         {/* env */}
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <span className="field-label" style={{ margin: 0 }}>
-            Environment
+            {t("create.environment")}
           </span>
           {env.map((e, i) => (
             <div key={i} className="row" style={{ gap: "var(--sp-2)", alignItems: "center" }}>
@@ -1222,7 +1242,7 @@ function CreateServiceModal({
                 value={e.key}
                 onChange={(ev) => setEnv((prev) => prev.map((x, idx) => (idx === i ? { ...x, key: ev.target.value } : x)))}
                 style={{ width: 200 }}
-                aria-label="Env key"
+                aria-label={t("create.envKeyAria")}
               />
               <span className="muted">=</span>
               <input
@@ -1231,13 +1251,13 @@ function CreateServiceModal({
                 value={e.value}
                 onChange={(ev) => setEnv((prev) => prev.map((x, idx) => (idx === i ? { ...x, value: ev.target.value } : x)))}
                 style={{ flex: 1, minWidth: 160 }}
-                aria-label="Env value"
+                aria-label={t("create.envValueAria")}
               />
               <ActionButton
                 size="sm"
                 iconOnly
                 variant="ghost"
-                aria-label="Remove env var"
+                aria-label={t("create.removeEnvAria")}
                 onClick={() => setEnv((prev) => prev.filter((_, idx) => idx !== i))}
                 style={{ color: "var(--danger)" }}
               >
@@ -1248,7 +1268,7 @@ function CreateServiceModal({
           <div>
             <ActionButton size="sm" variant="ghost" onClick={() => setEnv((prev) => [...prev, { key: "", value: "" }])}>
               <IconPlus size={14} />
-              Add variable
+              {t("create.addVariable")}
             </ActionButton>
           </div>
         </div>
@@ -1256,7 +1276,7 @@ function CreateServiceModal({
         {/* resources */}
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <span className="field-label" style={{ margin: 0 }}>
-            Resources
+            {t("create.resources")}
           </span>
           <DockerSwarmResourceFields draft={resources} onChange={setResources} />
         </div>
@@ -1264,7 +1284,7 @@ function CreateServiceModal({
         {/* secrets */}
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <span className="field-label" style={{ margin: 0 }}>
-            Secrets
+            {t("create.secrets")}
           </span>
           <AttachRowsEditor kind="secret" rows={secretRows} options={secretOptions} onChange={setSecretRows} />
         </div>
@@ -1272,7 +1292,7 @@ function CreateServiceModal({
         {/* configs */}
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <span className="field-label" style={{ margin: 0 }}>
-            Configs
+            {t("create.configs")}
           </span>
           <AttachRowsEditor kind="config" rows={configRows} options={configOptions} onChange={setConfigRows} />
         </div>
@@ -1294,6 +1314,7 @@ function ScaleServiceModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT(swarmServicesDict);
   const [replicas, setReplicas] = useState("0");
   const [busy, setBusy] = useState(false);
 
@@ -1312,10 +1333,10 @@ function ScaleServiceModal({
     setBusy(true);
     try {
       await api.swarmServiceScale(hostId, target.id, { replicas: n });
-      toast.success("Service scaled", `${target.name} → ${n} replica(s).`);
+      toast.success(t("toast.serviceScaled"), t("toast.serviceScaledBody", { name: target.name, n }));
       onDone();
     } catch (err) {
-      toastError("Scale failed", err);
+      toastError(t("toast.scaleFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -1324,34 +1345,34 @@ function ScaleServiceModal({
   return (
     <Modal
       open={!!target}
-      title="Scale service"
+      title={t("scale.title")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("modal.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Scale
+            {t("scale.scale")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-3)" }}>
         <div className="text-sm secondary">
-          Service <strong className="mono">{target?.name}</strong> — currently{" "}
-          <span className="mono">{target?.replicas}</span>.
+          {t("scale.currentPrefix")}<strong className="mono">{target?.name}</strong>{t("scale.currentMid")}
+          <span className="mono">{target?.replicas}</span>{t("scale.currentSuffix")}
         </div>
         <TextField
-          label="Replicas"
+          label={t("scale.replicas")}
           type="number"
           min={0}
           autoFocus
           value={replicas}
           onChange={(e) => setReplicas(e.target.value)}
-          error={replicas !== "" && !(Number.isInteger(n) && n >= 0) ? "Whole number ≥ 0." : undefined}
-          hint="Only replicated services can be scaled."
+          error={replicas !== "" && !(Number.isInteger(n) && n >= 0) ? t("scale.replicasError") : undefined}
+          hint={t("scale.hint")}
           style={{ width: 160 }}
         />
       </div>
@@ -1376,6 +1397,7 @@ function UpdateServiceModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT(swarmServicesDict);
   const [image, setImage] = useState("");
   const [envText, setEnvText] = useState("");
   const [replicas, setReplicas] = useState("");
@@ -1440,10 +1462,10 @@ function UpdateServiceModal({
     }
     try {
       await api.swarmServiceUpdate(hostId, target.id, body);
-      toast.success("Service updated", `${target.name} — rolling update in progress.`);
+      toast.success(t("toast.serviceUpdated"), t("toast.serviceUpdatedBody", { name: target.name }));
       onDone();
     } catch (err) {
-      toastError("Update failed", err);
+      toastError(t("toast.updateFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -1453,46 +1475,46 @@ function UpdateServiceModal({
     <Modal
       open={!!target}
       wide
-      title="Update service"
+      title={t("update.title")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("modal.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Apply update
+            {t("update.apply")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-4)" }}>
         <div className="text-sm secondary">
-          Updating <strong className="mono">{target?.name}</strong>. Changing the image triggers a rolling update.
+          {t("update.introPrefix")}<strong className="mono">{target?.name}</strong>{t("update.introSuffix")}
         </div>
         <TextField
-          label="Image"
+          label={t("update.image")}
           mono
           placeholder="nginx:1.27"
           value={image}
           onChange={(e) => setImage(e.target.value)}
-          error={image.trim().length === 0 ? "Image is required." : undefined}
+          error={image.trim().length === 0 ? t("update.imageError") : undefined}
         />
         <TextField
-          label="Replicas"
+          label={t("update.replicas")}
           type="number"
           min={0}
           value={replicas}
           onChange={(e) => setReplicas(e.target.value)}
-          error={!replicasOk ? "Whole number ≥ 0." : undefined}
-          hint="Replicated services only. Leave as-is to keep the current count."
+          error={!replicasOk ? t("update.replicasError") : undefined}
+          hint={t("update.replicasHint")}
           style={{ width: 160 }}
         />
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <label className="checkbox-row">
             <input type="checkbox" checked={setEnvOn} onChange={(e) => setSetEnvOn(e.target.checked)} />
-            <span>Replace environment</span>
+            <span>{t("update.replaceEnv")}</span>
           </label>
           {setEnvOn ? (
             <textarea
@@ -1502,20 +1524,20 @@ function UpdateServiceModal({
               onChange={(e) => setEnvText(e.target.value)}
               placeholder={"KEY=value\nANOTHER=value"}
               style={{ minHeight: 120, fontFamily: "var(--font-mono)", fontSize: 13, whiteSpace: "pre", tabSize: 2 }}
-              aria-label="Environment (one KEY=value per line)"
+              aria-label={t("update.envAria")}
             />
           ) : (
-            <span className="text-xs muted">Leave unchecked to keep the existing environment.</span>
+            <span className="text-xs muted">{t("update.envUnchecked")}</span>
           )}
         </div>
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <span className="field-label" style={{ margin: 0 }}>
-            Resources
+            {t("update.resources")}
           </span>
           <DockerSwarmResourceFields draft={resources} onChange={setResources} />
           <span className="text-xs muted">
-            Seeded from the current limits. Clearing a field removes that limit on apply.
+            {t("update.resourcesHint")}
           </span>
         </div>
 
@@ -1523,28 +1545,28 @@ function UpdateServiceModal({
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <label className="checkbox-row">
             <input type="checkbox" checked={setAttachOn} onChange={(e) => setSetAttachOn(e.target.checked)} />
-            <span>Replace secrets &amp; configs</span>
+            <span>{t("update.replaceAttach")}</span>
           </label>
           {setAttachOn ? (
             <div className="col" style={{ gap: "var(--sp-4)" }}>
               <div className="col" style={{ gap: "var(--sp-2)" }}>
                 <span className="field-label" style={{ margin: 0 }}>
-                  Secrets
+                  {t("update.secrets")}
                 </span>
                 <AttachRowsEditor kind="secret" rows={secretRows} options={secretOptions} onChange={setSecretRows} />
               </div>
               <div className="col" style={{ gap: "var(--sp-2)" }}>
                 <span className="field-label" style={{ margin: 0 }}>
-                  Configs
+                  {t("update.configs")}
                 </span>
                 <AttachRowsEditor kind="config" rows={configRows} options={configOptions} onChange={setConfigRows} />
               </div>
               <span className="text-xs muted">
-                This REPLACES the full set of attached secrets/configs (empty = detach all).
+                {t("update.attachReplaceHint")}
               </span>
             </div>
           ) : (
-            <span className="text-xs muted">Leave unchecked to keep the service's current secret/config attachments.</span>
+            <span className="text-xs muted">{t("update.attachUnchecked")}</span>
           )}
         </div>
       </div>

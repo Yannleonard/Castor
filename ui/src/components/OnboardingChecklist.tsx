@@ -14,18 +14,21 @@ import { useAuth } from "../lib/auth";
 import { useDashboardMetrics, useProviders, useStacks, qk } from "../lib/hooks";
 import { useSelectedHost } from "../lib/hostStore";
 import { IconCheck } from "./icons";
+import { useT } from "../i18n";
+import { onboardingDict } from "../i18n/locales/onboarding";
 import type { UserRecord } from "../lib/types";
 
 const DISMISS_KEY = "castor.onboarding.dismissed";
 
 interface Step {
   key: string;
-  label: string;
+  labelKey: string;
   to: string;
   done: boolean;
 }
 
 export function OnboardingChecklist() {
+  const t = useT(onboardingDict);
   const hostId = useSelectedHost();
   const { user, can } = useAuth();
 
@@ -55,31 +58,31 @@ export function OnboardingChecklist() {
   const steps: Step[] = [
     {
       key: "totp",
-      label: "Secure your account with 2FA",
+      labelKey: "step.totp",
       to: "/profile",
       done: !!user?.totpEnabled,
     },
     {
       key: "deploy",
-      label: "Deploy your first app from the Marketplace",
+      labelKey: "step.deploy",
       to: "/marketplace",
       done: (metricsQ.data?.containers.total ?? 0) > 0,
     },
     {
       key: "stack",
-      label: "Create a stack (compose)",
+      labelKey: "step.stack",
       to: "/stacks",
       done: (stacksQ.data ?? []).length > 0,
     },
     {
       key: "team",
-      label: "Invite your team & assign roles",
+      labelKey: "step.team",
       to: "/users",
       done: canReadUsers && (usersQ.data ?? []).length > 1,
     },
     {
       key: "orchestrator",
-      label: "Connect Swarm or Kubernetes",
+      labelKey: "step.orchestrator",
       to: "/swarm",
       done: (providersQ.data ?? []).some(
         (p) => p.kind === "swarm" || p.kind === "kubernetes",
@@ -106,13 +109,13 @@ export function OnboardingChecklist() {
     <div className="card">
       <div className="card-header">
         <div className="row" style={{ gap: "var(--sp-3)" }}>
-          <span className="card-title">Getting started</span>
+          <span className="card-title">{t("header.title")}</span>
           <span className="text-xs muted">
-            {doneCount} of {steps.length} done
+            {t("header.progress", { done: doneCount, total: steps.length })}
           </span>
         </div>
         <button className="btn btn-sm btn-ghost" onClick={dismiss}>
-          Dismiss
+          {t("header.dismiss")}
         </button>
       </div>
       <div className="card-body onboard-list">
@@ -125,9 +128,9 @@ export function OnboardingChecklist() {
               {s.done ? <IconCheck size={11} /> : null}
             </span>
             {s.done ? (
-              <span className="muted">{s.label}</span>
+              <span className="muted">{t(s.labelKey)}</span>
             ) : (
-              <Link to={s.to}>{s.label}</Link>
+              <Link to={s.to}>{t(s.labelKey)}</Link>
             )}
           </div>
         ))}

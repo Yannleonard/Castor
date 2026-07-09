@@ -8,6 +8,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Modal } from "./Modal";
 import { ActionButton } from "./ActionButton";
 import { IconAlert } from "./icons";
+import { useT } from "../i18n";
+import { commonDict } from "../i18n/locales/common";
+import { dialogsDict } from "../i18n/locales/dialogs";
 
 export interface DestructiveOptions {
   force?: boolean;
@@ -31,12 +34,14 @@ export function ConfirmDestructiveDialog({
   open,
   title,
   description,
-  confirmLabel = "Confirm",
+  confirmLabel,
   variant = "danger",
   showRemoveOptions,
   onConfirm,
   onClose,
 }: Props) {
+  const tc = useT(commonDict);
+  const td = useT(dialogsDict);
   const [force, setForce] = useState(false);
   const [volumes, setVolumes] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -75,10 +80,10 @@ export function ConfirmDestructiveDialog({
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {tc("cancel")}
           </button>
           <ActionButton variant={variant} loading={busy} onClick={confirm}>
-            {confirmLabel}
+            {confirmLabel ?? td("confirm.default")}
           </ActionButton>
         </>
       }
@@ -89,11 +94,11 @@ export function ConfirmDestructiveDialog({
           <div className="col" style={{ gap: "var(--sp-2)" }}>
             <label className="checkbox-row">
               <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
-              <span>Force removal (kill if running)</span>
+              <span>{td("confirm.forceRemoval")}</span>
             </label>
             <label className="checkbox-row">
               <input type="checkbox" checked={volumes} onChange={(e) => setVolumes(e.target.checked)} />
-              <span>Also remove anonymous volumes</span>
+              <span>{td("confirm.removeVolumes")}</span>
             </label>
           </div>
         ) : null}

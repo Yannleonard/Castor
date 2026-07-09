@@ -23,6 +23,8 @@ import { TextField } from "../components/Field";
 import { IconImages, IconPlus, IconTrash, IconRefresh, IconSearch, IconPrune, IconAlert } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { formatBytes, shortId, timeAgo } from "../lib/format";
+import { useT, t as tr } from "../i18n";
+import { imagesDict } from "../i18n/locales/images";
 import type { DockerImage } from "../lib/types";
 
 const EMPTY_IMAGES: DockerImage[] = [];
@@ -30,6 +32,7 @@ const EMPTY_IMAGES: DockerImage[] = [];
 const IMAGE_REF_RE =/^[a-z0-9]+([._-][a-z0-9]+)*(\/[a-z0-9]+([._-][a-z0-9]+)*)*(:[\w][\w.-]{0,127})?(@sha256:[a-f0-9]{64})?$/i;
 
 export function Images() {
+  const t = useT(imagesDict);
   const hostId = useSelectedHost();
   const queryClient = useQueryClient();
   const { can } = useAuth();
@@ -64,12 +67,12 @@ export function Images() {
     setPulling(true);
     try {
       await api.imagePull(hostId, pullRef.trim());
-      toast.success("Pull started", `${pullRef.trim()} — progress streams via events.`);
+      toast.success(tr(imagesDict, "toast.pullStartedTitle"), tr(imagesDict, "toast.pullStartedBody", { ref: pullRef.trim() }));
       setPullOpen(false);
       setPullRef("");
       queryClient.invalidateQueries({ queryKey: ["images", hostId] });
     } catch (err) {
-      toastError("Pull failed", err);
+      toastError(tr(imagesDict, "toast.pullFailed"), err);
     } finally {
       setPulling(false);
     }
@@ -79,11 +82,14 @@ export function Images() {
     setPruning(true);
     try {
       const res = await api.prune(hostId, { target: "images", dangling: !removeAll });
-      toast.success("Pruned", `${res.removed.length} images · ${formatBytes(res.spaceReclaimed)} reclaimed`);
+      toast.success(
+        tr(imagesDict, "toast.prunedTitle"),
+        tr(imagesDict, "toast.prunedBody", { count: res.removed.length, reclaimed: formatBytes(res.spaceReclaimed) }),
+      );
       setPruneOpen(false);
       queryClient.invalidateQueries({ queryKey: ["images", hostId] });
     } catch (err) {
-      toastError("Prune failed", err);
+      toastError(tr(imagesDict, "toast.pruneFailed"), err);
     } finally {
       setPruning(false);
     }
@@ -93,10 +99,10 @@ export function Images() {
     if (!removeTarget) return;
     try {
       await api.imageDelete(hostId, removeTarget.id, false);
-      toast.success("Image deleted", removeTarget.repoTags[0] ?? shortId(removeTarget.id));
+      toast.success(tr(imagesDict, "toast.deletedTitle"), removeTarget.repoTags[0] ?? shortId(removeTarget.id));
       queryClient.invalidateQueries({ queryKey: ["images", hostId] });
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(tr(imagesDict, "toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -104,7 +110,7 @@ export function Images() {
   const columns: Column<DockerImage>[] = [
     {
       key: "repo",
-      header: "Repository : tag",
+      header: t("col.repoTag"),
       sortValue: (i) => i.repoTags[0] ?? i.id,
       cell: (i) => (
         <div className="col" style={{ gap: 2 }}>
@@ -119,15 +125,15 @@ export function Images() {
           )}
           {i.dangling ? (
             <span className="pill" style={{ color: "var(--warning)", background: "var(--warning-bg)", borderColor: "transparent" }}>
-              dangling
+              {t("badge.dangling")}
             </span>
           ) : null}
         </div>
       ),
     },
-    { key: "id", header: "Image ID", sortValue: (i) => i.id, cell: (i) => <span className="mono text-xs muted">{shortId(i.id)}</span> },
-    { key: "size", header: "Size", align: "right", sortValue: (i) => i.size, cell: (i) => <span className="mono">{formatBytes(i.size)}</span> },
-    { key: "created", header: "Created", sortValue: (i) => i.created, cell: (i) => <span className="text-xs muted nowrap">{timeAgo(i.created)}</span> },
+    { key: "id", header: t("col.imageId"), sortValue: (i) => i.id, cell: (i) => <span className="mono text-xs muted">{shortId(i.id)}</span> },
+    { key: "size", header: t("col.size"), align: "right", sortValue: (i) => i.size, cell: (i) => <span className="mono">{formatBytes(i.size)}</span> },
+    { key: "created", header: t("col.created"), sortValue: (i) => i.created, cell: (i) => <span className="text-xs muted nowrap">{timeAgo(i.created)}</span> },
     {
       key: "actions",
       header: "",
@@ -136,7 +142,7 @@ export function Images() {
       cell: (i) => (
         <CapabilityGate
           allowed={!!canDelete}
-          reason={!caps?.includes("images") ? "Provider does not manage images" : "Requires docker.image.delete (admin)"}
+          reason={!caps?.includes("images") ? t("gate.noImagesProvider") : t("gate.needDelete")}
         >
           {(allowed, reason) => (
             <ActionButton
@@ -144,8 +150,8 @@ export function Images() {
               iconOnly
               variant="ghost"
               disabled={!allowed}
-              tooltip={allowed ? "Delete image" : reason}
-              aria-label="Delete image"
+              tooltip={allowed ? t("row.deleteImage") : reason}
+              aria-label={t("row.deleteImage")}
               onClick={() => setRemoveTarget(i)}
               style={allowed ? { color: "var(--danger)" } : undefined}
             >
@@ -160,22 +166,22 @@ export function Images() {
   return (
     <div className="page">
       <PageHeader
-        title="Images"
-        subtitle="Local Docker images on this host."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             <CapabilityGate
               allowed={!!canPull}
-              reason={!caps?.includes("images") ? "Provider does not manage images" : "Requires docker.image.pull"}
+              reason={!caps?.includes("images") ? t("gate.noImagesProvider") : t("gate.needPull")}
             >
               {(allowed, reason) => (
                 <ActionButton variant="primary" disabled={!allowed} tooltip={allowed ? undefined : reason} onClick={() => setPullOpen(true)}>
                   <IconPlus size={15} />
-                  Pull image
+                  {t("header.pull")}
                 </ActionButton>
               )}
             </CapabilityGate>
-            <CapabilityGate allowed={canPrune} reason="Requires docker.system.prune">
+            <CapabilityGate allowed={canPrune} reason={t("gate.needPrune")}>
               {(allowed, reason) => (
                 <ActionButton
                   variant="ghost"
@@ -187,11 +193,11 @@ export function Images() {
                   }}
                 >
                   <IconPrune size={15} />
-                  Prune
+                  {t("header.prune")}
                 </ActionButton>
               )}
             </CapabilityGate>
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="images" />
@@ -204,29 +210,29 @@ export function Images() {
           <span className="muted">
             <IconSearch size={16} />
           </span>
-          <input className="input" placeholder="Search images…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 360 }} />
+          <input className="input" placeholder={t("filter.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 360 }} />
           <span className="spacer" />
           <span className="text-sm muted">
-            {filtered.length} of {images.length}
+            {t("filter.count", { shown: filtered.length, total: images.length })}
           </span>
         </div>
       </div>
 
       {query.isLoading ? (
-        <LoadingFill label="Loading images…" />
+        <LoadingFill label={t("list.loading")} />
       ) : images.length === 0 ? (
         // No images on the host: open the existing pull modal directly (only
         // when the caller may pull).
         <div className="card">
           <EmptyState
             icon={<IconImages size={40} />}
-            title="No images"
-            message="Pull an image from a registry to get started."
+            title={t("empty.title")}
+            message={t("empty.message")}
             action={
               canPull ? (
                 <ActionButton variant="primary" onClick={() => setPullOpen(true)}>
                   <IconPlus size={15} />
-                  Pull an image
+                  {t("empty.action")}
                 </ActionButton>
               ) : undefined
             }
@@ -239,37 +245,37 @@ export function Images() {
           rowKey={(i) => i.id}
           defaultSortKey="repo"
           emptyIcon={<IconImages size={40} />}
-          emptyTitle="No images"
-          emptyMessage="Pull an image to get started."
+          emptyTitle={t("empty.title")}
+          emptyMessage={t("empty.tableMessage")}
         />
       )}
 
       <Modal
         open={pullOpen}
-        title="Pull image"
+        title={t("pull.title")}
         busy={pulling}
         onClose={() => setPullOpen(false)}
         footer={
           <>
             <button className="btn" onClick={() => setPullOpen(false)} disabled={pulling}>
-              Cancel
+              {t("pull.cancel")}
             </button>
             <ActionButton variant="primary" loading={pulling} disabled={!refRegexOk} onClick={doPull}>
-              Pull
+              {t("pull.confirm")}
             </ActionButton>
           </>
         }
       >
         <div className="col" style={{ gap: "var(--sp-3)" }}>
           <TextField
-            label="Image reference"
+            label={t("pull.refLabel")}
             mono
             autoFocus
             placeholder="nginx:latest"
             value={pullRef}
             onChange={(e) => setPullRef(e.target.value)}
-            error={pullRef && !refRegexOk ? "Enter a valid image reference (e.g. registry/name:tag)." : undefined}
-            hint="An image reference only — arbitrary URLs are rejected by the server."
+            error={pullRef && !refRegexOk ? t("pull.refError") : undefined}
+            hint={t("pull.refHint")}
           />
         </div>
       </Modal>
@@ -283,7 +289,7 @@ export function Images() {
             <span style={{ color: "var(--danger)" }}>
               <IconAlert size={18} />
             </span>
-            Prune images
+            {t("prune.title")}
           </span>
         }
         busy={pruning}
@@ -291,35 +297,32 @@ export function Images() {
         footer={
           <>
             <button className="btn" onClick={() => setPruneOpen(false)} disabled={pruning}>
-              Cancel
+              {t("prune.cancel")}
             </button>
             <ActionButton variant="danger" loading={pruning} onClick={doPrune}>
-              Prune
+              {t("prune.confirm")}
             </ActionButton>
           </>
         }
       >
         <div className="col" style={{ gap: "var(--sp-4)" }}>
-          <div className="text-sm secondary">
-            By default only dangling images (untagged layers not referenced by any tag) are removed. This frees disk
-            space without touching images you may still run.
-          </div>
+          <div className="text-sm secondary">{t("prune.description")}</div>
           <label className="checkbox-row">
             <input type="checkbox" checked={removeAll} onChange={(e) => setRemoveAll(e.target.checked)} />
-            <span>Also remove all unused images (not just dangling)</span>
+            <span>{t("prune.removeAll")}</span>
           </label>
         </div>
       </Modal>
 
       <ConfirmDestructiveDialog
         open={!!removeTarget}
-        title="Delete image"
+        title={t("remove.title")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("remove.confirm")}
         description={
           <>
-            Delete <strong className="mono">{removeTarget?.repoTags[0] ?? shortId(removeTarget?.id)}</strong>? Containers using
-            it must be removed first unless forced server-side.
+            {t("remove.confirmPrefix")} <strong className="mono">{removeTarget?.repoTags[0] ?? shortId(removeTarget?.id)}</strong>
+            {t("remove.confirmSuffix")} {t("remove.warning")}
           </>
         }
         onConfirm={doRemove}

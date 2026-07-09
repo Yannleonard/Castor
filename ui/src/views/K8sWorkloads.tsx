@@ -51,6 +51,8 @@ import {
 } from "../components/ResourceFields";
 import { IconKube, IconRefresh, IconPlus, IconTrash, IconRestart, IconScale, IconEdit, IconHelp, IconCopy, IconCheck, IconTerminal, IconLogs, IconPlay, IconPause } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
+import { useT } from "../i18n";
+import { k8sWorkloadsDict } from "../i18n/locales/k8sWorkloads";
 import { cleanName, timeAgo, formatBytes } from "../lib/format";
 import {
   podQosClass,
@@ -119,21 +121,22 @@ function jobDuration(j: K8sJob): string {
 
 // Small copy-able shell command used in the guided empty state.
 function InlineCommand({ command }: { command: string }) {
+  const t = useT(k8sWorkloadsDict);
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(command);
       setCopied(true);
-      toast.success("Copied to clipboard");
+      toast.success(t("toast.copied"));
       setTimeout(() => setCopied(false), 1600);
     } catch {
-      toast.error("Copied to clipboard", command);
+      toast.error(t("toast.copied"), command);
     }
   };
   return (
     <div className="help-cmd">
       <code className="help-cmd-text">{command}</code>
-      <button type="button" className="btn btn-ghost btn-sm btn-icon help-cmd-copy" onClick={copy} aria-label="Copy command" title="Copy command">
+      <button type="button" className="btn btn-ghost btn-sm btn-icon help-cmd-copy" onClick={copy} aria-label={t("cmd.copy")} title={t("cmd.copy")}>
         {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
       </button>
     </div>
@@ -141,6 +144,7 @@ function InlineCommand({ command }: { command: string }) {
 }
 
 export function K8sWorkloads() {
+  const t = useT(k8sWorkloadsDict);
   const hostId = useSelectedHost();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -262,28 +266,28 @@ export function K8sWorkloads() {
   const doTriggerCron = async (c: K8sCronJob) => {
     try {
       const res = await api.k8sTriggerCronJob(hostId, c.namespace, c.name);
-      toast.success("CronJob triggered", `Created job ${res.job}.`);
+      toast.success(t("toast.cronTriggered"), t("toast.cronTriggeredBody", { job: res.job }));
       invalidateJobs();
       invalidateCrons();
     } catch (err) {
-      toastError("Trigger failed", err);
+      toastError(t("toast.triggerFailed"), err);
     }
   };
 
   const doSuspendCron = async (c: K8sCronJob) => {
     try {
       await api.k8sSuspendCronJob(hostId, c.namespace, c.name, { suspend: !c.suspend });
-      toast.success(c.suspend ? "CronJob resumed" : "CronJob suspended", `${c.namespace}/${c.name}`);
+      toast.success(c.suspend ? t("toast.cronResumed") : t("toast.cronSuspended"), `${c.namespace}/${c.name}`);
       invalidateCrons();
     } catch (err) {
-      toastError(c.suspend ? "Resume failed" : "Suspend failed", err);
+      toastError(c.suspend ? t("toast.resumeFailed") : t("toast.suspendFailed"), err);
     }
   };
 
   const podCols: Column<Workload>[] = [
     {
       key: "name",
-      header: "Pod",
+      header: t("col.pod"),
       sortValue: (p) => cleanName(p.name),
       cell: (p) => (
         <div className="col" style={{ gap: 2 }}>
@@ -294,30 +298,30 @@ export function K8sWorkloads() {
         </div>
       ),
     },
-    { key: "state", header: "State", sortValue: (p) => p.state, cell: (p) => <StateBadge state={p.state} raw={p.stateRaw} /> },
+    { key: "state", header: t("col.state"), sortValue: (p) => p.state, cell: (p) => <StateBadge state={p.state} raw={p.stateRaw} /> },
     {
       key: "qos",
-      header: "QoS",
+      header: t("col.qos"),
       sortValue: (p) => podQosClass(p.labels) ?? "",
       cell: (p) => {
         const qos = podQosClass(p.labels);
         return qos ? <QosBadge qos={qos} subtle /> : <span className="muted">—</span>;
       },
     },
-    { key: "node", header: "Node", sortValue: (p) => p.node ?? "", cell: (p) => <span className="text-sm secondary">{p.node || "—"}</span> },
+    { key: "node", header: t("col.node"), sortValue: (p) => p.node ?? "", cell: (p) => <span className="text-sm secondary">{p.node || "—"}</span> },
     {
       key: "cpu",
-      header: "CPU",
+      header: t("col.cpu"),
       sortValue: (p) => podMetrics.get(p.id)?.cpuMilli ?? -1,
       cell: (p) => {
         const m = podMetrics.get(p.id);
         if (!m) return <span className="muted">—</span>;
-        return <span className="mono text-xs">{milliToCores(m.cpuMilli)} <span className="muted">cores</span></span>;
+        return <span className="mono text-xs">{milliToCores(m.cpuMilli)} <span className="muted">{t("unit.cores")}</span></span>;
       },
     },
     {
       key: "mem",
-      header: "Memory",
+      header: t("col.memory"),
       sortValue: (p) => podMetrics.get(p.id)?.memoryBytes ?? -1,
       cell: (p) => {
         const m = podMetrics.get(p.id);
@@ -325,9 +329,9 @@ export function K8sWorkloads() {
         return <span className="mono text-xs">{formatBytes(m.memoryBytes)}</span>;
       },
     },
-    { key: "image", header: "Image", sortValue: (p) => p.image, cell: (p) => <span className="mono text-xs truncate" style={{ maxWidth: 200, display: "inline-block" }} title={p.image}>{p.image}</span> },
-    { key: "group", header: "Owner", sortValue: (p) => p.group ?? "", cell: (p) => (p.group ? <span className="chip">{p.group}</span> : <span className="muted">—</span>) },
-    { key: "created", header: "Created", sortValue: (p) => p.createdAt, cell: (p) => <span className="text-xs muted nowrap">{timeAgo(p.createdAt)}</span> },
+    { key: "image", header: t("col.image"), sortValue: (p) => p.image, cell: (p) => <span className="mono text-xs truncate" style={{ maxWidth: 200, display: "inline-block" }} title={p.image}>{p.image}</span> },
+    { key: "group", header: t("col.owner"), sortValue: (p) => p.group ?? "", cell: (p) => (p.group ? <span className="chip">{p.group}</span> : <span className="muted">—</span>) },
+    { key: "created", header: t("col.created"), sortValue: (p) => p.createdAt, cell: (p) => <span className="text-xs muted nowrap">{timeAgo(p.createdAt)}</span> },
     {
       key: "actions",
       header: "",
@@ -344,8 +348,8 @@ export function K8sWorkloads() {
                   iconOnly
                   variant="ghost"
                   disabled={!allowed}
-                  tooltip={allowed ? "Logs" : reason}
-                  aria-label="Pod logs"
+                  tooltip={allowed ? t("action.logs") : reason}
+                  aria-label={t("action.podLogs")}
                   onClick={(e) => {
                     e.stopPropagation();
                     setPodLogsTarget(p);
@@ -362,8 +366,8 @@ export function K8sWorkloads() {
                   iconOnly
                   variant="ghost"
                   disabled={!allowed || !running}
-                  tooltip={!running ? "Pod is not running" : allowed ? "Terminal" : reason}
-                  aria-label="Pod terminal"
+                  tooltip={!running ? t("action.podNotRunning") : allowed ? t("action.terminal") : reason}
+                  aria-label={t("action.podTerminal")}
                   onClick={(e) => {
                     e.stopPropagation();
                     setPodTermTarget(p);
@@ -380,8 +384,8 @@ export function K8sWorkloads() {
                   iconOnly
                   variant="ghost"
                   disabled={!allowed}
-                  tooltip={allowed ? "Delete pod" : reason}
-                  aria-label="Delete pod"
+                  tooltip={allowed ? t("action.deletePod") : reason}
+                  aria-label={t("action.deletePod")}
                   onClick={(e) => {
                     e.stopPropagation();
                     setPodDeleteTarget(p);
@@ -399,11 +403,11 @@ export function K8sWorkloads() {
   ];
 
   const deployCols: Column<K8sDeployment>[] = [
-    { key: "name", header: "Deployment", sortValue: (d) => d.name, cell: (d) => <span style={{ fontWeight: 600 }}>{d.name}</span> },
-    { key: "namespace", header: "Namespace", sortValue: (d) => d.namespace, cell: (d) => <span className="chip">{d.namespace}</span> },
+    { key: "name", header: t("col.deployment"), sortValue: (d) => d.name, cell: (d) => <span style={{ fontWeight: 600 }}>{d.name}</span> },
+    { key: "namespace", header: t("col.namespace"), sortValue: (d) => d.namespace, cell: (d) => <span className="chip">{d.namespace}</span> },
     {
       key: "ready",
-      header: "Ready",
+      header: t("col.ready"),
       sortValue: (d) => d.ready,
       cell: (d) => (
         <span className="mono" style={{ color: d.ready >= d.replicas ? "var(--success)" : "var(--warning)" }}>
@@ -411,15 +415,15 @@ export function K8sWorkloads() {
         </span>
       ),
     },
-    { key: "available", header: "Available", sortValue: (d) => d.available, cell: (d) => <span className="mono">{d.available}</span> },
+    { key: "available", header: t("col.available"), sortValue: (d) => d.available, cell: (d) => <span className="mono">{d.available}</span> },
     {
       key: "qos",
-      header: "QoS",
+      header: t("col.qos"),
       sortValue: (d) => d.qosClass,
       cell: (d) => (d.qosClass ? <QosBadge qos={d.qosClass} subtle /> : <span className="muted">—</span>),
     },
-    { key: "image", header: "Image", sortValue: (d) => d.image, cell: (d) => <span className="mono text-xs truncate" style={{ maxWidth: 240, display: "inline-block" }} title={d.image}>{d.image}</span> },
-    { key: "created", header: "Created", sortValue: (d) => d.createdAt, cell: (d) => <span className="text-xs muted nowrap">{timeAgo(d.createdAt)}</span> },
+    { key: "image", header: t("col.image"), sortValue: (d) => d.image, cell: (d) => <span className="mono text-xs truncate" style={{ maxWidth: 240, display: "inline-block" }} title={d.image}>{d.image}</span> },
+    { key: "created", header: t("col.created"), sortValue: (d) => d.createdAt, cell: (d) => <span className="text-xs muted nowrap">{timeAgo(d.createdAt)}</span> },
     {
       key: "actions",
       header: "",
@@ -434,8 +438,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Scale" : reason}
-                aria-label="Scale deployment"
+                tooltip={allowed ? t("action.scale") : reason}
+                aria-label={t("action.scaleDeployment")}
                 onClick={() => setScaleTarget(d)}
               >
                 <IconScale size={15} />
@@ -449,8 +453,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Resources" : reason}
-                aria-label="Edit resources"
+                tooltip={allowed ? t("action.resources") : reason}
+                aria-label={t("action.editResources")}
                 onClick={() => setResourcesTarget(d)}
               >
                 <IconEdit size={15} />
@@ -464,8 +468,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Rollout restart" : reason}
-                aria-label="Restart deployment"
+                tooltip={allowed ? t("action.rolloutRestart") : reason}
+                aria-label={t("action.restartDeployment")}
                 onClick={() => setRestartTarget(d)}
               >
                 <IconRestart size={15} />
@@ -479,8 +483,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Delete" : reason}
-                aria-label="Delete deployment"
+                tooltip={allowed ? t("action.delete") : reason}
+                aria-label={t("action.deleteDeployment")}
                 onClick={() => setDeployDeleteTarget(d)}
                 style={allowed ? { color: "var(--danger)" } : undefined}
               >
@@ -494,11 +498,11 @@ export function K8sWorkloads() {
   ];
 
   const stsCols: Column<K8sStatefulSet>[] = [
-    { key: "name", header: "StatefulSet", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
-    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    { key: "name", header: t("col.statefulset"), sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: t("col.namespace"), sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
     {
       key: "ready",
-      header: "Ready",
+      header: t("col.ready"),
       sortValue: (v) => v.ready,
       cell: (v) => (
         <span className="mono" style={{ color: v.ready >= v.replicas ? "var(--success)" : "var(--warning)" }}>
@@ -506,8 +510,8 @@ export function K8sWorkloads() {
         </span>
       ),
     },
-    { key: "image", header: "Image", sortValue: (v) => v.image, cell: (v) => <span className="mono text-xs truncate" style={{ maxWidth: 240, display: "inline-block" }} title={v.image}>{v.image}</span> },
-    { key: "created", header: "Created", sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
+    { key: "image", header: t("col.image"), sortValue: (v) => v.image, cell: (v) => <span className="mono text-xs truncate" style={{ maxWidth: 240, display: "inline-block" }} title={v.image}>{v.image}</span> },
+    { key: "created", header: t("col.created"), sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
     {
       key: "actions",
       header: "",
@@ -522,8 +526,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Scale" : reason}
-                aria-label="Scale statefulset"
+                tooltip={allowed ? t("action.scale") : reason}
+                aria-label={t("action.scaleStatefulset")}
                 onClick={() => setStsScaleTarget(v)}
               >
                 <IconScale size={15} />
@@ -537,8 +541,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Rollout restart" : reason}
-                aria-label="Restart statefulset"
+                tooltip={allowed ? t("action.rolloutRestart") : reason}
+                aria-label={t("action.restartStatefulset")}
                 onClick={() => setStsRestartTarget(v)}
               >
                 <IconRestart size={15} />
@@ -552,8 +556,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Delete" : reason}
-                aria-label="Delete statefulset"
+                tooltip={allowed ? t("action.delete") : reason}
+                aria-label={t("action.deleteStatefulset")}
                 onClick={() => setStsDeleteTarget(v)}
                 style={allowed ? { color: "var(--danger)" } : undefined}
               >
@@ -567,12 +571,12 @@ export function K8sWorkloads() {
   ];
 
   const dsCols: Column<K8sDaemonSet>[] = [
-    { key: "name", header: "DaemonSet", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
-    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
-    { key: "desired", header: "Desired", sortValue: (v) => v.desired, cell: (v) => <span className="mono">{v.desired}</span> },
+    { key: "name", header: t("col.daemonset"), sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: t("col.namespace"), sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    { key: "desired", header: t("col.desired"), sortValue: (v) => v.desired, cell: (v) => <span className="mono">{v.desired}</span> },
     {
       key: "ready",
-      header: "Ready",
+      header: t("col.ready"),
       sortValue: (v) => v.ready,
       cell: (v) => (
         <span className="mono" style={{ color: v.ready >= v.desired ? "var(--success)" : "var(--warning)" }}>
@@ -580,8 +584,8 @@ export function K8sWorkloads() {
         </span>
       ),
     },
-    { key: "available", header: "Available", sortValue: (v) => v.available, cell: (v) => <span className="mono">{v.available}</span> },
-    { key: "created", header: "Created", sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
+    { key: "available", header: t("col.available"), sortValue: (v) => v.available, cell: (v) => <span className="mono">{v.available}</span> },
+    { key: "created", header: t("col.created"), sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
     {
       key: "actions",
       header: "",
@@ -596,8 +600,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Rollout restart" : reason}
-                aria-label="Restart daemonset"
+                tooltip={allowed ? t("action.rolloutRestart") : reason}
+                aria-label={t("action.restartDaemonset")}
                 onClick={() => setDsRestartTarget(v)}
               >
                 <IconRestart size={15} />
@@ -611,8 +615,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Delete" : reason}
-                aria-label="Delete daemonset"
+                tooltip={allowed ? t("action.delete") : reason}
+                aria-label={t("action.deleteDaemonset")}
                 onClick={() => setDsDeleteTarget(v)}
                 style={allowed ? { color: "var(--danger)" } : undefined}
               >
@@ -626,11 +630,11 @@ export function K8sWorkloads() {
   ];
 
   const jobCols: Column<K8sJob>[] = [
-    { key: "name", header: "Job", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
-    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    { key: "name", header: t("col.job"), sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: t("col.namespace"), sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
     {
       key: "status",
-      header: "Status",
+      header: t("col.status"),
       sortValue: (v) => jobStatus(v),
       cell: (v) => {
         const s = jobStatus(v);
@@ -641,8 +645,8 @@ export function K8sWorkloads() {
         );
       },
     },
-    { key: "duration", header: "Duration", sortValue: (v) => v.startedAt ?? "", cell: (v) => <span className="mono text-xs">{jobDuration(v)}</span> },
-    { key: "created", header: "Created", sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
+    { key: "duration", header: t("col.duration"), sortValue: (v) => v.startedAt ?? "", cell: (v) => <span className="mono text-xs">{jobDuration(v)}</span> },
+    { key: "created", header: t("col.created"), sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
     {
       key: "actions",
       header: "",
@@ -657,8 +661,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Delete" : reason}
-                aria-label="Delete job"
+                tooltip={allowed ? t("action.delete") : reason}
+                aria-label={t("action.deleteJob")}
                 onClick={() => setJobDeleteTarget(v)}
                 style={allowed ? { color: "var(--danger)" } : undefined}
               >
@@ -672,26 +676,26 @@ export function K8sWorkloads() {
   ];
 
   const cronCols: Column<K8sCronJob>[] = [
-    { key: "name", header: "CronJob", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
-    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
-    { key: "schedule", header: "Schedule", sortValue: (v) => v.schedule, cell: (v) => <span className="mono text-xs">{v.schedule}</span> },
+    { key: "name", header: t("col.cronjob"), sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: t("col.namespace"), sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    { key: "schedule", header: t("col.schedule"), sortValue: (v) => v.schedule, cell: (v) => <span className="mono text-xs">{v.schedule}</span> },
     {
       key: "suspend",
-      header: "State",
+      header: t("col.state"),
       sortValue: (v) => (v.suspend ? 1 : 0),
       cell: (v) => (
         <span className="pill" style={{ color: v.suspend ? "var(--warning)" : "var(--success)", background: "transparent", borderColor: "var(--border-strong)" }}>
-          {v.suspend ? "Suspended" : "Active"}
+          {v.suspend ? t("cron.suspended") : t("cron.active")}
         </span>
       ),
     },
     {
       key: "lastRun",
-      header: "Last run",
+      header: t("col.lastRun"),
       sortValue: (v) => v.lastScheduleAt ?? "",
       cell: (v) => <span className="text-xs muted nowrap">{v.lastScheduleAt ? timeAgo(v.lastScheduleAt) : "—"}</span>,
     },
-    { key: "created", header: "Created", sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
+    { key: "created", header: t("col.created"), sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
     {
       key: "actions",
       header: "",
@@ -706,8 +710,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Run now" : reason}
-                aria-label="Run cronjob now"
+                tooltip={allowed ? t("action.runNow") : reason}
+                aria-label={t("action.runCronjobNow")}
                 onClick={() => doTriggerCron(v)}
               >
                 <IconPlay size={15} />
@@ -721,8 +725,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? (v.suspend ? "Resume" : "Suspend") : reason}
-                aria-label={v.suspend ? "Resume cronjob" : "Suspend cronjob"}
+                tooltip={allowed ? (v.suspend ? t("action.resume") : t("action.suspend")) : reason}
+                aria-label={v.suspend ? t("action.resumeCronjob") : t("action.suspendCronjob")}
                 onClick={() => doSuspendCron(v)}
               >
                 {v.suspend ? <IconPlay size={15} /> : <IconPause size={15} />}
@@ -736,8 +740,8 @@ export function K8sWorkloads() {
                 iconOnly
                 variant="ghost"
                 disabled={!allowed}
-                tooltip={allowed ? "Delete" : reason}
-                aria-label="Delete cronjob"
+                tooltip={allowed ? t("action.delete") : reason}
+                aria-label={t("action.deleteCronjob")}
                 onClick={() => setCronDeleteTarget(v)}
                 style={allowed ? { color: "var(--danger)" } : undefined}
               >
@@ -751,10 +755,10 @@ export function K8sWorkloads() {
   ];
 
   const nodeCols: Column<K8sNode>[] = [
-    { key: "name", header: "Node", sortValue: (n) => n.name, cell: (n) => <span style={{ fontWeight: 600 }}>{n.name}</span> },
+    { key: "name", header: t("col.nodeName"), sortValue: (n) => n.name, cell: (n) => <span style={{ fontWeight: 600 }}>{n.name}</span> },
     {
       key: "status",
-      header: "Status",
+      header: t("col.status"),
       sortValue: (n) => n.status,
       cell: (n) => (
         <span className="pill" style={{ color: n.status === "Ready" ? "var(--success)" : "var(--warning)", background: "transparent", borderColor: "var(--border-strong)" }}>
@@ -762,9 +766,9 @@ export function K8sWorkloads() {
         </span>
       ),
     },
-    { key: "roles", header: "Roles", cell: (n) => <span className="row-wrap" style={{ gap: 4 }}>{n.roles.length ? n.roles.map((r) => <span key={r} className="chip text-xs">{r}</span>) : <span className="muted">—</span>}</span> },
-    { key: "version", header: "Version", sortValue: (n) => n.version, cell: (n) => <span className="mono text-xs">{n.version}</span> },
-    { key: "ip", header: "Internal IP", cell: (n) => <span className="mono text-xs muted">{n.internalIP || "—"}</span> },
+    { key: "roles", header: t("col.roles"), cell: (n) => <span className="row-wrap" style={{ gap: 4 }}>{n.roles.length ? n.roles.map((r) => <span key={r} className="chip text-xs">{r}</span>) : <span className="muted">—</span>}</span> },
+    { key: "version", header: t("col.version"), sortValue: (n) => n.version, cell: (n) => <span className="mono text-xs">{n.version}</span> },
+    { key: "ip", header: t("col.internalIp"), cell: (n) => <span className="mono text-xs muted">{n.internalIP || "—"}</span> },
   ];
 
   const loading =
@@ -781,10 +785,10 @@ export function K8sWorkloads() {
     if (!restartTarget) return;
     try {
       await api.k8sRestartDeployment(hostId, restartTarget.namespace, restartTarget.name);
-      toast.success("Rollout restarted", `${restartTarget.namespace}/${restartTarget.name}`);
+      toast.success(t("toast.rolloutRestarted"), `${restartTarget.namespace}/${restartTarget.name}`);
       invalidateDeploys();
     } catch (err) {
-      toastError("Restart failed", err);
+      toastError(t("toast.restartFailed"), err);
       throw err;
     }
   };
@@ -793,10 +797,10 @@ export function K8sWorkloads() {
     if (!deployDeleteTarget) return;
     try {
       await api.k8sDeleteDeployment(hostId, deployDeleteTarget.namespace, deployDeleteTarget.name);
-      toast.success("Deployment deleted", `${deployDeleteTarget.namespace}/${deployDeleteTarget.name}`);
+      toast.success(t("toast.deployDeleted"), `${deployDeleteTarget.namespace}/${deployDeleteTarget.name}`);
       invalidateDeploys();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -806,10 +810,10 @@ export function K8sWorkloads() {
     const { ns, name } = splitPodId(podDeleteTarget.id);
     try {
       await api.k8sDeletePod(hostId, ns, name);
-      toast.success("Pod deleted", `${ns}/${name}`);
+      toast.success(t("toast.podDeleted"), `${ns}/${name}`);
       invalidatePods();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -819,10 +823,10 @@ export function K8sWorkloads() {
     if (!stsRestartTarget) return;
     try {
       await api.k8sRestartStatefulSet(hostId, stsRestartTarget.namespace, stsRestartTarget.name);
-      toast.success("Rollout restarted", `${stsRestartTarget.namespace}/${stsRestartTarget.name}`);
+      toast.success(t("toast.rolloutRestarted"), `${stsRestartTarget.namespace}/${stsRestartTarget.name}`);
       invalidateSts();
     } catch (err) {
-      toastError("Restart failed", err);
+      toastError(t("toast.restartFailed"), err);
       throw err;
     }
   };
@@ -831,10 +835,10 @@ export function K8sWorkloads() {
     if (!stsDeleteTarget) return;
     try {
       await api.k8sDeleteStatefulSet(hostId, stsDeleteTarget.namespace, stsDeleteTarget.name);
-      toast.success("StatefulSet deleted", `${stsDeleteTarget.namespace}/${stsDeleteTarget.name}`);
+      toast.success(t("toast.stsDeleted"), `${stsDeleteTarget.namespace}/${stsDeleteTarget.name}`);
       invalidateSts();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -843,10 +847,10 @@ export function K8sWorkloads() {
     if (!dsRestartTarget) return;
     try {
       await api.k8sRestartDaemonSet(hostId, dsRestartTarget.namespace, dsRestartTarget.name);
-      toast.success("Rollout restarted", `${dsRestartTarget.namespace}/${dsRestartTarget.name}`);
+      toast.success(t("toast.rolloutRestarted"), `${dsRestartTarget.namespace}/${dsRestartTarget.name}`);
       invalidateDs();
     } catch (err) {
-      toastError("Restart failed", err);
+      toastError(t("toast.restartFailed"), err);
       throw err;
     }
   };
@@ -855,10 +859,10 @@ export function K8sWorkloads() {
     if (!dsDeleteTarget) return;
     try {
       await api.k8sDeleteDaemonSet(hostId, dsDeleteTarget.namespace, dsDeleteTarget.name);
-      toast.success("DaemonSet deleted", `${dsDeleteTarget.namespace}/${dsDeleteTarget.name}`);
+      toast.success(t("toast.dsDeleted"), `${dsDeleteTarget.namespace}/${dsDeleteTarget.name}`);
       invalidateDs();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -867,10 +871,10 @@ export function K8sWorkloads() {
     if (!jobDeleteTarget) return;
     try {
       await api.k8sDeleteJob(hostId, jobDeleteTarget.namespace, jobDeleteTarget.name);
-      toast.success("Job deleted", `${jobDeleteTarget.namespace}/${jobDeleteTarget.name}`);
+      toast.success(t("toast.jobDeleted"), `${jobDeleteTarget.namespace}/${jobDeleteTarget.name}`);
       invalidateJobs();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -879,10 +883,10 @@ export function K8sWorkloads() {
     if (!cronDeleteTarget) return;
     try {
       await api.k8sDeleteCronJob(hostId, cronDeleteTarget.namespace, cronDeleteTarget.name);
-      toast.success("CronJob deleted", `${cronDeleteTarget.namespace}/${cronDeleteTarget.name}`);
+      toast.success(t("toast.cronDeleted"), `${cronDeleteTarget.namespace}/${cronDeleteTarget.name}`);
       invalidateCrons();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -896,12 +900,12 @@ export function K8sWorkloads() {
             <OrchestratorBadge kind="kubernetes" />
           </span>
         }
-        subtitle="Manage pods and workload controllers, or apply a manifest."
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             {section !== "nodes" ? (
               <select className="select" style={{ width: 200 }} value={namespace} onChange={(e) => setNamespace(e.target.value)}>
-                <option value="">All namespaces</option>
+                <option value="">{t("header.allNamespaces")}</option>
                 {namespaces.map((ns) => (
                   <option key={ns} value={ns}>
                     {ns}
@@ -918,14 +922,14 @@ export function K8sWorkloads() {
                   onClick={() => setApplyOpen(true)}
                 >
                   <IconPlus size={15} />
-                  Apply YAML
+                  {t("header.applyYaml")}
                 </ActionButton>
               )}
             </CapabilityGate>
-            <ActionButton variant="ghost" iconOnly tooltip="Setup guide" aria-label="Setup guide" onClick={() => setHelpOpen(true)}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.setupGuide")} aria-label={t("header.setupGuide")} onClick={() => setHelpOpen(true)}>
               <IconHelp size={16} />
             </ActionButton>
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={refetch}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={refetch}>
               <IconRefresh size={16} />
             </ActionButton>
           </div>
@@ -934,42 +938,42 @@ export function K8sWorkloads() {
 
       <div className="tabs">
         <button className={`tab${section === "pods" ? " active" : ""}`} onClick={() => setSection("pods")}>
-          Pods
+          {t("tab.pods")}
         </button>
         <button className={`tab${section === "deployments" ? " active" : ""}`} onClick={() => setSection("deployments")}>
-          Deployments
+          {t("tab.deployments")}
         </button>
         <button className={`tab${section === "statefulsets" ? " active" : ""}`} onClick={() => setSection("statefulsets")}>
-          StatefulSets
+          {t("tab.statefulsets")}
         </button>
         <button className={`tab${section === "daemonsets" ? " active" : ""}`} onClick={() => setSection("daemonsets")}>
-          DaemonSets
+          {t("tab.daemonsets")}
         </button>
         <button className={`tab${section === "jobs" ? " active" : ""}`} onClick={() => setSection("jobs")}>
-          Jobs
+          {t("tab.jobs")}
         </button>
         <button className={`tab${section === "cronjobs" ? " active" : ""}`} onClick={() => setSection("cronjobs")}>
-          CronJobs
+          {t("tab.cronjobs")}
         </button>
         <button className={`tab${section === "nodes" ? " active" : ""}`} onClick={() => setSection("nodes")}>
-          Nodes
+          {t("tab.nodes")}
         </button>
       </div>
 
       {loading ? (
-        <LoadingFill label="Loading Kubernetes data…" />
+        <LoadingFill label={t("list.loading")} />
       ) : section === "pods" ? (
         (podsQ.isError || (podsQ.data ?? []).length === 0) && !namespace ? (
           <div className="card">
             <EmptyState
               icon={<IconKube size={40} />}
-              title="No Kubernetes cluster reachable"
-              message="Castor connects to an existing cluster through a mounted kubeconfig. Mount your kubeconfig into the container and point CASTOR_KUBECONFIG at it, then make sure its server address is reachable from inside the container."
+              title={t("empty.clusterTitle")}
+              message={t("empty.clusterMessage")}
               action={
                 <div className="help-guide">
                   <ActionButton variant="primary" onClick={() => setHelpOpen(true)}>
                     <IconHelp size={15} />
-                    Show setup guide
+                    {t("empty.showSetupGuide")}
                   </ActionButton>
                   <div className="help-guide-cmd">
                     <InlineCommand command="-v $HOME/.kube/config:/home/nonroot/.kube/config:ro -e CASTOR_KUBECONFIG=/home/nonroot/.kube/config" />
@@ -983,7 +987,7 @@ export function K8sWorkloads() {
             {!metricsAvailable && (podsQ.data ?? []).length > 0 ? (
               <div className="text-xs muted" style={{ display: "flex", gap: "var(--sp-2)", alignItems: "center" }}>
                 <IconKube size={14} />
-                CPU / memory columns are blank — install <span className="mono">metrics-server</span> for live pod usage.
+                {t("empty.metricsHint")} <span className="mono">metrics-server</span> {t("empty.metricsHintTail")}
               </div>
             ) : null}
             <DataTable
@@ -993,8 +997,8 @@ export function K8sWorkloads() {
               defaultSortKey="name"
               onRowClick={(p) => navigate(`/workloads/${encodeURIComponent(hostId)}/${encodeURIComponent(p.id)}`)}
               emptyIcon={<IconKube size={40} />}
-              emptyTitle="No pods"
-              emptyMessage="No Kubernetes cluster is reachable, or the namespace is empty."
+              emptyTitle={t("empty.noPods")}
+              emptyMessage={t("empty.noPodsMessage")}
             />
           </div>
         )
@@ -1005,7 +1009,7 @@ export function K8sWorkloads() {
           rowKey={(d) => `${d.namespace}/${d.name}`}
           defaultSortKey="name"
           emptyIcon={<IconKube size={40} />}
-          emptyTitle="No deployments"
+          emptyTitle={t("empty.noDeployments")}
         />
       ) : section === "statefulsets" ? (
         <DataTable
@@ -1014,7 +1018,7 @@ export function K8sWorkloads() {
           rowKey={(v) => `${v.namespace}/${v.name}`}
           defaultSortKey="name"
           emptyIcon={<IconKube size={40} />}
-          emptyTitle="No StatefulSets"
+          emptyTitle={t("empty.noStatefulsets")}
         />
       ) : section === "daemonsets" ? (
         <DataTable
@@ -1023,7 +1027,7 @@ export function K8sWorkloads() {
           rowKey={(v) => `${v.namespace}/${v.name}`}
           defaultSortKey="name"
           emptyIcon={<IconKube size={40} />}
-          emptyTitle="No DaemonSets"
+          emptyTitle={t("empty.noDaemonsets")}
         />
       ) : section === "jobs" ? (
         <DataTable
@@ -1032,7 +1036,7 @@ export function K8sWorkloads() {
           rowKey={(v) => `${v.namespace}/${v.name}`}
           defaultSortKey="name"
           emptyIcon={<IconKube size={40} />}
-          emptyTitle="No jobs"
+          emptyTitle={t("empty.noJobs")}
         />
       ) : section === "cronjobs" ? (
         <DataTable
@@ -1041,7 +1045,7 @@ export function K8sWorkloads() {
           rowKey={(v) => `${v.namespace}/${v.name}`}
           defaultSortKey="name"
           emptyIcon={<IconKube size={40} />}
-          emptyTitle="No CronJobs"
+          emptyTitle={t("empty.noCronjobs")}
         />
       ) : (
         <DataTable
@@ -1050,7 +1054,7 @@ export function K8sWorkloads() {
           rowKey={(n) => n.name}
           defaultSortKey="name"
           emptyIcon={<IconKube size={40} />}
-          emptyTitle="No nodes"
+          emptyTitle={t("empty.noNodes")}
         />
       )}
 
@@ -1105,16 +1109,16 @@ export function K8sWorkloads() {
       {/* ---- Restart deployment (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!restartTarget}
-        title="Rollout restart"
+        title={t("dialog.restartTitle")}
         variant="primary"
-        confirmLabel="Restart"
+        confirmLabel={t("dialog.restartConfirm")}
         description={
           <>
-            Trigger a rolling restart of{" "}
+            {t("dialog.restartDeployBody1")}{" "}
             <strong className="mono">
               {restartTarget?.namespace}/{restartTarget?.name}
             </strong>
-            ? Pods are recreated one batch at a time.
+            {t("dialog.restartDeployBody2")}
           </>
         }
         onConfirm={doRestart}
@@ -1124,16 +1128,16 @@ export function K8sWorkloads() {
       {/* ---- Delete deployment (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!deployDeleteTarget}
-        title="Delete deployment"
+        title={t("dialog.deleteDeployTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete{" "}
+            {t("dialog.deleteDeployBody1")}{" "}
             <strong className="mono">
               {deployDeleteTarget?.namespace}/{deployDeleteTarget?.name}
             </strong>
-            ? Its pods are terminated. This cannot be undone.
+            {t("dialog.deleteDeployBody2")}
           </>
         }
         onConfirm={doDeleteDeploy}
@@ -1143,13 +1147,13 @@ export function K8sWorkloads() {
       {/* ---- Delete pod (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!podDeleteTarget}
-        title="Delete pod"
+        title={t("dialog.deletePodTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete pod <strong className="mono">{podDeleteTarget ? cleanName(podDeleteTarget.name) : ""}</strong>? If it
-            is managed by a controller it will be recreated.
+            {t("dialog.deletePodBody1")} <strong className="mono">{podDeleteTarget ? cleanName(podDeleteTarget.name) : ""}</strong>
+            {t("dialog.deletePodBody2")}
           </>
         }
         onConfirm={doDeletePod}
@@ -1159,16 +1163,16 @@ export function K8sWorkloads() {
       {/* ---- Restart statefulset (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!stsRestartTarget}
-        title="Rollout restart"
+        title={t("dialog.restartTitle")}
         variant="primary"
-        confirmLabel="Restart"
+        confirmLabel={t("dialog.restartConfirm")}
         description={
           <>
-            Trigger a rolling restart of{" "}
+            {t("dialog.restartDeployBody1")}{" "}
             <strong className="mono">
               {stsRestartTarget?.namespace}/{stsRestartTarget?.name}
             </strong>
-            ? Pods are recreated in ordinal order, one at a time.
+            {t("dialog.restartStsBody2")}
           </>
         }
         onConfirm={doRestartSts}
@@ -1178,16 +1182,16 @@ export function K8sWorkloads() {
       {/* ---- Delete statefulset (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!stsDeleteTarget}
-        title="Delete StatefulSet"
+        title={t("dialog.deleteStsTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete{" "}
+            {t("dialog.deleteDeployBody1")}{" "}
             <strong className="mono">
               {stsDeleteTarget?.namespace}/{stsDeleteTarget?.name}
             </strong>
-            ? Its pods are terminated (PVCs are retained). This cannot be undone.
+            {t("dialog.deleteStsBody2")}
           </>
         }
         onConfirm={doDeleteSts}
@@ -1197,16 +1201,16 @@ export function K8sWorkloads() {
       {/* ---- Restart daemonset (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!dsRestartTarget}
-        title="Rollout restart"
+        title={t("dialog.restartTitle")}
         variant="primary"
-        confirmLabel="Restart"
+        confirmLabel={t("dialog.restartConfirm")}
         description={
           <>
-            Trigger a rolling restart of{" "}
+            {t("dialog.restartDeployBody1")}{" "}
             <strong className="mono">
               {dsRestartTarget?.namespace}/{dsRestartTarget?.name}
             </strong>
-            ? Pods are recreated node by node.
+            {t("dialog.restartDsBody2")}
           </>
         }
         onConfirm={doRestartDs}
@@ -1216,16 +1220,16 @@ export function K8sWorkloads() {
       {/* ---- Delete daemonset (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!dsDeleteTarget}
-        title="Delete DaemonSet"
+        title={t("dialog.deleteDsTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete{" "}
+            {t("dialog.deleteDeployBody1")}{" "}
             <strong className="mono">
               {dsDeleteTarget?.namespace}/{dsDeleteTarget?.name}
             </strong>
-            ? Its pods are removed from every node. This cannot be undone.
+            {t("dialog.deleteDsBody2")}
           </>
         }
         onConfirm={doDeleteDs}
@@ -1235,16 +1239,16 @@ export function K8sWorkloads() {
       {/* ---- Delete job (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!jobDeleteTarget}
-        title="Delete job"
+        title={t("dialog.deleteJobTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete{" "}
+            {t("dialog.deleteDeployBody1")}{" "}
             <strong className="mono">
               {jobDeleteTarget?.namespace}/{jobDeleteTarget?.name}
             </strong>
-            ? Its pods are removed with it. This cannot be undone.
+            {t("dialog.deleteJobBody2")}
           </>
         }
         onConfirm={doDeleteJob}
@@ -1254,16 +1258,16 @@ export function K8sWorkloads() {
       {/* ---- Delete cronjob (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!cronDeleteTarget}
-        title="Delete CronJob"
+        title={t("dialog.deleteCronTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete{" "}
+            {t("dialog.deleteDeployBody1")}{" "}
             <strong className="mono">
               {cronDeleteTarget?.namespace}/{cronDeleteTarget?.name}
             </strong>
-            ? No further runs are scheduled. This cannot be undone.
+            {t("dialog.deleteCronBody2")}
           </>
         }
         onConfirm={doDeleteCron}
@@ -1301,6 +1305,7 @@ function PodTerminalModal({
   pod: Workload | null;
   onClose: () => void;
 }) {
+  const t = useT(k8sWorkloadsDict);
   const [shellIdx, setShellIdx] = useState(0);
   const [container, setContainer] = useState("");
   const [sessionKey, setSessionKey] = useState(0);
@@ -1365,21 +1370,21 @@ function PodTerminalModal({
       wide
       title={
         <span className="col" style={{ gap: 0 }}>
-          <span>Pod terminal</span>
+          <span>{t("term.title")}</span>
           <span className="text-xs muted mono">{ns}/{name}</span>
         </span>
       }
       onClose={onClose}
       footer={
         <button className="btn" onClick={onClose}>
-          Close
+          {t("term.close")}
         </button>
       }
     >
       <div className="col" style={{ gap: "var(--sp-3)" }}>
         <div className="row-wrap" style={{ gap: "var(--sp-2)", alignItems: "flex-end" }}>
           <div className="field" style={{ width: 150 }}>
-            <label className="field-label" htmlFor="pod-term-shell">Shell</label>
+            <label className="field-label" htmlFor="pod-term-shell">{t("term.shell")}</label>
             <select
               id="pod-term-shell"
               className="select"
@@ -1395,15 +1400,15 @@ function PodTerminalModal({
             </select>
           </div>
           <div className="field" style={{ width: 200 }}>
-            <label className="field-label" htmlFor="pod-term-container">Container</label>
+            <label className="field-label" htmlFor="pod-term-container">{t("term.container")}</label>
             <input
               id="pod-term-container"
               className="input input-mono"
-              placeholder="(default)"
+              placeholder={t("term.containerPlaceholder")}
               value={container}
               onChange={(e) => setContainer(e.target.value)}
               disabled={started}
-              aria-label="Container name (blank for default)"
+              aria-label={t("term.containerAria")}
             />
           </div>
           {!started ? (
@@ -1416,22 +1421,22 @@ function PodTerminalModal({
               }}
             >
               <IconTerminal size={15} />
-              Open session
+              {t("term.openSession")}
             </ActionButton>
           ) : (
             <ActionButton variant="ghost" onClick={() => setSessionKey((k) => k + 1)}>
-              Restart session
+              {t("term.restartSession")}
             </ActionButton>
           )}
           <span className="spacer" />
           {exitCode !== undefined ? (
             <span className="text-xs muted">
-              Last session exited{exitCode === null ? "" : ` (code ${exitCode})`}
+              {exitCode === null ? t("term.lastExited") : t("term.lastExitedCode", { code: exitCode })}
             </span>
           ) : null}
         </div>
         <span className="text-xs muted">
-          For a multi-container pod, name the container to exec into; leave blank for the pod's default container.
+          {t("term.hint")}
         </span>
 
         {started || sessionKey > 0 ? (
@@ -1442,7 +1447,7 @@ function PodTerminalModal({
             style={{ minHeight: 320, background: "var(--bg-inset)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}
           >
             <IconTerminal size={36} />
-            <span className="text-sm muted">Pick a shell and open an interactive session.</span>
+            <span className="text-sm muted">{t("term.placeholderTitle")}</span>
           </div>
         )}
       </div>
@@ -1467,6 +1472,7 @@ function PodLogsModal({
   pod: Workload | null;
   onClose: () => void;
 }) {
+  const t = useT(k8sWorkloadsDict);
   const [container, setContainer] = useState("");
   const [lines, setLines] = useState<LogLine[]>([]);
   const [follow, setFollow] = useState(true);
@@ -1522,41 +1528,41 @@ function PodLogsModal({
       wide
       title={
         <span className="col" style={{ gap: 0 }}>
-          <span>Pod logs</span>
+          <span>{t("logs.title")}</span>
           <span className="text-xs muted mono">{ns}/{name}</span>
         </span>
       }
       onClose={onClose}
       footer={
         <button className="btn" onClick={onClose}>
-          Close
+          {t("logs.close")}
         </button>
       }
     >
       <div className="col" style={{ gap: "var(--sp-3)" }}>
         <div className="row-wrap" style={{ gap: "var(--sp-2)", alignItems: "flex-end" }}>
           <div className="field" style={{ width: 220 }}>
-            <label className="field-label" htmlFor="pod-logs-container">Container</label>
+            <label className="field-label" htmlFor="pod-logs-container">{t("logs.container")}</label>
             <input
               id="pod-logs-container"
               className="input input-mono"
-              placeholder="(default)"
+              placeholder={t("logs.containerPlaceholder")}
               value={container}
               onChange={(e) => setContainer(e.target.value)}
-              aria-label="Container name (blank for default)"
+              aria-label={t("logs.containerAria")}
             />
           </div>
           <span className="text-xs muted" style={{ paddingBottom: 8 }}>
-            Name a container for a multi-container pod; blank streams the default container.
+            {t("logs.hint")}
           </span>
         </div>
-        {error ? <div className="banner danger">Log stream error: {error}</div> : null}
+        {error ? <div className="banner danger">{t("logs.streamError", { error })}</div> : null}
         <LogViewer
           lines={lines}
           follow={follow}
           onToggleFollow={setFollow}
           onClear={() => setLines([])}
-          status={connected ? "streaming" : "connecting…"}
+          status={connected ? t("logs.streaming") : t("logs.connecting")}
           height={420}
         />
       </div>
@@ -1582,6 +1588,7 @@ function ScaleWorkloadModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT(k8sWorkloadsDict);
   const [replicas, setReplicas] = useState("0");
   const [busy, setBusy] = useState(false);
 
@@ -1601,10 +1608,10 @@ function ScaleWorkloadModal({
     setBusy(true);
     try {
       await scale(target.namespace, target.name, n);
-      toast.success(`${noun} scaled`, `${target.namespace}/${target.name} → ${n} replica(s).`);
+      toast.success(t("toast.scaled", { noun }), t("toast.scaledBody", { namespace: target.namespace, name: target.name, count: n }));
       onDone();
     } catch (err) {
-      toastError("Scale failed", err);
+      toastError(t("toast.scaleFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -1613,16 +1620,16 @@ function ScaleWorkloadModal({
   return (
     <Modal
       open={!!target}
-      title={`Scale ${noun}`}
+      title={t("scale.title", { noun })}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("scale.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Scale
+            {t("scale.submit")}
           </ActionButton>
         </>
       }
@@ -1633,11 +1640,11 @@ function ScaleWorkloadModal({
           <strong className="mono">
             {target?.namespace}/{target?.name}
           </strong>{" "}
-          — currently <span className="mono">{target?.replicas}</span> desired.
+          {t("scale.currentPrefix")} <span className="mono">{target?.replicas}</span> {t("scale.currentSuffix")}
         </div>
         <div className="field" style={{ width: 160 }}>
           <label className="field-label" htmlFor="k8s-scale-replicas">
-            Replicas
+            {t("scale.replicas")}
           </label>
           <input
             id="k8s-scale-replicas"
@@ -1649,7 +1656,7 @@ function ScaleWorkloadModal({
             onChange={(e) => setReplicas(e.target.value)}
           />
           {replicas !== "" && !(Number.isInteger(n) && n >= 0) ? (
-            <span className="field-error">Whole number ≥ 0.</span>
+            <span className="field-error">{t("scale.wholeNumber")}</span>
           ) : null}
         </div>
       </div>
@@ -1670,6 +1677,7 @@ function ResourcesDeploymentModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT(k8sWorkloadsDict);
   const containers = target?.containers ?? [];
   const [containerName, setContainerName] = useState("");
   const [requests, setRequests] = useState<K8sPairDraft>(() => k8sPairDraftFromQuantities(undefined, undefined));
@@ -1711,10 +1719,10 @@ function ResourcesDeploymentModal({
         requests: req,
         limits: lim,
       });
-      toast.success("Resources updated", `${target.namespace}/${target.name}`);
+      toast.success(t("toast.resourcesUpdated"), `${target.namespace}/${target.name}`);
       onDone();
     } catch (err) {
-      toastError("Update failed", err);
+      toastError(t("toast.updateFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -1724,37 +1732,37 @@ function ResourcesDeploymentModal({
     <Modal
       open={!!target}
       wide
-      title="Edit resources"
+      title={t("resources.title")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("resources.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={busy || containers.length === 0} onClick={submit}>
-            Apply
+            {t("resources.apply")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-4)" }}>
         <div className="text-sm secondary">
-          Set CPU / memory requests and limits on{" "}
+          {t("resources.intro1")}{" "}
           <strong className="mono">
             {target?.namespace}/{target?.name}
           </strong>
-          . A blank field leaves that value unchanged on the server.
+          {t("resources.intro2")}
         </div>
 
         {containers.length === 0 ? (
-          <div className="text-sm muted">This deployment exposes no containers to configure.</div>
+          <div className="text-sm muted">{t("resources.noContainers")}</div>
         ) : (
           <>
             {containers.length > 1 ? (
               <div className="field" style={{ maxWidth: 280 }}>
                 <label className="field-label" htmlFor="k8s-rsc-container">
-                  Container
+                  {t("resources.container")}
                 </label>
                 <select
                   id="k8s-rsc-container"
@@ -1771,33 +1779,33 @@ function ResourcesDeploymentModal({
               </div>
             ) : (
               <div className="text-xs muted">
-                Container <span className="mono">{selected?.name}</span>
+                {t("resources.container")} <span className="mono">{selected?.name}</span>
               </div>
             )}
 
             {/* current values */}
             <div className="col" style={{ gap: 4 }}>
               <span className="field-label" style={{ margin: 0 }}>
-                Current
+                {t("resources.current")}
               </span>
               <div className="row" style={{ gap: "var(--sp-4)", flexWrap: "wrap" }}>
                 <span className="text-xs muted">
-                  requests:{" "}
+                  {t("resources.requestsLabel")}{" "}
                   <span className="mono">{selected?.cpuRequest || "—"} cpu</span> /{" "}
                   <span className="mono">{selected?.memRequest || "—"}</span>
                 </span>
                 <span className="text-xs muted">
-                  limits:{" "}
+                  {t("resources.limitsLabel")}{" "}
                   <span className="mono">{selected?.cpuLimit || "—"} cpu</span> /{" "}
                   <span className="mono">{selected?.memLimit || "—"}</span>
                 </span>
               </div>
             </div>
 
-            <K8sResourcePairFields label="Requests" draft={requests} onChange={setRequests} />
-            <K8sResourcePairFields label="Limits" draft={limits} onChange={setLimits} />
+            <K8sResourcePairFields label={t("resources.requests")} draft={requests} onChange={setRequests} />
+            <K8sResourcePairFields label={t("resources.limits")} draft={limits} onChange={setLimits} />
             <span className="text-xs muted">
-              CPU is millicores (1000m = 1 core); the new values resolve to{" "}
+              {t("resources.millicoresHint1")}{" "}
               <span className="mono">
                 req {k8sPairFromDraft(requests).cpuMilli || 0}m / {bytesToQuantity(k8sPairFromDraft(requests).memoryBytes)}
               </span>
@@ -1827,6 +1835,7 @@ function ApplyManifestModal({
   onClose: () => void;
   onApplied: () => void;
 }) {
+  const t = useT(k8sWorkloadsDict);
   const [yaml, setYaml] = useState("");
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<K8sApplyResult[] | null>(null);
@@ -1847,13 +1856,13 @@ function ApplyManifestModal({
       setResults(res.results);
       const errors = res.results.filter((r) => r.action === "error").length;
       if (errors === 0) {
-        toast.success("Manifest applied", `${res.results.length} resource(s).`);
+        toast.success(t("toast.manifestApplied"), t("toast.manifestAppliedBody", { count: res.results.length }));
       } else {
-        toast.warning("Applied with errors", `${errors} of ${res.results.length} resource(s) failed.`);
+        toast.warning(t("toast.appliedWithErrors"), t("toast.appliedWithErrorsBody", { errors, total: res.results.length }));
       }
       onApplied();
     } catch (err) {
-      toastError("Apply failed", err);
+      toastError(t("toast.applyFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -1863,24 +1872,24 @@ function ApplyManifestModal({
     <Modal
       open={open}
       wide
-      title="Apply manifest"
+      title={t("apply.title")}
       busy={busy}
       onClose={close}
       footer={
         <>
           <button className="btn" onClick={close} disabled={busy}>
-            Close
+            {t("apply.close")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!yaml.trim() || busy} onClick={submit}>
-            Apply
+            {t("apply.apply")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-4)" }}>
         <div className="text-sm secondary">
-          Paste one or more YAML documents (separated by <span className="mono">---</span>). Each is server-side applied
-          (field manager <span className="mono">castor</span>); per-document outcomes are shown below.
+          {t("apply.intro1")} <span className="mono">---</span>{t("apply.intro2")}{" "}
+          <span className="mono">castor</span>{t("apply.intro3")}
         </div>
         <textarea
           className="textarea input-mono"
@@ -1890,7 +1899,7 @@ function ApplyManifestModal({
           onChange={(e) => setYaml(e.target.value)}
           placeholder={"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n  namespace: default\nspec:\n  replicas: 2\n  ..."}
           style={{ minHeight: 300, fontFamily: "var(--font-mono)", fontSize: 13, lineHeight: 1.5, whiteSpace: "pre", tabSize: 2 }}
-          aria-label="Manifest YAML"
+          aria-label={t("apply.yamlAria")}
         />
 
         {results ? <ApplyResults results={results} /> : null}
@@ -1915,21 +1924,22 @@ function actionColor(action: K8sApplyResult["action"]): string {
 }
 
 function ApplyResults({ results }: { results: K8sApplyResult[] }) {
+  const t = useT(k8sWorkloadsDict);
   if (results.length === 0) {
-    return <div className="text-sm muted">No documents found in the manifest.</div>;
+    return <div className="text-sm muted">{t("apply.noDocuments")}</div>;
   }
   return (
     <div className="col" style={{ gap: "var(--sp-2)" }}>
       <span className="field-label" style={{ margin: 0 }}>
-        Results ({results.length})
+        {t("apply.results", { count: results.length })}
       </span>
       <table className="dt">
         <thead>
           <tr>
-            <th>Kind</th>
-            <th>Name</th>
-            <th>Namespace</th>
-            <th>Action</th>
+            <th>{t("apply.colKind")}</th>
+            <th>{t("apply.colName")}</th>
+            <th>{t("apply.colNamespace")}</th>
+            <th>{t("apply.colAction")}</th>
           </tr>
         </thead>
         <tbody>
