@@ -14,9 +14,59 @@ import { ActionButton } from "../components/ActionButton";
 import { Modal } from "../components/Modal";
 import { StatusDot } from "../components/StatusDot";
 import { HelpButton } from "../components/HelpButton";
-import { IconAudit, IconRefresh, IconSearch, IconInspect } from "../components/icons";
+import { IconAudit, IconDownload, IconRefresh, IconSearch, IconInspect } from "../components/icons";
 import { formatDateTime, prettyJson, timeAgo } from "../lib/format";
+import { toast, toastError } from "../lib/toast";
 import type { AuditEntry, AuditResult } from "../lib/types";
+
+// CSV columns exported for each audit row, in output order.
+const CSV_COLUMNS = ["ts", "actor", "action", "target", "scope", "result", "status", "requestId"] as const;
+
+// escapeCsv quotes a field per RFC 4180: a field containing a quote, comma, CR
+// or LF is wrapped in double quotes with embedded quotes doubled. Everything is
+// stringified first so null/number values are handled uniformly.
+function escapeCsv(value: string | number | null | undefined): string {
+  const s = value == null ? "" : String(value);
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// auditRowsToCsv renders the loaded audit entries to an RFC 4180 document. The
+// scope field joins scopeType and scopeId the same way the detail drawer does.
+function auditRowsToCsv(rows: AuditEntry[]): string {
+  const header = CSV_COLUMNS.join(",");
+  const lines = rows.map((a) => {
+    const scope = a.scopeId ? `${a.scopeType}:${a.scopeId}` : a.scopeType;
+    const target = a.targetName || a.targetId || "";
+    const cells: (string | number | null)[] = [
+      a.ts,
+      a.actorName || a.actorId,
+      a.action,
+      target,
+      scope,
+      a.result,
+      a.httpStatus,
+      a.requestId,
+    ];
+    return cells.map(escapeCsv).join(",");
+  });
+  // Leading BOM makes Excel read UTF-8 correctly; CRLF line endings per RFC 4180.
+  return "﻿" + [header, ...lines].join("\r\n");
+}
+
+// downloadCsv triggers a browser save from an in-memory string via a transient
+// object-URL anchor — pure client side, no network. Mirrors the anchor mechanic
+// of api.ts downloadFile without going through the request path.
+function downloadCsv(csv: string, filename: string): void {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 const RESULTS: { value: AuditResult | ""; label: string }[] = [
   { value: "", label: "All results" },
@@ -55,6 +105,38 @@ export function Audit() {
   });
 
   const rows = (query.data?.pages ?? []).flatMap((p) => p.items);
+
+  const [exporting, setExporting] = useState(false);
+
+  // exportCsv writes the currently loaded rows to a CSV download (browser-only).
+  const exportCsv = (data: AuditEntry[]) => {
+    if (data.length === 0) {
+      toast.info("Nothing to export", "No audit rows are loaded.");
+      return;
+    }
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    downloadCsv(auditRowsToCsv(data), `audit-${stamp}.csv`);
+    toast.success("Export ready", `${data.length} rows written to CSV.`);
+  };
+
+  // exportAll drains remaining pages (respecting the active filters) before
+  // exporting, so the CSV covers the full result set, not just loaded rows.
+  const exportAll = async () => {
+    setExporting(true);
+    try {
+      let result = await query.fetchNextPage();
+      // fetchNextPage resolves with the accumulated data; loop while more remain.
+      while (result.hasNextPage) {
+        result = await query.fetchNextPage();
+      }
+      const all = (result.data?.pages ?? []).flatMap((p) => p.items);
+      exportCsv(all);
+    } catch (err) {
+      toastError("Export failed", err);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const applyFilters = () => setApplied({ action, actorId, targetType, result });
   const resetFilters = () => {
@@ -149,6 +231,21 @@ export function Audit() {
         subtitle="Append-only record of every mutating action and access decision."
         actions={
           <div className="row">
+            <ActionButton
+              variant="ghost"
+              disabled={rows.length === 0}
+              tooltip={rows.length === 0 ? "No rows loaded yet" : undefined}
+              onClick={() => exportCsv(rows)}
+            >
+              <IconDownload size={15} />
+              Export loaded rows
+            </ActionButton>
+            {query.hasNextPage ? (
+              <ActionButton variant="ghost" loading={exporting} onClick={exportAll}>
+                <IconDownload size={15} />
+                Load all then export
+              </ActionButton>
+            ) : null}
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>

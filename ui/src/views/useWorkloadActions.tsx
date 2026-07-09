@@ -30,6 +30,37 @@ interface Pending {
   workload: Workload;
 }
 
+// Bulk actions apply to a selection of workloads at once. Only start/stop/remove
+// are exposed in the bulk bar (pause/restart stay per-row).
+export type BulkAction = "start" | "stop" | "remove";
+
+interface BulkPending {
+  action: BulkAction;
+  // Already filtered to actionable docker targets (non-protected) by the caller.
+  workloads: Workload[];
+}
+
+const BULK_VERB: Record<BulkAction, string> = {
+  start: "Start",
+  stop: "Stop",
+  remove: "Remove",
+};
+
+// bulkApi maps a bulk action to its single-target api call.
+async function bulkApi(action: BulkAction, hostId: string, w: Workload, opts: DestructiveOptions): Promise<void> {
+  switch (action) {
+    case "start":
+      await api.workloadStart(hostId, w.id);
+      return;
+    case "stop":
+      await api.workloadStop(hostId, w.id);
+      return;
+    case "remove":
+      await api.workloadRemove(hostId, w.id, { force: opts.force, volumes: opts.volumes });
+      return;
+  }
+}
+
 // isRunningConflict reports whether err is the backend's "container is running"
 // refusal (HTTP 409 conflict) — the one case a force-remove can resolve. It is
 // deliberately narrow: a protected_resource 409 from the guard is NOT included,
@@ -47,6 +78,8 @@ export function useWorkloadActions(hostId: string) {
   // kept separate from `pending` so closing the first dialog doesn't clobber it.
   const [forcePrompt, setForcePrompt] = useState<Workload | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Bulk flow: its own dialog state, independent of the single-target `pending`.
+  const [bulkPending, setBulkPending] = useState<BulkPending | null>(null);
 
   const isAdmin = permissions.includes("*");
 
@@ -180,6 +213,43 @@ export function useWorkloadActions(hostId: string) {
     }
   };
 
+  // runBulk opens the bulk confirm dialog. Targets are narrowed to actionable
+  // docker workloads (non-protected); protected/non-docker are dropped here so
+  // the dialog never lists something the backend would refuse. Nothing to do →
+  // an info toast instead of an empty dialog.
+  const runBulk = (action: BulkAction, workloads: Workload[]) => {
+    const targets = workloads.filter((w) => w.kind === "docker" && !w.protected);
+    if (targets.length === 0) {
+      toast.info("Nothing to do", "None of the selected workloads support this action.");
+      return;
+    }
+    setBulkPending({ action, workloads: targets });
+  };
+
+  const closeBulk = () => setBulkPending(null);
+
+  // confirmBulk fires every call in parallel and aggregates the outcome into a
+  // single toast ("3 stopped, 1 failed"). It never throws, so the dialog closes
+  // even on partial failure; per-item errors are summarized, not re-toasted.
+  const confirmBulk = async (opts: DestructiveOptions) => {
+    if (!bulkPending) return;
+    const { action, workloads } = bulkPending;
+    const results = await Promise.allSettled(
+      workloads.map((w) => bulkApi(action, hostId, w, opts)),
+    );
+    const ok = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.length - ok;
+    const past = { start: "started", stop: "stopped", remove: "removed" }[action];
+    if (failed === 0) {
+      toast.success("Bulk action complete", `${ok} ${past}.`);
+    } else if (ok === 0) {
+      toast.error("Bulk action failed", `${failed} failed.`);
+    } else {
+      toast.warning("Bulk action partial", `${ok} ${past}, ${failed} failed.`);
+    }
+    invalidate();
+  };
+
   const dialogs = (
     <>
       <ConfirmDestructiveDialog
@@ -248,6 +318,39 @@ export function useWorkloadActions(hostId: string) {
         onConfirm={confirmRemoveForced}
         onClose={closeForcePrompt}
       />
+      <ConfirmDestructiveDialog
+        open={bulkPending !== null}
+        title={bulkPending ? `${BULK_VERB[bulkPending.action]} ${bulkPending.workloads.length} workloads` : ""}
+        variant={bulkPending?.action === "remove" ? "danger" : "primary"}
+        confirmLabel={bulkPending ? BULK_VERB[bulkPending.action] : "Confirm"}
+        showRemoveOptions={bulkPending?.action === "remove"}
+        description={
+          <div className="col" style={{ gap: "var(--sp-3)" }}>
+            <span>
+              {bulkPending?.action === "remove" ? (
+                <>
+                  Permanently remove the following <strong>{bulkPending.workloads.length}</strong> workloads?
+                  This cannot be undone.
+                </>
+              ) : (
+                <>
+                  {BULK_VERB[bulkPending?.action ?? "stop"]} the following{" "}
+                  <strong>{bulkPending?.workloads.length}</strong> workloads?
+                </>
+              )}
+            </span>
+            <ul className="col" style={{ gap: 2, maxHeight: 200, overflow: "auto", margin: 0, paddingLeft: "var(--sp-4)" }}>
+              {bulkPending?.workloads.map((w) => (
+                <li key={w.id} className="mono text-sm">
+                  {cleanName(w.name)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        }
+        onConfirm={confirmBulk}
+        onClose={closeBulk}
+      />
     </>
   );
 
@@ -258,6 +361,7 @@ export function useWorkloadActions(hostId: string) {
     triggerStop,
     triggerRestart,
     triggerRemove,
+    runBulk,
     busyId,
     dialogs,
     isAdmin,

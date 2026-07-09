@@ -5,7 +5,7 @@
 // group, search; row actions gated by capability + permission. Rows are
 // click-through to the detail view.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
@@ -25,8 +25,8 @@ import { ActionButton } from "../components/ActionButton";
 import { HelpButton } from "../components/HelpButton";
 import { CapabilityGate } from "../components/CapabilityGate";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
-import { IconDownload, IconPrune, IconRefresh, IconSearch, IconWorkloads } from "../components/icons";
-import { gatePrune } from "../lib/rbac";
+import { IconDownload, IconPlay, IconPrune, IconRefresh, IconSearch, IconStop, IconTrash, IconWorkloads } from "../components/icons";
+import { gatePrune, gateWorkloadAction, type WorkloadAction } from "../lib/rbac";
 import { toast, toastError } from "../lib/toast";
 import { cleanName, formatBytes, shortId, timeAgo } from "../lib/format";
 import type { OrchestratorKind, UpdateStatus, Workload, WorkloadState } from "../lib/types";
@@ -40,6 +40,10 @@ const KINDS: { value: "" | OrchestratorKind; label: string }[] = [
 
 // Stable empty reference so memo deps don't change identity every render.
 const EMPTY_WORKLOADS: Workload[] = [];
+
+// Row / selection key: unique per provider so ids that collide across
+// orchestrators stay distinct. Must match the DataTable rowKey exactly.
+const wKey = (w: Workload) => `${w.providerId}:${w.id}`;
 
 const STATES: { value: "" | WorkloadState; label: string }[] = [
   { value: "", label: "All states" },
@@ -66,6 +70,7 @@ export function Workloads() {
   const [pruneOpen, setPruneOpen] = useState(false);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [updateTarget, setUpdateTarget] = useState<Workload | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
 
   const query = useWorkloads(hostId, { all: showAll, kind: kind || undefined });
   const workloads = query.data ?? EMPTY_WORKLOADS;
@@ -138,6 +143,67 @@ export function Workloads() {
       return true;
     });
   }, [workloads, state, group, search]);
+
+  // ---- Selection + bulk actions -------------------------------------------
+  // Rows are keyed by "providerId:id" (same key DataTable uses) so selection is
+  // unambiguous across providers. Bulk lifecycle actions only apply to docker,
+  // non-protected targets; the rest are ignored (swarm/k8s are read-only,
+  // protected need the per-row admin-override flow).
+  const filteredByKey = useMemo(() => {
+    const map = new Map<string, Workload>();
+    for (const w of filtered) map.set(wKey(w), w);
+    return map;
+  }, [filtered]);
+
+  const selectedWorkloads = useMemo(
+    () => filtered.filter((w) => selected.has(wKey(w))),
+    [filtered, selected],
+  );
+  const bulkTargets = useMemo(
+    () => selectedWorkloads.filter((w) => w.kind === "docker" && !w.protected),
+    [selectedWorkloads],
+  );
+
+  const toggleRow = (key: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  // onToggleAll receives the full sorted key set from DataTable. Clearing when
+  // everything is already selected, selecting all otherwise.
+  const toggleAll = (keys: string[]) =>
+    setSelected((prev) => {
+      const allOn = keys.length > 0 && keys.every((k) => prev.has(k));
+      return allOn ? new Set() : new Set(keys);
+    });
+
+  const clearSelection = () => setSelected(new Set());
+
+  // Prune keys that dropped out of the current view (filter change, successful
+  // remove, host switch) so the selection never carries stale entries. Runs
+  // after render as a reconciliation effect; the equality guard avoids a loop.
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set<string>();
+      for (const k of prev) if (filteredByKey.has(k)) next.add(k);
+      return next.size === prev.size ? prev : next;
+    });
+  }, [filteredByKey]);
+
+  // A bulk button is enabled when at least one target passes the per-action gate.
+  const bulkGate = (action: WorkloadAction): boolean =>
+    bulkTargets.some((w) => gateWorkloadAction(action, w.kind, capsForKind(w.kind), permissions).allowed);
+
+  const runBulkAction = (action: "start" | "stop" | "remove") => {
+    const eligible = bulkTargets.filter(
+      (w) => gateWorkloadAction(action, w.kind, capsForKind(w.kind), permissions).allowed,
+    );
+    actions.runBulk(action, eligible);
+  };
 
   const columns: Column<Workload>[] = [
     {
@@ -374,16 +440,72 @@ export function Workloads() {
           />
         </div>
       ) : (
-        <DataTable
-          columns={columns}
-          rows={filtered}
-          rowKey={(w) => `${w.providerId}:${w.id}`}
-          defaultSortKey="name"
-          onRowClick={(w) => navigate(`/workloads/${encodeURIComponent(hostId)}/${encodeURIComponent(w.id)}`)}
-          emptyIcon={<IconWorkloads size={40} />}
-          emptyTitle="No workloads match"
-          emptyMessage="Adjust the filters above, or start some containers."
-        />
+        <>
+          {selected.size > 0 ? (
+            <div
+              className="card card-pad row-wrap"
+              style={{ gap: "var(--sp-3)", alignItems: "center", borderColor: "var(--accent)" }}
+            >
+              <span className="text-sm" style={{ fontWeight: 600 }}>
+                {selected.size} selected
+              </span>
+              {bulkTargets.length < selected.size ? (
+                <span className="text-xs muted">
+                  {bulkTargets.length} actionable (docker, unprotected)
+                </span>
+              ) : null}
+              <span className="spacer" />
+              <ActionButton
+                size="sm"
+                variant="ghost"
+                disabled={!bulkGate("start")}
+                tooltip={bulkGate("start") ? undefined : "No selected docker workloads can be started"}
+                onClick={() => runBulkAction("start")}
+              >
+                <IconPlay size={14} />
+                Start
+              </ActionButton>
+              <ActionButton
+                size="sm"
+                variant="ghost"
+                disabled={!bulkGate("stop")}
+                tooltip={bulkGate("stop") ? undefined : "No selected docker workloads can be stopped"}
+                onClick={() => runBulkAction("stop")}
+              >
+                <IconStop size={14} />
+                Stop
+              </ActionButton>
+              <ActionButton
+                size="sm"
+                variant="ghost"
+                disabled={!bulkGate("remove")}
+                tooltip={bulkGate("remove") ? undefined : "No selected docker workloads can be removed"}
+                onClick={() => runBulkAction("remove")}
+                style={bulkGate("remove") ? { color: "var(--danger)" } : undefined}
+              >
+                <IconTrash size={14} />
+                Remove
+              </ActionButton>
+              <ActionButton size="sm" variant="ghost" onClick={clearSelection}>
+                Clear
+              </ActionButton>
+            </div>
+          ) : null}
+          <DataTable
+            columns={columns}
+            rows={filtered}
+            rowKey={wKey}
+            defaultSortKey="name"
+            onRowClick={(w) => navigate(`/workloads/${encodeURIComponent(hostId)}/${encodeURIComponent(w.id)}`)}
+            emptyIcon={<IconWorkloads size={40} />}
+            emptyTitle="No workloads match"
+            emptyMessage="Adjust the filters above, or start some containers."
+            selectable
+            selectedKeys={selected}
+            onToggleRow={toggleRow}
+            onToggleAll={toggleAll}
+          />
+        </>
       )}
 
       <ConfirmDestructiveDialog

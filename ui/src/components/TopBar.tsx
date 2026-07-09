@@ -13,6 +13,7 @@ import { useThemeStore, type ThemePreference } from "../lib/themeStore";
 import { wsClient } from "../lib/ws";
 import { toast, toastError } from "../lib/toast";
 import { StatusDot } from "./StatusDot";
+import { usePaletteStore } from "./CommandPalette";
 import {
   IconChevronDown,
   IconHosts,
@@ -20,6 +21,7 @@ import {
   IconLogout,
   IconAlert,
   IconCheck,
+  IconSearch,
   IconSun,
   IconMoon,
   IconMonitor,
@@ -58,13 +60,40 @@ const THEME_LABEL: Record<ThemePreference, string> = {
   system: "System",
 };
 
-export function TopBar() {
+export interface TopBarProps {
+  /** Whether the mobile navigation drawer is open (drives aria-expanded). */
+  sidebarOpen?: boolean;
+  /** Toggles the mobile navigation drawer (hamburger, <640px only). */
+  onToggleSidebar?: () => void;
+}
+
+// Inline hamburger glyph — kept local to the TopBar so the shared icon set is
+// untouched. Matches the icons.tsx stroke conventions (24x24, currentColor).
+function HamburgerGlyph() {
+  return (
+    <svg
+      width={20}
+      height={20}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M3 6h18M3 12h18M3 18h18" />
+    </svg>
+  );
+}
+
+export function TopBar({ sidebarOpen = false, onToggleSidebar }: TopBarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, clear } = useAuth();
   const { data: hosts } = useHosts();
   const { selectedHostId, setSelectedHost } = useHostStore();
   const { theme, setTheme } = useThemeStore();
+  const openPalette = usePaletteStore((s) => s.openPalette);
 
   const [hostMenu, setHostMenu] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
@@ -102,11 +131,30 @@ export function TopBar() {
 
   return (
     <header className="topbar">
+      {/* Hamburger: opens the navigation drawer on phones (<640px). Hidden on
+          wider viewports where the sidebar/rail is always present. */}
+      <button
+        className="topbar-hamburger"
+        onClick={onToggleSidebar}
+        aria-label="Toggle navigation menu"
+        aria-expanded={sidebarOpen}
+        aria-controls="app-sidebar"
+      >
+        <HamburgerGlyph />
+      </button>
+
       <div className="crumbs">
         <span className="muted">Castor</span>
         <span className="sep">/</span>
         <span className="current truncate">{titleFor(location.pathname)}</span>
       </div>
+
+      {/* Command palette trigger — also opens with Cmd/Ctrl-K. */}
+      <button className="cmdk-trigger" onClick={openPalette} aria-label="Open command palette">
+        <IconSearch size={15} />
+        <span className="cmdk-trigger-text">Search…</span>
+        <kbd className="cmdk-trigger-kbd">⌘K</kbd>
+      </button>
 
       <span className="spacer" />
 
@@ -126,7 +174,7 @@ export function TopBar() {
       <div className="host-switcher" ref={hostRef}>
         <button className="host-btn" onClick={() => setHostMenu((v) => !v)} aria-haspopup="menu">
           <IconHosts size={16} />
-          <span className="truncate" style={{ maxWidth: 160 }}>
+          <span className="truncate host-label">
             {currentHost?.name ?? selectedHostId}
           </span>
           {currentHost ? <StatusDot hostStatus={currentHost.status} /> : null}

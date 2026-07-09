@@ -884,3 +884,25 @@ li { list-style: none; }
   .mkt-row-port .mkt-row-proto, .mkt-row-port .mkt-row-rm { grid-column: span 1; }
   .mkt-row-vol { grid-template-columns: 1fr auto 1fr; }
 }
+
+/* ---- responsive: phones (<640px) ---- */
+@media (max-width: 640px) {
+  /* The content column must never let a wide child (a DataTable, a code block)
+     stretch the page and cause the body to scroll sideways. Overflow is kept
+     inside each scroll container (.dt-wrap already has overflow:auto). */
+  .content-inner { min-width: 0; }
+
+  /* DataTables scroll horizontally inside their own frame rather than widening
+     the page. The cells stop wrapping so columns keep their shape while the
+     .dt-wrap provides the horizontal scroll. */
+  .dt-wrap { max-width: 100%; }
+  .dt tbody td { white-space: nowrap; }
+
+  /* Full-width modals with small side margins on phones. */
+  .modal-scrim { padding: var(--sp-3); }
+  .modal { max-width: 100%; max-height: calc(100vh - var(--sp-6)); }
+
+  /* Page headers stack their actions below the title on narrow screens. */
+  .page-header { gap: var(--sp-3); }
+  .page-actions { width: 100%; }
+}

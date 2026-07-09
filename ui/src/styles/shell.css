@@ -165,6 +165,9 @@
   font-size: var(--fs-sm);
 }
 .host-switcher .host-btn:hover { border-color: var(--accent); }
+/* Cap the host name so a long name never stretches the topbar (base width; the
+   phone breakpoint tightens it further). */
+.host-switcher .host-btn .host-label { max-width: 160px; }
 
 .menu-pop {
   position: absolute;
@@ -309,9 +312,9 @@
   background: var(--border);
 }
 
-/* ---- responsive: collapse sidebar on small screens ---- */
+/* ---- responsive: collapse sidebar to an icon rail on medium screens ---- */
 @media (max-width: 920px) {
-  .app-shell { grid-template-columns: 64px 1fr; }
+  .app-shell { grid-template-columns: var(--sidebar-rail) 1fr; }
   .sidebar-brand { padding: 0 var(--sp-3); justify-content: center; }
   .sidebar-brand .brand-text { display: none; }
   .nav-group-label { display: none; }
@@ -332,4 +335,108 @@
     word-break: break-word;
   }
   .app-content { padding: var(--sp-4); }
+}
+
+/* ---- responsive: sidebar becomes an off-canvas drawer on phones ---- */
+@media (max-width: 640px) {
+  /* Single column: the main area spans full width; the sidebar is pulled out of
+     the grid flow and floated over the content as a slide-in drawer. */
+  .app-shell { grid-template-columns: 1fr; }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-w);
+    max-width: 86vw;
+    z-index: var(--z-drawer);
+    /* Hidden off-canvas by default; the .sidebar-open class (toggled from the
+       TopBar hamburger via AppShell state) slides it in. */
+    transform: translateX(-100%);
+    transition: transform var(--dur-base) var(--ease);
+    box-shadow: var(--shadow-pop);
+  }
+  .sidebar.sidebar-open { transform: translateX(0); }
+
+  /* Restore the full drawer chrome that the 920px rail rules stripped: the
+     drawer is full width, so labels, group headers and the logo return. */
+  .sidebar-brand { padding: 0; justify-content: flex-start; }
+  .sidebar-brand .brand-text { display: revert; }
+  .sidebar-brand img { min-width: 0; }
+  .nav-group-label { display: block; }
+  .nav-item { justify-content: flex-start; padding: var(--sp-2) var(--sp-3); }
+  .nav-item .nav-label, .nav-badge { display: inline; }
+  .sidebar-footer:not(.brandlock) { display: flex; }
+  .sidebar-footer.brandlock {
+    flex-direction: row;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-5);
+    text-align: left;
+    font-size: var(--fs-xs);
+    line-height: var(--lh-base);
+  }
+
+  /* Semi-opaque scrim behind the open drawer; a tap on it closes the drawer
+     (click handler lives in AppShell). Only rendered while open. */
+  .sidebar-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-drawer) - 1);
+    background: var(--overlay);
+    animation: fade-in var(--dur-fast) var(--ease);
+  }
+
+  /* Tighter content padding on phones. */
+  .app-content { padding: var(--sp-3); }
+
+  /* Compact topbar: less side padding, smaller gaps so controls fit ~375px. */
+  .topbar { padding: 0 var(--sp-3); gap: var(--sp-2); }
+}
+
+/* The hamburger toggle only exists on phones; hidden on wider viewports where
+   the sidebar/rail is always visible. */
+.topbar-hamburger { display: none; }
+@media (max-width: 640px) {
+  .topbar-hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    padding: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+  }
+  .topbar-hamburger:hover { background: var(--bg-surface-2); border-color: var(--border); }
+
+  /* Shrink the crumbs and truncate the current title so it never pushes the
+     host switcher / actions off-screen. */
+  .topbar .crumbs { font-size: var(--fs-xs); }
+  .topbar .crumbs .muted, .topbar .crumbs .sep { display: none; }
+  .topbar .crumbs .current { max-width: 40vw; }
+
+  /* Compact the host switcher: the label truncates hard, keeping the icon +
+     status dot legible. */
+  .host-switcher .host-btn { padding: 0 var(--sp-2); gap: var(--sp-1); }
+  .host-switcher .host-btn .host-label { max-width: 84px; }
+
+  /* User button: drop the username, keep the avatar tappable. */
+  .user-btn .truncate { display: none; }
+
+  /* The "Live" WS pill and the "Degraded" text are non-essential on phones;
+     keep the layout clean. The host status dot still signals health. */
+  .topbar .ws-pill { display: none; }
+
+  /* The command-palette trigger collapses to a bare search icon on phones: its
+     label already hides at 720px (command-palette.css); here we also drop the
+     ⌘K hint (no cmd key) so it reads as a tappable magnifier. */
+  .topbar .cmdk-trigger { padding: 0; width: 34px; justify-content: center; }
+  .topbar .cmdk-trigger-kbd { display: none; }
+
+  /* Keep the right-anchored dropdowns within the viewport on narrow screens. */
+  .menu-pop { min-width: 0; width: max-content; max-width: 78vw; }
 }

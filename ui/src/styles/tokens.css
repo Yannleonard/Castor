@@ -100,7 +100,10 @@
   --ease: cubic-bezier(0.2,0.7,0.2,1);
 
   /* --- layout --- */
-  --sidebar-w: 300px; --topbar-h: 56px; --content-max: 1440px; --z-modal: 1000; --z-toast: 1100;
+  /* --sidebar-rail is the icon-only collapsed width used by the 920px rail; the
+     mobile drawer (<640px) reuses --sidebar-w for its full-width off-canvas panel. */
+  --sidebar-w: 300px; --sidebar-rail: 64px; --topbar-h: 56px; --content-max: 1440px; --z-modal: 1000; --z-toast: 1100;
+  --z-drawer: 900; /* sidebar drawer + its scrim, below modals/toasts */
 
   color-scheme: light;
 }

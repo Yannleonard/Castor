@@ -29,7 +29,9 @@ import {
 } from "./icons";
 import { BrandLock } from "./BrandLock";
 
-interface NavEntry {
+// Exported so the command palette can derive its navigation entries from the
+// same single source of truth as the sidebar (permission filtering included).
+export interface NavEntry {
   to: string;
   label: string;
   icon: ReactNode;
@@ -37,12 +39,12 @@ interface NavEntry {
   perms?: string[];
 }
 
-interface NavGroup {
+export interface NavGroup {
   label: string;
   items: NavEntry[];
 }
 
-const GROUPS: NavGroup[] = [
+export const GROUPS: NavGroup[] = [
   {
     label: "Overview",
     items: [
@@ -121,11 +123,18 @@ const GROUPS: NavGroup[] = [
   },
 ];
 
-export function Sidebar() {
+export interface SidebarProps {
+  /** Whether the mobile off-canvas drawer is open (<640px only; inert above). */
+  open?: boolean;
+  /** Called after a nav item is chosen so the parent can close the drawer. */
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ open = false, onNavigate }: SidebarProps) {
   const { permissions } = useAuth();
 
   return (
-    <aside className="sidebar">
+    <aside id="app-sidebar" className={`sidebar${open ? " sidebar-open" : ""}`}>
       <div className="sidebar-brand">
         {/* Logo art already includes the Castor wordmark + tagline. Use the
             natural aspect ratio (sized by .sidebar-brand img in shell.css) so it
@@ -146,6 +155,7 @@ export function Sidebar() {
                     key={it.to}
                     to={it.to}
                     end={it.to === "/"}
+                    onClick={onNavigate}
                     className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
                   >
                     <span className="nav-icon">{it.icon}</span>
