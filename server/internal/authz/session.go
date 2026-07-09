@@ -26,6 +26,11 @@ const (
 	AMRLDAP = "ldap"
 	// AMROIDC is an OIDC (Microsoft Entra ID) authentication context (external IdP).
 	AMROIDC = "oidc"
+	// AMRToken is a personal-access-token (Bearer) authentication context. It is
+	// assigned EXCLUSIVELY by resolveTokenUser after a successful PAT lookup — no
+	// login path ever mints a session with this AMR — so middlewares may treat
+	// AMR==AMRToken as proof that Bearer auth succeeded.
+	AMRToken = "token"
 )
 
 // nowFunc is overridable in tests; production uses time.Now.

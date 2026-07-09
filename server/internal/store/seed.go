@@ -64,6 +64,10 @@ var operatorExtraPermissions = []string{
 	// permission (an admin can grant it to a custom role). Start/stop/restart/
 	// remove operate on EXISTING containers and stay with operator.
 	"docker.image.pull",
+	// Updating a container = recreate it from ITS OWN image reference (newest
+	// tag resolution). Unlike container.create it cannot introduce new mounts
+	// or privileges, so it is a day-to-day op granted to operators.
+	"docker.container.update",
 	"docker.volume.backup",
 	// Creating networks/volumes is normal day-to-day exploitation (unlike
 	// container.create, which is the host-mount / privilege-escalation vector and
@@ -93,6 +97,14 @@ var operatorExtraPermissions = []string{
 	"k8s.deployment.scale",
 	"k8s.deployment.restart",
 	"k8s.deployment.resources",
+	// Kubernetes StatefulSet/DaemonSet/CronJob day-to-day ops: scale, rollout
+	// restart, manual trigger and suspend/resume, mirroring the Deployment
+	// grants above. Deletes stay admin-only via k8s.workload.delete.
+	"k8s.statefulset.scale",
+	"k8s.statefulset.restart",
+	"k8s.daemonset.restart",
+	"k8s.cronjob.trigger",
+	"k8s.cronjob.suspend",
 	// Kubernetes autoscaling: create/delete HorizontalPodAutoscalers (day-to-day
 	// scaling policy). Creating/deleting Namespaces (k8s.namespace.write) is a
 	// cluster-level action and stays admin-only.
@@ -112,6 +124,12 @@ var operatorExtraPermissions = []string{
 	"helm.release.install",
 	"helm.release.upgrade",
 	"helm.release.rollback",
+	// Outbound notification channels: configuring where alerts go (Discord/
+	// Slack/ntfy/webhook) is a day-to-day ops concern. The webhook URL is
+	// write-only (sealed at rest, never returned by the API), so granting the
+	// manage permission to operators cannot leak a stored secret. Admin gets it
+	// via "*".
+	"notifications.manage",
 }
 
 // Seed inserts the built-in roles, the local host row, and default settings.

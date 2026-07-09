@@ -5,10 +5,14 @@ import "sync"
 // StateEvent is a normalized state-change notification the WS "events" channel
 // relays to subscribed UI tabs to drive reactive refresh within ~1s.
 type StateEvent struct {
-	HostID        string         `json:"hostId"`
-	Action        string         `json:"action"` // create|start|die|stop|destroy|health_status|snapshot.replaced|...
-	Kind          string         `json:"kind"`   // container|network|volume|image|""(fleet)
-	ID            string         `json:"id"`
+	HostID string `json:"hostId"`
+	Action string `json:"action"` // create|start|die|stop|destroy|health_status|snapshot.replaced|...
+	Kind   string `json:"kind"`   // container|network|volume|image|""(fleet)
+	ID     string `json:"id"`
+	// ExitCode is the container exit status for "die" events (Docker actor
+	// attribute "exitCode"); empty for other actions or non-Docker publishers.
+	// The notifier uses it to tell a crash apart from a deliberate stop.
+	ExitCode      string         `json:"exitCode,omitempty"`
 	SnapshotDelta map[string]any `json:"snapshotDelta,omitempty"`
 }
 

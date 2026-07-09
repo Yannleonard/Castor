@@ -55,7 +55,7 @@ func TestFindWorkloadAcrossKinds(t *testing.T) {
 	s := NewStore()
 	s.replaceDocker("local", []provider.Workload{{ID: "dock1", Kind: provider.KindDocker}}, nil, nil, nil)
 	s.replaceSwarm("local", []provider.Workload{{ID: "task1", Kind: provider.KindSwarm}}, nil, nil)
-	s.replaceKube("local", []provider.Workload{{ID: "ns/pod1", Kind: provider.KindKubernetes}}, nil, nil)
+	s.replaceKube("local", []provider.Workload{{ID: "ns/pod1", Kind: provider.KindKubernetes}}, nil, nil, KubeKinds{})
 
 	for _, id := range []string{"dock1", "task1", "ns/pod1"} {
 		if _, ok := s.FindWorkload("local", id); !ok {

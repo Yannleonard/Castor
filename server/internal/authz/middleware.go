@@ -121,18 +121,80 @@ func (d *Deps) SecurityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// SessionAuth resolves the session cookie -> hash -> session row -> user, builds
-// the effective-permission set, and stashes the *User in context. On any
+// SessionAuth resolves the caller to a *User and stashes it in context. A
+// "Bearer castor_pat_..." Authorization header is tried first (personal access
+// tokens); such a request is authenticated — or rejected — as a token request
+// only, with NO cookie fallback. Otherwise the session cookie path applies:
+// cookie -> hash -> session row -> user + effective permissions. On any
 // failure it responds 401 (no enumeration). Bootstrap-mode is handled upstream.
 func (d *Deps) SessionAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		u, apiErr := d.resolveUser(r)
+		var u *User
+		var apiErr *APIError
+		if raw, ok := bearerPAT(r); ok {
+			u, apiErr = d.resolveTokenUser(r, raw)
+		} else {
+			u, apiErr = d.resolveUser(r)
+		}
 		if apiErr != nil {
 			WriteError(w, r, apiErr)
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(WithUser(r.Context(), u)))
 	})
+}
+
+// bearerPAT extracts a personal access token from the Authorization header. It
+// matches only the "Bearer castor_pat_..." form; any other Authorization value
+// falls through to cookie auth untouched.
+func bearerPAT(r *http.Request) (string, bool) {
+	auth := r.Header.Get("Authorization")
+	const scheme = "Bearer "
+	if len(auth) <= len(scheme) || !strings.EqualFold(auth[:len(scheme)], scheme) {
+		return "", false
+	}
+	raw := strings.TrimSpace(auth[len(scheme):])
+	if !strings.HasPrefix(raw, APITokenPrefix) {
+		return "", false
+	}
+	return raw, true
+}
+
+// tokenTouchInterval throttles last_used_at writes: at most one write per
+// token per minute, so a busy API client does not amplify SQLite writes.
+const tokenTouchInterval = int64(60) // seconds
+
+// resolveTokenUser performs the PAT resolution: hash -> api_tokens row ->
+// not-revoked/not-expired -> active user + effective roles, mirroring
+// resolveUser. The resulting *User carries AMR "token" and the token hash as
+// SessionHashID (there is no session row behind a PAT).
+func (d *Deps) resolveTokenUser(r *http.Request, raw string) (*User, *APIError) {
+	ctx := r.Context()
+	hashID := HashSessionID(raw)
+	tok, err := d.Store.GetAPITokenByID(ctx, hashID)
+	if err != nil {
+		return nil, ErrUnauthenticated
+	}
+	now := time.Now().Unix()
+	if tok.RevokedAt != nil || (tok.ExpiresAt != nil && *tok.ExpiresAt < now) {
+		return nil, ErrUnauthenticated
+	}
+	su, err := d.Store.GetUserByID(ctx, tok.UserID)
+	if err != nil || !su.IsActive {
+		return nil, ErrUnauthenticated
+	}
+	roles, err := d.Store.EffectiveRolesForUser(ctx, su.ID)
+	if err != nil {
+		return nil, ErrInternal
+	}
+
+	// Compare before writing: only stamp last_used_at when the previous stamp is
+	// older than the throttle window (or absent).
+	if tok.LastUsedAt == nil || now-*tok.LastUsedAt >= tokenTouchInterval {
+		_ = d.Store.TouchAPIToken(ctx, hashID, now)
+	}
+
+	return buildUser(su, hashID, AMRToken, roles), nil
 }
 
 // resolveUser performs the cookie->user resolution and sliding-TTL touch.
@@ -244,6 +306,15 @@ func (d *Deps) CSRF(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// Bearer (PAT) requests carry no cookie, so CSRF does not apply — there is
+		// nothing a cross-site page could ride on. AMR==AMRToken is set exclusively
+		// by resolveTokenUser AFTER a successful token lookup (a forged header alone
+		// never reaches here with that AMR), so the skip applies only to requests
+		// whose Bearer auth actually succeeded.
+		if u := UserFrom(r); u != nil && u.AMR == AMRToken {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if !d.originAllowed(r) {
 			WriteError(w, r, Errorf(ErrCSRFFailed, "Origin not allowed."))
 			return
@@ -315,6 +386,16 @@ func (d *Deps) RequireAAL(next http.Handler) http.Handler {
 		u := UserFrom(r)
 		if u == nil {
 			WriteError(w, r, ErrUnauthenticated)
+			return
+		}
+		// Personal access tokens are machine-to-machine credentials: there is no
+		// interactive user to answer a TOTP prompt, so AMR "token" satisfies the
+		// step-up gate by design. Issuing a PAT is itself an AAL-gated mutation,
+		// and the exec WebSocket remains session-only (its handler resolves a
+		// sessions row from SessionHashID, which a PAT hash never matches), so
+		// this does not widen the most privileged surface.
+		if u.AMR == AMRToken {
+			next.ServeHTTP(w, r)
 			return
 		}
 		required := d.totpRequiredForMutations(r.Context())

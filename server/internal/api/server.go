@@ -16,6 +16,7 @@ import (
 	"github.com/gtek-it/castor/server/internal/config"
 	"github.com/gtek-it/castor/server/internal/provider"
 	"github.com/gtek-it/castor/server/internal/store"
+	"github.com/gtek-it/castor/server/internal/updates"
 )
 
 // Server bundles the dependencies shared by all handlers.
@@ -30,6 +31,19 @@ type Server struct {
 
 // NewServer constructs the API server.
 func NewServer(cfg *config.Config, st *store.Store, az *authz.Deps, guard *authz.Guard, mgr *cache.Manager, reg *provider.Registry) *Server {
+	// Wire the outbound-notification dispatcher into the cache manager. The
+	// dispatcher must open sealed webhook URLs, but the secret key stays in the
+	// API/config layer (the cache never imports authz), so inject an unseal
+	// closure here — the composition point that already holds cfg, the store
+	// and the manager.
+	if mgr != nil {
+		mgr.ConfigureNotifications(st, func(enc []byte) ([]byte, error) {
+			return authz.OpenSecret(cfg.SecretKey, enc)
+		})
+		// Image-update checker: registry credentials are unsealed by the same
+		// composition-time closure pattern (the cache never holds the key).
+		mgr.ConfigureUpdates(st, updates.NewChecker(registryCredentials(st, cfg.SecretKey)))
+	}
 	return &Server{
 		cfg:     cfg,
 		store:   st,
