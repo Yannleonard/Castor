@@ -12,6 +12,8 @@ import { ProtectedTag } from "../../components/ProtectedTag";
 import { formatBytes, formatDateTime, formatPct, timeAgo } from "../../lib/format";
 import type { Capability, StatSample, WorkloadDetail } from "../../lib/types";
 import { gateStats } from "../../lib/rbac";
+import { useT } from "../../i18n";
+import { wlOverviewTabDict } from "../../i18n/locales/wlOverviewTab";
 
 interface Props {
   hostId: string;
@@ -21,6 +23,7 @@ interface Props {
 }
 
 export function OverviewTab({ hostId, detail, caps, permissions }: Props) {
+  const t = useT(wlOverviewTabDict);
   const [stat, setStat] = useState<StatSample | null>(null);
   const statsAllowed = gateStats(caps, permissions).allowed;
 
@@ -44,7 +47,7 @@ export function OverviewTab({ hostId, detail, caps, permissions }: Props) {
     <div className="col" style={{ gap: "var(--sp-5)" }}>
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Overview</span>
+          <span className="card-title">{t("card.overview")}</span>
           <div className="row">
             <OrchestratorBadge kind={detail.kind} readonly={caps?.includes("readonly")} />
             {detail.protected ? <ProtectedTag /> : null}
@@ -52,28 +55,28 @@ export function OverviewTab({ hostId, detail, caps, permissions }: Props) {
         </div>
         <div className="card-body">
           <dl className="dl">
-            <dt>State</dt>
+            <dt>{t("field.state")}</dt>
             <dd>
               <StateBadge state={detail.state} raw={detail.stateRaw} />
               {detail.stateRaw ? <span className="text-xs muted" style={{ marginLeft: 8 }}>{detail.stateRaw}</span> : null}
             </dd>
-            <dt>ID</dt>
+            <dt>{t("field.id")}</dt>
             <dd className="mono">{detail.id}</dd>
-            <dt>Image</dt>
+            <dt>{t("field.image")}</dt>
             <dd className="mono">{detail.image || "—"}</dd>
-            <dt>Node</dt>
+            <dt>{t("field.node")}</dt>
             <dd>{detail.node || "—"}</dd>
-            <dt>Provider</dt>
+            <dt>{t("field.provider")}</dt>
             <dd className="mono">{detail.providerId}</dd>
             {detail.group ? (
               <>
-                <dt>Stack / group</dt>
+                <dt>{t("field.group")}</dt>
                 <dd>
                   <span className="chip">{detail.group}</span>
                 </dd>
               </>
             ) : null}
-            <dt>Created</dt>
+            <dt>{t("field.created")}</dt>
             <dd>
               {formatDateTime(detail.createdAt)} <span className="text-xs muted">({timeAgo(detail.createdAt)})</span>
             </dd>
@@ -84,7 +87,7 @@ export function OverviewTab({ hostId, detail, caps, permissions }: Props) {
       {detail.ports && detail.ports.length ? (
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Ports</span>
+            <span className="card-title">{t("card.ports")}</span>
           </div>
           <div className="card-body">
             <div className="row-wrap">
@@ -102,20 +105,20 @@ export function OverviewTab({ hostId, detail, caps, permissions }: Props) {
       {statsAllowed ? (
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Resource snapshot</span>
-            <span className="text-xs muted">one-shot</span>
+            <span className="card-title">{t("card.snapshot")}</span>
+            <span className="text-xs muted">{t("card.snapshotCaption")}</span>
           </div>
           <div className="card-body">
             <div className="kv-grid">
-              <Snap label="CPU" value={stat ? formatPct(stat.cpuPercent) : "—"} />
+              <Snap label={t("snap.cpu")} value={stat ? formatPct(stat.cpuPercent) : "—"} />
               <Snap
-                label="Memory"
+                label={t("snap.memory")}
                 value={stat ? `${formatBytes(stat.memUsageBytes)} / ${formatBytes(stat.memLimitBytes)}` : "—"}
               />
-              <Snap label="Net RX" value={stat ? formatBytes(stat.netRxBytes) : "—"} />
-              <Snap label="Net TX" value={stat ? formatBytes(stat.netTxBytes) : "—"} />
-              <Snap label="Block read" value={stat ? formatBytes(stat.blkReadBytes) : "—"} />
-              <Snap label="Block write" value={stat ? formatBytes(stat.blkWriteBytes) : "—"} />
+              <Snap label={t("snap.netRx")} value={stat ? formatBytes(stat.netRxBytes) : "—"} />
+              <Snap label={t("snap.netTx")} value={stat ? formatBytes(stat.netTxBytes) : "—"} />
+              <Snap label={t("snap.blockRead")} value={stat ? formatBytes(stat.blkReadBytes) : "—"} />
+              <Snap label={t("snap.blockWrite")} value={stat ? formatBytes(stat.blkWriteBytes) : "—"} />
             </div>
           </div>
         </div>
@@ -123,12 +126,12 @@ export function OverviewTab({ hostId, detail, caps, permissions }: Props) {
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Labels</span>
+          <span className="card-title">{t("card.labels")}</span>
           <span className="text-xs muted">{labels.length}</span>
         </div>
         <div className="card-body">
           {labels.length === 0 ? (
-            <span className="muted text-sm">No labels.</span>
+            <span className="muted text-sm">{t("empty.labels")}</span>
           ) : (
             <div className="col" style={{ gap: "var(--sp-1)" }}>
               {labels.map(([k, v]) => (

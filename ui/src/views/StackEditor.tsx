@@ -45,6 +45,8 @@ import {
 } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { timeAgo } from "../lib/format";
+import { useT, t as tr } from "../i18n";
+import { stackEditorDict } from "../i18n/locales/stackEditor";
 import type {
   BuilderEnv,
   BuilderPort,
@@ -137,6 +139,7 @@ function composeVolumeSource(vol: string): string {
 }
 
 export function StackEditor() {
+  const t = useT(stackEditorDict);
   const params = useParams<{ hostId?: string; id?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -229,12 +232,12 @@ export function StackEditor() {
     try {
       const res = await api.stackValidate(hostId, { composeYaml: yamlText });
       setValidation(res);
-      toast.success("Compose valid", `${res.serviceCount} service(s).`);
+      toast.success(tr(stackEditorDict, "toast.composeValidTitle"), tr(stackEditorDict, "toast.composeValidBody", { count: res.serviceCount }));
     } catch (err) {
       if (err instanceof ApiError && err.code === "validation_failed") {
         setValidationError(err.message);
       } else {
-        toastError("Validation failed", err);
+        toastError(tr(stackEditorDict, "toast.validationFailed"), err);
       }
     } finally {
       setValidating(false);
@@ -269,12 +272,12 @@ export function StackEditor() {
       // If the server minted a redeploy webhook secret, reveal it once (the
       // stack list refresh already happened). Otherwise go straight back.
       if (created.webhookSecret) {
-        toast.success("Stack created", `${created.name} — save the webhook secret.`);
+        toast.success(tr(stackEditorDict, "toast.stackCreatedTitle"), tr(stackEditorDict, "toast.stackCreatedSaveSecret", { name: created.name }));
         setWebhookReveal(created);
       } else {
         toast.success(
-          gitOn ? "Stack created from Git" : "Stack deployed",
-          `${created.name} — ${created.serviceCount} service(s).`,
+          gitOn ? tr(stackEditorDict, "toast.stackCreatedFromGitTitle") : tr(stackEditorDict, "toast.stackDeployedTitle"),
+          tr(stackEditorDict, "toast.stackDeployedBody", { name: created.name, count: created.serviceCount }),
         );
         navigate("/stacks");
       }
@@ -285,7 +288,7 @@ export function StackEditor() {
       if (err instanceof ApiError && err.code === "validation_failed") {
         setValidationError(err.message);
       }
-      toastError("Deploy failed", err);
+      toastError(tr(stackEditorDict, "toast.deployFailed"), err);
     } finally {
       setDeploying(false);
     }
@@ -294,7 +297,7 @@ export function StackEditor() {
   const doGenerate = async () => {
     const built = toBuilderServices(services);
     if (built.length === 0 || built.some((s) => !s.name || !s.image)) {
-      toast.warning("Incomplete services", "Every service needs a name and an image.");
+      toast.warning(tr(stackEditorDict, "toast.incompleteTitle"), tr(stackEditorDict, "toast.incompleteBody"));
       return;
     }
     setGenerating(true);
@@ -304,9 +307,9 @@ export function StackEditor() {
       setYamlText(res.yaml);
       resetValidation();
       setTab("yaml");
-      toast.success("YAML generated", "Review it in the YAML tab, then validate and deploy.");
+      toast.success(tr(stackEditorDict, "toast.yamlGeneratedTitle"), tr(stackEditorDict, "toast.yamlGeneratedBody"));
     } catch (err) {
-      toastError("Generate failed", err);
+      toastError(tr(stackEditorDict, "toast.generateFailed"), err);
     } finally {
       setGenerating(false);
     }
@@ -330,17 +333,17 @@ export function StackEditor() {
     try {
       const updated = await api.stackSync(hostId, stackId);
       toast.success(
-        "Synced from Git",
+        tr(stackEditorDict, "toast.syncedTitle"),
         updated.lastSyncedCommit
-          ? `Deployed ${shortCommit(updated.lastSyncedCommit)} — ${updated.serviceCount} service(s).`
-          : `${updated.serviceCount} service(s).`,
+          ? tr(stackEditorDict, "toast.syncedDeployed", { commit: shortCommit(updated.lastSyncedCommit), count: updated.serviceCount })
+          : tr(stackEditorDict, "toast.syncedBody", { count: updated.serviceCount }),
       );
       // Refetch the detail (and the list) so the badge + YAML reflect the new commit.
       queryClient.invalidateQueries({ queryKey: qk.stack(hostId, stackId) });
       queryClient.invalidateQueries({ queryKey: qk.stacks(hostId) });
       setDiff(null); // a stale diff no longer reflects the deployed state
     } catch (err) {
-      toastError("Sync failed", err);
+      toastError(tr(stackEditorDict, "toast.syncFailed"), err);
     } finally {
       setSyncing(false);
     }
@@ -353,14 +356,14 @@ export function StackEditor() {
       const res = await api.stackDiff(hostId, stackId);
       setDiff(res);
     } catch (err) {
-      toastError("Diff failed", err);
+      toastError(tr(stackEditorDict, "toast.diffFailed"), err);
     } finally {
       setDiffing(false);
     }
   };
 
   if (isView && detailQuery.isLoading) {
-    return <LoadingFill label="Loading stack…" />;
+    return <LoadingFill label={t("loading.stack")} />;
   }
 
   return (
@@ -369,20 +372,20 @@ export function StackEditor() {
         title={
           <span className="row" style={{ gap: "var(--sp-3)" }}>
             <IconStacks size={20} />
-            {isView ? detail?.name ?? "Stack" : "Deploy stack"}
+            {isView ? detail?.name ?? t("header.stack") : t("header.deploy")}
           </span>
         }
         subtitle={
           isView ? (
             <span className="mono text-xs">{detail?.projectName}</span>
           ) : (
-            "Define a compose document, validate it, then deploy."
+            t("header.subtitle")
           )
         }
         actions={
           <div className="row">
             <ActionButton variant="ghost" onClick={() => navigate("/stacks")}>
-              Back to stacks
+              {t("header.back")}
             </ActionButton>
             <HelpButton topic="stacks" />
           </div>
@@ -391,11 +394,11 @@ export function StackEditor() {
 
       <div className="tabs">
         <button className={`tab${tab === "yaml" ? " active" : ""}`} onClick={() => setTab("yaml")}>
-          YAML
+          {t("tab.yaml")}
         </button>
         {!isView ? (
           <button className={`tab${tab === "builder" ? " active" : ""}`} onClick={() => setTab("builder")}>
-            Builder
+            {t("tab.builder")}
           </button>
         ) : null}
       </div>
@@ -405,12 +408,12 @@ export function StackEditor() {
           {!isView ? (
             <div className="card card-pad">
               <TextField
-                label="Stack name"
-                placeholder="my-app"
+                label={t("form.nameLabel")}
+                placeholder={t("form.namePlaceholder")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                error={name && !nameOk ? "Letters, digits, space, dot, dash, underscore (max 63)." : undefined}
-                hint="Used to derive the compose project name."
+                error={name && !nameOk ? t("form.nameError") : undefined}
+                hint={t("form.nameHint")}
                 style={{ maxWidth: 360 }}
               />
             </div>
@@ -436,15 +439,15 @@ export function StackEditor() {
           <div className="card card-pad col" style={{ gap: "var(--sp-3)" }}>
             <div className="row">
               <span className="field-label" style={{ margin: 0 }}>
-                Compose document
+                {t("form.composeLabel")}
               </span>
               <span className="spacer" />
               {isView ? (
                 <span className="text-xs muted">
-                  {isGitStack ? "Tracked from Git — sync to redeploy." : "Read-only — deploy from a new stack."}
+                  {isGitStack ? t("form.composeReadonlyGit") : t("form.composeReadonly")}
                 </span>
               ) : gitOn ? (
-                <span className="text-xs muted">Optional — pulled from the repo on first sync.</span>
+                <span className="text-xs muted">{t("form.composeOptionalGit")}</span>
               ) : null}
             </div>
             <textarea
@@ -471,7 +474,7 @@ export function StackEditor() {
             <div className="row">
               <ActionButton variant="default" loading={validating} disabled={!yamlOk} onClick={doValidate}>
                 <IconCheck size={15} />
-                Validate
+                {t("action.validate")}
               </ActionButton>
               <span className="spacer" />
               {!isView ? (
@@ -481,22 +484,22 @@ export function StackEditor() {
                   disabled={!sourceOk || !nameOk || !canDeploy || hostBindBlocksDeploy}
                   tooltip={
                     !canDeploy
-                      ? "Requires docker.container.create"
+                      ? t("action.tooltipNeedCreate")
                       : git.enabled && !gitUrlOk
-                        ? "Enter a valid repository URL (https:// or git@…)"
+                        ? t("action.tooltipNeedUrl")
                         : gitOn && !nameOk
-                          ? "Enter a stack name"
+                          ? t("action.tooltipNeedName")
                           : blockedBinds.length
-                            ? "Remove the protected host path mount to deploy"
+                            ? t("action.tooltipBlockedBind")
                             : optInBinds.length && !isSuperuser
-                              ? "Host path mounts require an administrator"
+                              ? t("action.tooltipBindAdmin")
                               : optInBinds.length && !allowHostMounts
-                                ? "Tick “Allow host path mounts” to deploy with a host bind"
+                                ? t("action.tooltipBindOptIn")
                                 : undefined
                   }
                   onClick={doDeploy}
                 >
-                  {gitOn ? "Create from Git" : "Deploy"}
+                  {gitOn ? t("action.createFromGit") : t("action.deploy")}
                 </ActionButton>
               ) : null}
             </div>
@@ -512,7 +515,7 @@ export function StackEditor() {
               >
                 <div className="row" style={{ gap: "var(--sp-2)", color: "var(--danger)", fontWeight: 600 }}>
                   <IconAlert size={16} />
-                  Invalid compose document
+                  {t("validation.invalidTitle")}
                 </div>
                 <pre className="mono text-xs" style={{ whiteSpace: "pre-wrap", margin: "var(--sp-2) 0 0" }}>
                   {validationError}
@@ -527,14 +530,14 @@ export function StackEditor() {
               <div className="banner danger" style={{ display: "flex", gap: "var(--sp-2)", alignItems: "flex-start" }}>
                 <IconAlert size={16} />
                 <span>
-                  <strong>Protected host path.</strong> A service binds{" "}
+                  <strong>{t("bind.protectedTitle")}</strong> {t("bind.protectedPrefix")}{" "}
                   {blockedBinds.map((s, i) => (
                     <span key={i}>
                       {i > 0 ? ", " : ""}
                       <span className="mono">{s}</span>
                     </span>
                   ))}
-                  , which is never allowed (it would grant the container control of the host). Remove it to deploy.
+                  {t("bind.protectedBody")}
                 </span>
               </div>
             ) : !isView && optInBinds.length > 0 ? (
@@ -542,9 +545,8 @@ export function StackEditor() {
                 <div className="banner danger" style={{ display: "flex", gap: "var(--sp-2)", alignItems: "flex-start" }}>
                   <IconAlert size={16} />
                   <span>
-                    This stack mounts a host path ({optInBinds.join(", ")}). Host binds are root-equivalent, so only an
-                    administrator may deploy them — the server will reject this with a{" "}
-                    <span className="mono">403 forbidden</span>. Use named volumes instead.
+                    {t("bind.optInNonAdminPrefix", { paths: optInBinds.join(", ") })}{" "}
+                    <span className="mono">403 forbidden</span>{t("bind.optInNonAdminSuffix")}
                   </span>
                 </div>
               ) : (
@@ -554,16 +556,14 @@ export function StackEditor() {
                 >
                   <div className="row" style={{ gap: "var(--sp-2)", color: "var(--warning)", fontWeight: 600 }}>
                     <IconLock size={15} />
-                    Host path mount detected
+                    {t("bind.optInTitle")}
                   </div>
                   <span className="text-xs secondary">
-                    A service binds a host path ({optInBinds.join(", ")}), giving the container access to the host
-                    filesystem. As an administrator you may opt in; protected paths (docker.sock, /, /etc, …) stay
-                    blocked regardless.
+                    {t("bind.optInBody", { paths: optInBinds.join(", ") })}
                   </span>
                   <label className="checkbox-row">
                     <input type="checkbox" checked={allowHostMounts} onChange={(e) => setAllowHostMounts(e.target.checked)} />
-                    <span>Allow host path mounts for this stack</span>
+                    <span>{t("bind.optInCheckbox")}</span>
                   </label>
                 </div>
               )
@@ -574,17 +574,17 @@ export function StackEditor() {
           {isView && detail ? (
             <div className="card card-pad col" style={{ gap: "var(--sp-2)" }}>
               <span className="field-label" style={{ margin: 0 }}>
-                Containers ({detail.containers.length})
+                {t("containers.label", { count: detail.containers.length })}
               </span>
               {detail.containers.length === 0 ? (
-                <span className="text-sm muted">No live containers for this stack.</span>
+                <span className="text-sm muted">{t("containers.empty")}</span>
               ) : (
                 <table className="dt">
                   <thead>
                     <tr>
-                      <th>Service</th>
-                      <th>Name</th>
-                      <th>State</th>
+                      <th>{t("containers.colService")}</th>
+                      <th>{t("containers.colName")}</th>
+                      <th>{t("containers.colState")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -600,7 +600,7 @@ export function StackEditor() {
                   </tbody>
                 </table>
               )}
-              <span className="text-xs muted">Created {timeAgo(detail.createdAt)}.</span>
+              <span className="text-xs muted">{t("containers.created", { ago: timeAgo(detail.createdAt) })}</span>
             </div>
           ) : null}
         </div>
@@ -646,6 +646,7 @@ function GitSection({
   onChange: (g: GitForm) => void;
   urlOk: boolean;
 }) {
+  const t = useT(stackEditorDict);
   const [open, setOpen] = useState(false);
   const patch = (p: Partial<GitForm>) => onChange({ ...git, ...p });
 
@@ -675,12 +676,12 @@ function GitSection({
       >
         <IconExternal size={16} />
         <span className="field-label" style={{ margin: 0 }}>
-          Deploy from Git (GitOps)
+          {t("git.sectionTitle")}
         </span>
         <span className="spacer" />
         {git.enabled ? (
           <span className="pill" style={{ color: "var(--accent)", borderColor: "var(--accent)", background: "transparent" }}>
-            on
+            {t("git.badgeOn")}
           </span>
         ) : null}
         <IconChevronDown size={16} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
@@ -689,54 +690,53 @@ function GitSection({
       {open ? (
         <div className="col" style={{ gap: "var(--sp-3)" }}>
           <span className="text-xs secondary">
-            Track a compose file in a git repository. Castor pulls it on the first sync and can redeploy on demand — or
-            automatically on push, via a webhook.
+            {t("git.intro")}
           </span>
           <TextField
-            label="Repository URL"
+            label={t("git.repoUrlLabel")}
             mono
-            placeholder="https://github.com/acme/infra.git"
+            placeholder={t("git.repoUrlPlaceholder")}
             value={git.repoUrl}
             onChange={(e) => patch({ repoUrl: e.target.value })}
-            error={git.repoUrl.trim() && !urlOk ? "Use https://…, git@…, or ssh://…" : undefined}
-            hint="HTTPS or SSH clone URL of the repo holding your compose file."
+            error={git.repoUrl.trim() && !urlOk ? t("git.repoUrlError") : undefined}
+            hint={t("git.repoUrlHint")}
           />
           <div className="row" style={{ gap: "var(--sp-3)", flexWrap: "wrap", alignItems: "flex-start" }}>
             <TextField
-              label="Branch / ref"
+              label={t("git.refLabel")}
               mono
-              placeholder="main"
+              placeholder={t("git.refPlaceholder")}
               value={git.ref}
               onChange={(e) => patch({ ref: e.target.value })}
-              hint="Branch, tag, or commit to pin."
+              hint={t("git.refHint")}
               style={{ minWidth: 180 }}
             />
             <TextField
-              label="Compose path"
+              label={t("git.pathLabel")}
               mono
-              placeholder="docker-compose.yml"
+              placeholder={t("git.pathPlaceholder")}
               value={git.path}
               onChange={(e) => patch({ path: e.target.value })}
-              hint="Path to the compose file within the repo."
+              hint={t("git.pathHint")}
               style={{ minWidth: 240 }}
             />
           </div>
           <TextField
-            label="Git token (optional)"
+            label={t("git.tokenLabel")}
             type="password"
             autoComplete="off"
-            placeholder="ghp_…"
+            placeholder={t("git.tokenPlaceholder")}
             value={git.token}
             onChange={(e) => patch({ token: e.target.value })}
-            hint="PAT read-only pour repo privé. Sent once, never returned."
+            hint={t("git.tokenHint")}
           />
           <label className="checkbox-row">
             <input type="checkbox" checked={git.autoDeploy} onChange={(e) => patch({ autoDeploy: e.target.checked })} />
-            <span>Auto-deploy on push (webhook)</span>
+            <span>{t("git.autoDeploy")}</span>
           </label>
           {git.autoDeploy ? (
             <span className="text-xs muted">
-              A redeploy webhook secret will be generated and shown once after the stack is created.
+              {t("git.autoDeployHint")}
             </span>
           ) : null}
         </div>
@@ -770,40 +770,41 @@ function GitStackPanel({
   onDiff: () => void;
   onCloseDiff: () => void;
 }) {
+  const t = useT(stackEditorDict);
   return (
     <div className="card card-pad col" style={{ gap: "var(--sp-3)" }}>
       <div className="row" style={{ gap: "var(--sp-2)", alignItems: "center" }}>
         <IconExternal size={16} />
         <span className="field-label" style={{ margin: 0 }}>
-          GitOps
+          {t("git.panelTitle")}
         </span>
         <span className="spacer" />
         {detail.lastSyncedCommit ? (
           <span
             className="pill"
-            title={`Last synced commit ${detail.lastSyncedCommit}`}
+            title={t("git.lastSynced", { commit: detail.lastSyncedCommit })}
             style={{ color: "var(--success)", background: "var(--success-bg)", borderColor: "transparent" }}
           >
             <IconCheck size={12} /> {shortCommit(detail.lastSyncedCommit)}
           </span>
         ) : (
           <span className="pill" style={{ color: "var(--text-secondary)", background: "var(--bg-surface-2)", borderColor: "transparent" }}>
-            not yet synced
+            {t("git.notSynced")}
           </span>
         )}
       </div>
 
       <div className="row" style={{ gap: "var(--sp-4)", flexWrap: "wrap" }}>
         <span className="text-xs">
-          <span className="muted">Repo </span>
+          <span className="muted">{t("git.repo")} </span>
           <span className="mono">{detail.gitRepoUrl}</span>
         </span>
         <span className="text-xs">
-          <span className="muted">Ref </span>
+          <span className="muted">{t("git.ref")} </span>
           <span className="mono">{detail.gitRef || "main"}</span>
         </span>
         <span className="text-xs">
-          <span className="muted">Path </span>
+          <span className="muted">{t("git.path")} </span>
           <span className="mono">{detail.gitPath || "docker-compose.yml"}</span>
         </span>
       </div>
@@ -813,19 +814,19 @@ function GitStackPanel({
           variant="primary"
           loading={syncing}
           disabled={!canSync}
-          tooltip={canSync ? "Pull the pinned ref and redeploy" : "Requires docker.container.create"}
+          tooltip={canSync ? t("git.syncTooltip") : t("action.tooltipNeedCreate")}
           onClick={onSync}
         >
           <IconRefresh size={15} />
-          Sync now
+          {t("git.syncNow")}
         </ActionButton>
         <ActionButton variant="default" loading={diffing} onClick={onDiff}>
           <IconInspect size={15} />
-          View diff
+          {t("git.viewDiff")}
         </ActionButton>
         {diff ? (
           <ActionButton variant="ghost" size="sm" onClick={onCloseDiff}>
-            Hide diff
+            {t("git.hideDiff")}
           </ActionButton>
         ) : null}
       </div>
@@ -883,6 +884,7 @@ function diffLines(current: string, incoming: string): DiffLine[] {
 // StackDiffView renders current (stored) vs incoming (repo HEAD of the pinned ref)
 // as a line-by-line diff: additions in var(--success), removals in var(--danger).
 function StackDiffView({ diff }: { diff: StackDiff }) {
+  const t = useT(stackEditorDict);
   const lines = useMemo(() => diffLines(diff.current, diff.incoming), [diff]);
   const added = lines.filter((l) => l.kind === "add").length;
   const removed = lines.filter((l) => l.kind === "del").length;
@@ -891,7 +893,7 @@ function StackDiffView({ diff }: { diff: StackDiff }) {
     <div className="col" style={{ gap: 6 }}>
       <div className="row" style={{ gap: "var(--sp-2)", alignItems: "baseline" }}>
         <span className="field-label" style={{ margin: 0 }}>
-          Diff (current → incoming)
+          {t("diff.title")}
         </span>
         <span className="text-xs" style={{ color: "var(--success)" }}>
           +{added}
@@ -899,10 +901,10 @@ function StackDiffView({ diff }: { diff: StackDiff }) {
         <span className="text-xs" style={{ color: "var(--danger)" }}>
           −{removed}
         </span>
-        {diff.commit ? <span className="text-xs muted">incoming {shortCommit(diff.commit)}</span> : null}
+        {diff.commit ? <span className="text-xs muted">{t("diff.incoming", { commit: shortCommit(diff.commit) })}</span> : null}
       </div>
       {!diff.changed ? (
-        <div className="text-sm muted">Up to date — the stored compose matches the repo.</div>
+        <div className="text-sm muted">{t("diff.upToDate")}</div>
       ) : (
         <pre
           className="input-mono"
@@ -951,6 +953,7 @@ function WebhookSecretModal({
   hostId: string;
   onClose: () => void;
 }) {
+  const t = useT(stackEditorDict);
   const secret = created.webhookSecret ?? "";
   // The redeploy hook is served under the API base at a stable path. Build an
   // absolute URL from the current origin so it can be pasted verbatim.
@@ -961,23 +964,23 @@ function WebhookSecretModal({
     try {
       await navigator.clipboard.writeText(value);
       setCopied(what);
-      toast.success(what === "url" ? "Webhook URL copied" : "Token copied");
+      toast.success(what === "url" ? t("toast.urlCopied") : t("toast.tokenCopied"));
       setTimeout(() => setCopied(""), 1600);
     } catch {
-      toast.error("Copy failed");
+      toast.error(t("toast.copyFailed"));
     }
   };
 
   return (
     <Modal
       open
-      title="Save your webhook secret"
+      title={t("webhook.modalTitle")}
       // Shown exactly once — Escape/scrim/X must not lose it.
       dismissable={false}
       onClose={onClose}
       footer={
         <ActionButton variant="primary" onClick={onClose}>
-          I've saved the webhook secret
+          {t("webhook.confirm")}
         </ActionButton>
       }
     >
@@ -985,13 +988,13 @@ function WebhookSecretModal({
         <div className="banner warning">
           <IconLock size={16} />
           <span>
-            Copy this secret now — it is shown only once. Auto-deploy is enabled for{" "}
-            <strong>{created.name}</strong> (host <span className="mono">{hostId}</span>).
+            {t("webhook.warningPrefix")}{" "}
+            <strong>{created.name}</strong> ({t("webhook.warningHost")} <span className="mono">{hostId}</span>).
           </span>
         </div>
 
         <div className="col" style={{ gap: "var(--sp-1)" }}>
-          <span className="text-xs muted">Webhook URL (POST)</span>
+          <span className="text-xs muted">{t("webhook.urlLabel")}</span>
           <div className="row" style={{ gap: "var(--sp-2)" }}>
             <code
               className="code-block"
@@ -999,7 +1002,7 @@ function WebhookSecretModal({
             >
               {webhookUrl}
             </code>
-            <ActionButton size="sm" variant="ghost" iconOnly tooltip="Copy URL" aria-label="Copy webhook URL" onClick={() => copy("url", webhookUrl)}>
+            <ActionButton size="sm" variant="ghost" iconOnly tooltip={t("webhook.copyUrl")} aria-label={t("webhook.copyUrlAria")} onClick={() => copy("url", webhookUrl)}>
               {copied === "url" ? <IconCheck size={15} /> : <IconCopy size={15} />}
             </ActionButton>
           </div>
@@ -1007,7 +1010,7 @@ function WebhookSecretModal({
 
         <div className="col" style={{ gap: "var(--sp-1)" }}>
           <span className="text-xs muted">
-            Secret — send it in the <code>X-Castor-Token</code> request header
+            {t("webhook.secretLabelPrefix")} <code>X-Castor-Token</code> {t("webhook.secretLabelSuffix")}
           </span>
           <div className="row" style={{ gap: "var(--sp-2)" }}>
             <code
@@ -1016,7 +1019,7 @@ function WebhookSecretModal({
             >
               {secret}
             </code>
-            <ActionButton size="sm" variant="ghost" iconOnly tooltip="Copy secret" aria-label="Copy webhook secret" onClick={() => copy("secret", secret)}>
+            <ActionButton size="sm" variant="ghost" iconOnly tooltip={t("webhook.copySecret")} aria-label={t("webhook.copySecretAria")} onClick={() => copy("secret", secret)}>
               {copied === "secret" ? <IconCheck size={15} /> : <IconCopy size={15} />}
             </ActionButton>
           </div>
@@ -1024,13 +1027,13 @@ function WebhookSecretModal({
 
         <div className="col" style={{ gap: "var(--sp-1)" }}>
           <span className="text-xs secondary" style={{ fontWeight: 600 }}>
-            Where to paste it
+            {t("webhook.whereTitle")}
           </span>
           <span className="text-xs secondary">
-            In your repo's webhook settings (GitHub: <span className="mono">Settings → Webhooks → Add webhook</span>;
-            GitLab: <span className="mono">Settings → Webhooks</span>), set the <strong>Payload URL</strong> to the URL
-            above and add a request header <code>X-Castor-Token</code> with the secret as its value. Choose the{" "}
-            <em>push</em> event. Castor redeploys the stack from the pinned ref on each matching push.
+            {t("webhook.whereBody1")} <span className="mono">Settings → Webhooks → Add webhook</span>{t("webhook.whereBody2")}{" "}
+            <span className="mono">Settings → Webhooks</span>{t("webhook.whereBody3")} <strong>{t("webhook.wherePayloadUrl")}</strong> {t("webhook.whereBody4")}{" "}
+            <code>X-Castor-Token</code> {t("webhook.whereBody5")}{" "}
+            <em>{t("webhook.wherePush")}</em>{t("webhook.whereBody6")}
           </span>
         </div>
       </div>
@@ -1041,6 +1044,7 @@ function WebhookSecretModal({
 /* ============================ validation summary ============================ */
 
 function ValidationSummary({ result }: { result: StackValidateResponse }) {
+  const t = useT(stackEditorDict);
   return (
     <div
       className="card-pad col"
@@ -1053,11 +1057,11 @@ function ValidationSummary({ result }: { result: StackValidateResponse }) {
     >
       <div className="row" style={{ gap: "var(--sp-2)", color: "var(--success, var(--state-running))", fontWeight: 600 }}>
         <IconCheck size={16} />
-        Valid — {result.serviceCount} service(s)
+        {t("validation.validTitle", { count: result.serviceCount })}
       </div>
       {result.deployOrder.length > 0 ? (
         <div className="row" style={{ gap: "var(--sp-2)", flexWrap: "wrap" }}>
-          <span className="text-xs muted">Deploy order:</span>
+          <span className="text-xs muted">{t("validation.deployOrder")}</span>
           {result.deployOrder.map((s, i) => (
             <span key={`${s}-${i}`} className="chip mono">
               {i + 1}. {s}
@@ -1068,11 +1072,11 @@ function ValidationSummary({ result }: { result: StackValidateResponse }) {
       <table className="dt">
         <thead>
           <tr>
-            <th>Service</th>
-            <th>Image</th>
-            <th>Ports</th>
-            <th>Volumes</th>
-            <th>Restart</th>
+            <th>{t("validation.colService")}</th>
+            <th>{t("validation.colImage")}</th>
+            <th>{t("validation.colPorts")}</th>
+            <th>{t("validation.colVolumes")}</th>
+            <th>{t("validation.colRestart")}</th>
           </tr>
         </thead>
         <tbody>
@@ -1105,10 +1109,11 @@ interface BuilderFormProps {
 }
 
 function BuilderForm({ services, onPatch, onAdd, onRemove, onGenerate, generating }: BuilderFormProps) {
+  const t = useT(stackEditorDict);
   return (
     <div className="col" style={{ gap: "var(--sp-4)" }}>
       <div className="text-sm muted">
-        Build services visually, then generate a compose document. The YAML tab remains the deploy source of truth.
+        {t("builder.intro")}
       </div>
 
       {services.map((svc, i) => (
@@ -1125,11 +1130,11 @@ function BuilderForm({ services, onPatch, onAdd, onRemove, onGenerate, generatin
       <div className="row">
         <ActionButton variant="ghost" onClick={onAdd}>
           <IconPlus size={15} />
-          Add service
+          {t("builder.addService")}
         </ActionButton>
         <span className="spacer" />
         <ActionButton variant="primary" loading={generating} onClick={onGenerate}>
-          Generate YAML
+          {t("builder.generate")}
         </ActionButton>
       </div>
     </div>
@@ -1145,6 +1150,7 @@ interface ServiceCardProps {
 }
 
 function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardProps) {
+  const t = useT(stackEditorDict);
   // ports
   const setPort = (pi: number, patch: Partial<BuilderPort>) =>
     onPatch({ ports: svc.ports.map((p, idx) => (idx === pi ? { ...p, ...patch } : p)) });
@@ -1167,7 +1173,7 @@ function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardPr
     <div className="card card-pad col" style={{ gap: "var(--sp-4)" }}>
       <div className="row">
         <span className="field-label" style={{ margin: 0 }}>
-          Service {index + 1}
+          {t("builder.serviceN", { n: index + 1 })}
         </span>
         <span className="spacer" />
         <ActionButton
@@ -1175,8 +1181,8 @@ function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardPr
           iconOnly
           variant="ghost"
           disabled={!canRemove}
-          tooltip={canRemove ? "Remove service" : "A stack needs at least one service"}
-          aria-label="Remove service"
+          tooltip={canRemove ? t("builder.removeService") : t("builder.removeServiceDisabled")}
+          aria-label={t("builder.removeServiceAria")}
           onClick={onRemove}
           style={canRemove ? { color: "var(--danger)" } : undefined}
         >
@@ -1186,24 +1192,24 @@ function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardPr
 
       <div className="row" style={{ gap: "var(--sp-3)", alignItems: "flex-start", flexWrap: "wrap" }}>
         <TextField
-          label="Name"
-          placeholder="web"
+          label={t("builder.nameLabel")}
+          placeholder={t("builder.namePlaceholder")}
           value={svc.name}
           onChange={(e) => onPatch({ name: e.target.value })}
           style={{ minWidth: 180 }}
         />
         <TextField
-          label="Image"
+          label={t("builder.imageLabel")}
           mono
-          placeholder="nginx:latest"
+          placeholder={t("builder.imagePlaceholder")}
           value={svc.image}
           onChange={(e) => onPatch({ image: e.target.value })}
           style={{ minWidth: 240 }}
         />
-        <SelectField label="Restart" value={svc.restart} onChange={(e) => onPatch({ restart: e.target.value })}>
+        <SelectField label={t("builder.restartLabel")} value={svc.restart} onChange={(e) => onPatch({ restart: e.target.value })}>
           {RESTART_OPTIONS.map((r) => (
             <option key={r || "default"} value={r}>
-              {r === "" ? "(default)" : r}
+              {r === "" ? t("builder.restartDefault") : r}
             </option>
           ))}
         </SelectField>
@@ -1212,7 +1218,7 @@ function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardPr
       {/* ports */}
       <div className="col" style={{ gap: "var(--sp-2)" }}>
         <span className="field-label" style={{ margin: 0 }}>
-          Ports
+          {t("builder.ports")}
         </span>
         {svc.ports.map((p, pi) => (
           <div key={pi} className="row" style={{ gap: "var(--sp-2)", alignItems: "center" }}>
@@ -1220,29 +1226,29 @@ function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardPr
               className="input"
               type="number"
               min={0}
-              placeholder="host"
+              placeholder={t("builder.portHost")}
               value={p.host || ""}
               onChange={(e) => setPort(pi, { host: Number(e.target.value) || 0 })}
               style={{ width: 96 }}
-              aria-label="Host port"
+              aria-label={t("builder.portHostAria")}
             />
             <span className="muted">:</span>
             <input
               className="input"
               type="number"
               min={1}
-              placeholder="container"
+              placeholder={t("builder.portContainer")}
               value={p.container || ""}
               onChange={(e) => setPort(pi, { container: Number(e.target.value) || 0 })}
               style={{ width: 110 }}
-              aria-label="Container port"
+              aria-label={t("builder.portContainerAria")}
             />
             <select
               className="select"
               value={p.proto || "tcp"}
               onChange={(e) => setPort(pi, { proto: e.target.value })}
               style={{ width: 90 }}
-              aria-label="Protocol"
+              aria-label={t("builder.protoAria")}
             >
               <option value="tcp">tcp</option>
               <option value="udp">udp</option>
@@ -1251,7 +1257,7 @@ function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardPr
               size="sm"
               iconOnly
               variant="ghost"
-              aria-label="Remove port"
+              aria-label={t("builder.removePortAria")}
               onClick={() => removePort(pi)}
               style={{ color: "var(--danger)" }}
             >
@@ -1262,7 +1268,7 @@ function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardPr
         <div>
           <ActionButton size="sm" variant="ghost" onClick={addPort}>
             <IconPlus size={14} />
-            Add port
+            {t("builder.addPort")}
           </ActionButton>
         </div>
       </div>
@@ -1270,7 +1276,7 @@ function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardPr
       {/* env */}
       <div className="col" style={{ gap: "var(--sp-2)" }}>
         <span className="field-label" style={{ margin: 0 }}>
-          Environment
+          {t("builder.env")}
         </span>
         {svc.env.map((e, ei) => (
           <div key={ei} className="row" style={{ gap: "var(--sp-2)", alignItems: "center" }}>
@@ -1280,22 +1286,22 @@ function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardPr
               value={e.key}
               onChange={(ev) => setEnv(ei, { key: ev.target.value })}
               style={{ width: 200 }}
-              aria-label="Env key"
+              aria-label={t("builder.envKeyAria")}
             />
             <span className="muted">=</span>
             <input
               className="input input-mono"
-              placeholder="value"
+              placeholder={t("builder.envValuePlaceholder")}
               value={e.value}
               onChange={(ev) => setEnv(ei, { value: ev.target.value })}
               style={{ flex: 1, minWidth: 160 }}
-              aria-label="Env value"
+              aria-label={t("builder.envValueAria")}
             />
             <ActionButton
               size="sm"
               iconOnly
               variant="ghost"
-              aria-label="Remove env var"
+              aria-label={t("builder.removeEnvAria")}
               onClick={() => removeEnv(ei)}
               style={{ color: "var(--danger)" }}
             >
@@ -1306,7 +1312,7 @@ function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardPr
         <div>
           <ActionButton size="sm" variant="ghost" onClick={addEnv}>
             <IconPlus size={14} />
-            Add variable
+            {t("builder.addVariable")}
           </ActionButton>
         </div>
       </div>
@@ -1314,32 +1320,32 @@ function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardPr
       {/* volumes */}
       <div className="col" style={{ gap: "var(--sp-2)" }}>
         <span className="field-label" style={{ margin: 0 }}>
-          Volumes
+          {t("builder.volumes")}
         </span>
         {svc.volumes.map((v, vi) => (
           <div key={vi} className="row" style={{ gap: "var(--sp-2)", alignItems: "center" }}>
             <input
               className="input input-mono"
-              placeholder="source (named or /host/path)"
+              placeholder={t("builder.volumeSourcePlaceholder")}
               value={v.source}
               onChange={(ev) => setVol(vi, { source: ev.target.value })}
               style={{ flex: 1, minWidth: 180 }}
-              aria-label="Volume source"
+              aria-label={t("builder.volumeSourceAria")}
             />
             <span className="muted">:</span>
             <input
               className="input input-mono"
-              placeholder="/container/path"
+              placeholder={t("builder.volumeTargetPlaceholder")}
               value={v.target}
               onChange={(ev) => setVol(vi, { target: ev.target.value })}
               style={{ flex: 1, minWidth: 160 }}
-              aria-label="Volume target"
+              aria-label={t("builder.volumeTargetAria")}
             />
             <ActionButton
               size="sm"
               iconOnly
               variant="ghost"
-              aria-label="Remove volume"
+              aria-label={t("builder.removeVolumeAria")}
               onClick={() => removeVol(vi)}
               style={{ color: "var(--danger)" }}
             >
@@ -1350,19 +1356,19 @@ function ServiceCard({ index, svc, canRemove, onPatch, onRemove }: ServiceCardPr
         <div>
           <ActionButton size="sm" variant="ghost" onClick={addVol}>
             <IconPlus size={14} />
-            Add volume
+            {t("builder.addVolume")}
           </ActionButton>
         </div>
       </div>
 
       {/* depends_on */}
       <TextField
-        label="Depends on"
+        label={t("builder.dependsOnLabel")}
         mono
-        placeholder="db cache"
+        placeholder={t("builder.dependsOnPlaceholder")}
         value={svc.dependsOn}
         onChange={(e) => onPatch({ dependsOn: e.target.value })}
-        hint="Other service names this one starts after (space or comma separated)."
+        hint={t("builder.dependsOnHint")}
       />
     </div>
   );

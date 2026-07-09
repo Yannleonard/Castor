@@ -6,6 +6,8 @@
 // container path). Each is a controlled component over a typed row array.
 
 import { IconPlus, IconTrash, IconLock } from "../../components/icons";
+import { useT } from "../../i18n";
+import { mktRowEditorsDict } from "../../i18n/locales/mktRowEditors";
 
 // Keys whose value should render as a password input (masked).
 export const SECRET_KEY_RE = /PASSWORD|TOKEN|SECRET|KEY/i;
@@ -60,6 +62,7 @@ export function PortRowsEditor({
   rows: PortRow[];
   onChange: (rows: PortRow[]) => void;
 }) {
+  const t = useT(mktRowEditorsDict);
   const update = (i: number, patch: Partial<PortRow>) =>
     onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const remove = (i: number) => onChange(rows.filter((_, idx) => idx !== i));
@@ -72,8 +75,8 @@ export function PortRowsEditor({
           <input
             className="input"
             inputMode="numeric"
-            placeholder="host (auto)"
-            aria-label="Host port"
+            placeholder={t("port.hostPlaceholder")}
+            aria-label={t("port.hostLabel")}
             value={r.host}
             onChange={(e) => update(i, { host: e.target.value.replace(/[^0-9]/g, "") })}
           />
@@ -81,24 +84,24 @@ export function PortRowsEditor({
           <input
             className="input"
             inputMode="numeric"
-            placeholder="container"
-            aria-label="Container port"
+            placeholder={t("port.containerPlaceholder")}
+            aria-label={t("port.containerLabel")}
             value={r.container}
             onChange={(e) => update(i, { container: e.target.value.replace(/[^0-9]/g, "") })}
           />
           <select
             className="select mkt-row-proto"
-            aria-label="Protocol"
+            aria-label={t("port.protoLabel")}
             value={r.proto}
             onChange={(e) => update(i, { proto: e.target.value })}
           >
             <option value="tcp">tcp</option>
             <option value="udp">udp</option>
           </select>
-          <RmButton onClick={() => remove(i)} label="Remove port" />
+          <RmButton onClick={() => remove(i)} label={t("port.remove")} />
         </div>
       ))}
-      <AddButton onClick={add} label="Add port" />
+      <AddButton onClick={add} label={t("port.add")} />
     </div>
   );
 }
@@ -118,6 +121,7 @@ export function EnvRowsEditor({
   /** when true, render a "required" checkbox per row (custom template editor) */
   showRequiredToggle?: boolean;
 }) {
+  const t = useT(mktRowEditorsDict);
   const update = (i: number, patch: Partial<EnvRow>) =>
     onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const remove = (i: number) => onChange(rows.filter((_, idx) => idx !== i));
@@ -133,15 +137,15 @@ export function EnvRowsEditor({
               {secret ? <IconLock size={12} /> : null}
               <input
                 className="input input-mono"
-                placeholder="KEY"
-                aria-label="Variable name"
+                placeholder={t("env.keyPlaceholder")}
+                aria-label={t("env.keyLabel")}
                 value={r.key}
                 disabled={!editableKeys}
                 onChange={(e) => update(i, { key: e.target.value })}
                 style={{ flex: 1, minWidth: 0 }}
               />
               {r.required ? (
-                <span className="mkt-row-req" title="Required">
+                <span className="mkt-row-req" title={t("env.requiredHint")}>
                   *
                 </span>
               ) : null}
@@ -149,28 +153,28 @@ export function EnvRowsEditor({
             <input
               className="input"
               type={secret ? "password" : "text"}
-              placeholder={r.required ? "required" : "value"}
-              aria-label="Variable value"
+              placeholder={r.required ? t("env.valueRequiredPlaceholder") : t("env.valuePlaceholder")}
+              aria-label={t("env.valueLabel")}
               autoComplete="off"
               value={r.value}
               onChange={(e) => update(i, { value: e.target.value })}
             />
             {showRequiredToggle ? (
-              <label className="checkbox-row" title="Required" style={{ justifyContent: "center" }}>
+              <label className="checkbox-row" title={t("env.requiredLabel")} style={{ justifyContent: "center" }}>
                 <input
                   type="checkbox"
                   checked={r.required}
                   onChange={(e) => update(i, { required: e.target.checked })}
-                  aria-label="Required"
+                  aria-label={t("env.requiredLabel")}
                 />
               </label>
             ) : (
-              <RmButton onClick={() => remove(i)} label="Remove variable" />
+              <RmButton onClick={() => remove(i)} label={t("env.remove")} />
             )}
           </div>
         );
       })}
-      <AddButton onClick={add} label="Add variable" />
+      <AddButton onClick={add} label={t("env.add")} />
     </div>
   );
 }
@@ -184,6 +188,7 @@ export function VolRowsEditor({
   rows: VolRow[];
   onChange: (rows: VolRow[]) => void;
 }) {
+  const t = useT(mktRowEditorsDict);
   const update = (i: number, patch: Partial<VolRow>) =>
     onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const remove = (i: number) => onChange(rows.filter((_, idx) => idx !== i));
@@ -195,23 +200,23 @@ export function VolRowsEditor({
         <div key={i} className="mkt-row mkt-row-vol">
           <input
             className="input input-mono"
-            placeholder="volume name or /host/path"
-            aria-label="Volume source"
+            placeholder={t("vol.sourcePlaceholder")}
+            aria-label={t("vol.sourceLabel")}
             value={r.source}
             onChange={(e) => update(i, { source: e.target.value })}
           />
           <span className="mkt-row-sep">→</span>
           <input
             className="input input-mono"
-            placeholder="/container/path"
-            aria-label="Container path"
+            placeholder={t("vol.targetPlaceholder")}
+            aria-label={t("vol.targetLabel")}
             value={r.target}
             onChange={(e) => update(i, { target: e.target.value })}
           />
-          <RmButton onClick={() => remove(i)} label="Remove volume" />
+          <RmButton onClick={() => remove(i)} label={t("vol.remove")} />
         </div>
       ))}
-      <AddButton onClick={add} label="Add volume" />
+      <AddButton onClick={add} label={t("vol.add")} />
     </div>
   );
 }

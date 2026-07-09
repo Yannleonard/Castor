@@ -12,6 +12,8 @@ import { subscribeStats } from "../../lib/ws";
 import { StatsChart } from "../../components/StatsChart";
 import { formatBytes, formatPct, formatRate } from "../../lib/format";
 import type { WsRefKind, WsStatsPayload } from "../../lib/types";
+import { useT } from "../../i18n";
+import { wlStatsTabDict } from "../../i18n/locales/wlStatsTab";
 
 interface Props {
   hostId: string;
@@ -30,6 +32,7 @@ export function StatsTab({ hostId, workloadId, refKind }: Props) {
   );
   const [errMsg, setErrMsg] = useState("");
   const supersededRef = useRef(false);
+  const t = useT(wlStatsTabDict);
 
   useEffect(() => {
     supersededRef.current = false;
@@ -69,12 +72,11 @@ export function StatsTab({ hostId, workloadId, refKind }: Props) {
   return (
     <div className="col" style={{ gap: "var(--sp-4)" }}>
       {status === "superseded" ? (
-        <div className="banner warning">
-          Live stats were taken over by another workload (one live stream per session). Reopen this tab to
-          resume here.
-        </div>
+        <div className="banner warning">{t("banner.superseded")}</div>
       ) : null}
-      {status === "error" ? <div className="banner danger">Stats stream error: {errMsg}</div> : null}
+      {status === "error" ? (
+        <div className="banner danger">{t("banner.error", { msg: errMsg })}</div>
+      ) : null}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "var(--sp-4)" }}>
         <div className="card card-pad">
@@ -82,7 +84,7 @@ export function StatsTab({ hostId, workloadId, refKind }: Props) {
             data={cpu}
             color="var(--accent)"
             max={undefined}
-            label="CPU"
+            label={t("metric.cpu")}
             valueLabel={latest ? formatPct(latest.cpuPct) : "—"}
           />
         </div>
@@ -91,7 +93,7 @@ export function StatsTab({ hostId, workloadId, refKind }: Props) {
             data={mem}
             color="var(--success)"
             max={100}
-            label="Memory"
+            label={t("metric.memory")}
             valueLabel={latest ? formatPct(latest.memPct) : "—"}
           />
         </div>
@@ -99,22 +101,22 @@ export function StatsTab({ hostId, workloadId, refKind }: Props) {
 
       <div className="card card-pad">
         <div className="kv-grid">
-          <Metric label="CPU" value={latest ? formatPct(latest.cpuPct) : "—"} />
+          <Metric label={t("metric.cpu")} value={latest ? formatPct(latest.cpuPct) : "—"} />
           <Metric
-            label="Memory"
+            label={t("metric.memory")}
             value={latest ? `${formatBytes(latest.memUsed)} / ${formatBytes(latest.memLimit)}` : "—"}
           />
-          <Metric label="Net RX" value={latest ? formatRate(latest.netRx) : "—"} />
-          <Metric label="Net TX" value={latest ? formatRate(latest.netTx) : "—"} />
-          <Metric label="Block read" value={latest ? formatRate(latest.blkRead) : "—"} />
-          <Metric label="Block write" value={latest ? formatRate(latest.blkWrite) : "—"} />
+          <Metric label={t("metric.netRx")} value={latest ? formatRate(latest.netRx) : "—"} />
+          <Metric label={t("metric.netTx")} value={latest ? formatRate(latest.netTx) : "—"} />
+          <Metric label={t("metric.blockRead")} value={latest ? formatRate(latest.blkRead) : "—"} />
+          <Metric label={t("metric.blockWrite")} value={latest ? formatRate(latest.blkWrite) : "—"} />
         </div>
       </div>
 
       <div className="text-xs muted">
-        Status:{" "}
+        {t("status.label")}{" "}
         <span style={{ color: status === "live" ? "var(--success)" : "var(--text-secondary)" }}>{status}</span>{" "}
-        · one live stats stream per session (server-enforced).
+        · {t("status.note")}
       </div>
     </div>
   );

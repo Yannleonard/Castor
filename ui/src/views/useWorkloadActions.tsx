@@ -21,6 +21,8 @@ import {
 } from "../components/ConfirmDestructiveDialog";
 import { ReasonPromptDialog } from "../components/ReasonPromptDialog";
 import { cleanName } from "../lib/format";
+import { useT, t as tr } from "../i18n";
+import { workloadActionsDict } from "../i18n/locales/workloadActions";
 import type { Workload } from "../lib/types";
 
 type PendingKind = "stop" | "restart" | "remove" | "remove-protected" | null;
@@ -39,12 +41,6 @@ interface BulkPending {
   // Already filtered to actionable docker targets (non-protected) by the caller.
   workloads: Workload[];
 }
-
-const BULK_VERB: Record<BulkAction, string> = {
-  start: "Start",
-  stop: "Stop",
-  remove: "Remove",
-};
 
 // bulkApi maps a bulk action to its single-target api call.
 async function bulkApi(action: BulkAction, hostId: string, w: Workload, opts: DestructiveOptions): Promise<void> {
@@ -70,6 +66,7 @@ function isRunningConflict(err: unknown): boolean {
 }
 
 export function useWorkloadActions(hostId: string) {
+  const t = useT(workloadActionsDict);
   const queryClient = useQueryClient();
   const { permissions } = useAuth();
   const [pending, setPending] = useState<Pending | null>(null);
@@ -92,10 +89,10 @@ export function useWorkloadActions(hostId: string) {
     setBusyId(w.id);
     try {
       await api.workloadStart(hostId, w.id);
-      toast.success("Started", cleanName(w.name));
+      toast.success(tr(workloadActionsDict, "toast.startedTitle"), cleanName(w.name));
       invalidate();
     } catch (err) {
-      toastError("Start failed", err);
+      toastError(tr(workloadActionsDict, "toast.startFailed"), err);
     } finally {
       setBusyId(null);
     }
@@ -105,10 +102,10 @@ export function useWorkloadActions(hostId: string) {
     setBusyId(w.id);
     try {
       await api.workloadPause(hostId, w.id);
-      toast.success("Paused", cleanName(w.name));
+      toast.success(tr(workloadActionsDict, "toast.pausedTitle"), cleanName(w.name));
       invalidate();
     } catch (err) {
-      toastError("Pause failed", err);
+      toastError(tr(workloadActionsDict, "toast.pauseFailed"), err);
     } finally {
       setBusyId(null);
     }
@@ -118,10 +115,10 @@ export function useWorkloadActions(hostId: string) {
     setBusyId(w.id);
     try {
       await api.workloadUnpause(hostId, w.id);
-      toast.success("Unpaused", cleanName(w.name));
+      toast.success(tr(workloadActionsDict, "toast.unpausedTitle"), cleanName(w.name));
       invalidate();
     } catch (err) {
-      toastError("Unpause failed", err);
+      toastError(tr(workloadActionsDict, "toast.unpauseFailed"), err);
     } finally {
       setBusyId(null);
     }
@@ -140,10 +137,10 @@ export function useWorkloadActions(hostId: string) {
     const w = pending.workload;
     try {
       await api.workloadStop(hostId, w.id);
-      toast.success("Stopped", cleanName(w.name));
+      toast.success(tr(workloadActionsDict, "toast.stoppedTitle"), cleanName(w.name));
       invalidate();
     } catch (err) {
-      toastError("Stop failed", err);
+      toastError(tr(workloadActionsDict, "toast.stopFailed"), err);
       throw err;
     }
   };
@@ -153,10 +150,10 @@ export function useWorkloadActions(hostId: string) {
     const w = pending.workload;
     try {
       await api.workloadRestart(hostId, w.id);
-      toast.success("Restarted", cleanName(w.name));
+      toast.success(tr(workloadActionsDict, "toast.restartedTitle"), cleanName(w.name));
       invalidate();
     } catch (err) {
-      toastError("Restart failed", err);
+      toastError(tr(workloadActionsDict, "toast.restartFailed"), err);
       throw err;
     }
   };
@@ -166,7 +163,7 @@ export function useWorkloadActions(hostId: string) {
     const w = pending.workload;
     try {
       await api.workloadRemove(hostId, w.id, { force: opts.force, volumes: opts.volumes });
-      toast.success("Removed", cleanName(w.name));
+      toast.success(tr(workloadActionsDict, "toast.removedTitle"), cleanName(w.name));
       invalidate();
     } catch (err) {
       // A running container refused without force comes back as 409 conflict.
@@ -176,7 +173,7 @@ export function useWorkloadActions(hostId: string) {
         setForcePrompt(w);
         return; // let ConfirmDestructiveDialog close itself; forcePrompt is separate state
       }
-      toastError("Remove failed", err);
+      toastError(tr(workloadActionsDict, "toast.removeFailed"), err);
       throw err;
     }
   };
@@ -187,10 +184,10 @@ export function useWorkloadActions(hostId: string) {
     const w = forcePrompt;
     try {
       await api.workloadRemove(hostId, w.id, { force: true, volumes: opts.volumes });
-      toast.success("Removed", cleanName(w.name));
+      toast.success(tr(workloadActionsDict, "toast.removedTitle"), cleanName(w.name));
       invalidate();
     } catch (err) {
-      toastError("Remove failed", err);
+      toastError(tr(workloadActionsDict, "toast.removeFailed"), err);
       throw err;
     }
   };
@@ -205,10 +202,10 @@ export function useWorkloadActions(hostId: string) {
         confirm: true,
         reason,
       });
-      toast.success("Removed (override)", cleanName(w.name));
+      toast.success(tr(workloadActionsDict, "toast.removedOverrideTitle"), cleanName(w.name));
       invalidate();
     } catch (err) {
-      toastError("Override remove failed", err);
+      toastError(tr(workloadActionsDict, "toast.overrideRemoveFailed"), err);
       throw err;
     }
   };
@@ -220,7 +217,10 @@ export function useWorkloadActions(hostId: string) {
   const runBulk = (action: BulkAction, workloads: Workload[]) => {
     const targets = workloads.filter((w) => w.kind === "docker" && !w.protected);
     if (targets.length === 0) {
-      toast.info("Nothing to do", "None of the selected workloads support this action.");
+      toast.info(
+        tr(workloadActionsDict, "toast.nothingTitle"),
+        tr(workloadActionsDict, "toast.nothingBody"),
+      );
       return;
     }
     setBulkPending({ action, workloads: targets });
@@ -239,13 +239,22 @@ export function useWorkloadActions(hostId: string) {
     );
     const ok = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.length - ok;
-    const past = { start: "started", stop: "stopped", remove: "removed" }[action];
+    const past = tr(workloadActionsDict, `bulk.past.${action}`);
     if (failed === 0) {
-      toast.success("Bulk action complete", `${ok} ${past}.`);
+      toast.success(
+        tr(workloadActionsDict, "toast.bulkCompleteTitle"),
+        tr(workloadActionsDict, "toast.bulkCompleteBody", { ok, past }),
+      );
     } else if (ok === 0) {
-      toast.error("Bulk action failed", `${failed} failed.`);
+      toast.error(
+        tr(workloadActionsDict, "toast.bulkFailedTitle"),
+        tr(workloadActionsDict, "toast.bulkFailedBody", { failed }),
+      );
     } else {
-      toast.warning("Bulk action partial", `${ok} ${past}, ${failed} failed.`);
+      toast.warning(
+        tr(workloadActionsDict, "toast.bulkPartialTitle"),
+        tr(workloadActionsDict, "toast.bulkPartialBody", { ok, past, failed }),
+      );
     }
     invalidate();
   };
@@ -254,13 +263,14 @@ export function useWorkloadActions(hostId: string) {
     <>
       <ConfirmDestructiveDialog
         open={pending?.kind === "stop"}
-        title="Stop workload"
+        title={t("dialog.stopTitle")}
         variant="primary"
-        confirmLabel="Stop"
+        confirmLabel={t("dialog.stopConfirm")}
         description={
           <>
-            Stop <strong className="mono">{cleanName(pending?.workload.name)}</strong>? Running processes
-            will receive SIGTERM.
+            {t("dialog.stopDescPrefix")}
+            <strong className="mono">{cleanName(pending?.workload.name)}</strong>
+            {t("dialog.stopDescSuffix")}
           </>
         }
         onConfirm={confirmStop}
@@ -268,13 +278,14 @@ export function useWorkloadActions(hostId: string) {
       />
       <ConfirmDestructiveDialog
         open={pending?.kind === "restart"}
-        title="Restart workload"
+        title={t("dialog.restartTitle")}
         variant="primary"
-        confirmLabel="Restart"
+        confirmLabel={t("dialog.restartConfirm")}
         description={
           <>
-            Restart <strong className="mono">{cleanName(pending?.workload.name)}</strong>? The container
-            will be stopped and started again.
+            {t("dialog.restartDescPrefix")}
+            <strong className="mono">{cleanName(pending?.workload.name)}</strong>
+            {t("dialog.restartDescSuffix")}
           </>
         }
         onConfirm={confirmRestart}
@@ -282,14 +293,15 @@ export function useWorkloadActions(hostId: string) {
       />
       <ConfirmDestructiveDialog
         open={pending?.kind === "remove"}
-        title="Remove workload"
+        title={t("dialog.removeTitle")}
         variant="danger"
-        confirmLabel="Remove"
+        confirmLabel={t("dialog.removeConfirm")}
         showRemoveOptions
         description={
           <>
-            Permanently remove <strong className="mono">{cleanName(pending?.workload.name)}</strong>? This
-            cannot be undone.
+            {t("dialog.removeDescPrefix")}
+            <strong className="mono">{cleanName(pending?.workload.name)}</strong>
+            {t("dialog.removeDescSuffix")}
           </>
         }
         onConfirm={confirmRemove}
@@ -297,7 +309,7 @@ export function useWorkloadActions(hostId: string) {
       />
       <ReasonPromptDialog
         open={pending?.kind === "remove-protected"}
-        title="Remove protected workload"
+        title={t("dialog.removeProtectedTitle")}
         targetName={cleanName(pending?.workload.name)}
         showRemoveOptions
         onConfirm={confirmRemoveProtected}
@@ -305,14 +317,15 @@ export function useWorkloadActions(hostId: string) {
       />
       <ConfirmDestructiveDialog
         open={forcePrompt !== null}
-        title="Container is running"
+        title={t("dialog.forceTitle")}
         variant="danger"
-        confirmLabel="Force remove"
+        confirmLabel={t("dialog.forceConfirm")}
         description={
           <>
-            <strong className="mono">{cleanName(forcePrompt?.name)}</strong> is still running, so it
-            can't be removed normally. Force removal will <strong>kill the container</strong> and then
-            remove it. This cannot be undone.
+            <strong className="mono">{cleanName(forcePrompt?.name)}</strong>
+            {t("dialog.forceDescSuffix")}
+            <strong>{t("dialog.forceDescKill")}</strong>
+            {t("dialog.forceDescTail")}
           </>
         }
         onConfirm={confirmRemoveForced}
@@ -320,22 +333,32 @@ export function useWorkloadActions(hostId: string) {
       />
       <ConfirmDestructiveDialog
         open={bulkPending !== null}
-        title={bulkPending ? `${BULK_VERB[bulkPending.action]} ${bulkPending.workloads.length} workloads` : ""}
+        title={
+          bulkPending
+            ? t("dialog.bulkTitle", {
+                verb: t(`bulk.verb.${bulkPending.action}`),
+                count: bulkPending.workloads.length,
+              })
+            : ""
+        }
         variant={bulkPending?.action === "remove" ? "danger" : "primary"}
-        confirmLabel={bulkPending ? BULK_VERB[bulkPending.action] : "Confirm"}
+        confirmLabel={bulkPending ? t(`bulk.verb.${bulkPending.action}`) : t("dialog.bulkConfirmFallback")}
         showRemoveOptions={bulkPending?.action === "remove"}
         description={
           <div className="col" style={{ gap: "var(--sp-3)" }}>
             <span>
               {bulkPending?.action === "remove" ? (
                 <>
-                  Permanently remove the following <strong>{bulkPending.workloads.length}</strong> workloads?
-                  This cannot be undone.
+                  {t("dialog.bulkRemovePrefix")}
+                  <strong>{bulkPending.workloads.length}</strong>
+                  {t("dialog.bulkRemoveSuffix")}
                 </>
               ) : (
                 <>
-                  {BULK_VERB[bulkPending?.action ?? "stop"]} the following{" "}
-                  <strong>{bulkPending?.workloads.length}</strong> workloads?
+                  {t(`bulk.verb.${bulkPending?.action ?? "stop"}`)}
+                  {t("dialog.bulkActionSuffix")}
+                  <strong>{bulkPending?.workloads.length}</strong>
+                  {t("dialog.bulkActionTail")}
                 </>
               )}
             </span>

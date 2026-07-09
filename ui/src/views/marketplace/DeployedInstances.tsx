@@ -23,6 +23,8 @@ import { EmptyState } from "../../components/EmptyState";
 import { IconWorkloads } from "../../components/icons";
 import { cleanName, timeAgo } from "../../lib/format";
 import type { Template, Workload } from "../../lib/types";
+import { useT } from "../../i18n";
+import { mktDeployedInstancesDict } from "../../i18n/locales/mktDeployedInstances";
 
 /** Reserved label carrying the marketplace template slug on deployed containers. */
 export const LABEL_TEMPLATE = "io.castor.template";
@@ -52,13 +54,14 @@ export function groupBySlug(workloads: Workload[] | undefined): Map<string, Work
  * instance list for this slug via onOpen.
  */
 export function DeployedBadge({ count, onOpen }: { count: number; onOpen: () => void }) {
+  const t = useT(mktDeployedInstancesDict);
   if (count <= 0) return null;
   return (
     <button
       type="button"
       className="pill mkt-deployed-badge"
       onClick={onOpen}
-      title={`${count} running/created instance${count === 1 ? "" : "s"} of this template — click to view`}
+      title={t(count === 1 ? "badge.title" : "badge.titlePlural", { count })}
       style={{
         cursor: "pointer",
         color: "var(--accent)",
@@ -67,7 +70,7 @@ export function DeployedBadge({ count, onOpen }: { count: number; onOpen: () => 
       }}
     >
       <IconWorkloads size={12} />
-      {count} deployed
+      {t("badge.label", { count })}
     </button>
   );
 }
@@ -86,6 +89,8 @@ export function DeployedInstancesModal({
   instances: Workload[];
   onClose: () => void;
 }) {
+  const t = useT(mktDeployedInstancesDict);
+
   // Newest first — most-recently deployed instance is usually what you want.
   const rows = useMemo(
     () => instances.slice().sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
@@ -98,7 +103,7 @@ export function DeployedInstancesModal({
       wide
       title={
         <span className="row" style={{ gap: "var(--sp-2)" }}>
-          Deployed instances
+          {t("modal.title")}
           <span className="mono" style={{ fontWeight: 600 }}>
             {template?.name}
           </span>
@@ -108,23 +113,23 @@ export function DeployedInstancesModal({
       onClose={onClose}
       footer={
         <button className="btn" onClick={onClose}>
-          Close
+          {t("modal.close")}
         </button>
       }
     >
       {rows.length === 0 ? (
         <EmptyState
           icon={<IconWorkloads size={36} />}
-          title="No instances"
-          message="Nothing deployed from this template is currently on the selected host."
+          title={t("empty.title")}
+          message={t("empty.message")}
         />
       ) : (
         <table className="dt">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>State</th>
-              <th>Created</th>
+              <th>{t("col.name")}</th>
+              <th>{t("col.state")}</th>
+              <th>{t("col.created")}</th>
             </tr>
           </thead>
           <tbody>

@@ -32,6 +32,8 @@ import { Modal } from "../components/Modal";
 import { HelpButton } from "../components/HelpButton";
 import { IconVolumes, IconRefresh, IconPlus, IconTrash } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
+import { useT } from "../i18n";
+import { k8sStorageDict } from "../i18n/locales/k8sStorage";
 import type { PVInfo, PVCInfo, StorageClassInfo } from "../lib/types";
 
 type Tab = "pvs" | "pvcs" | "storageclasses";
@@ -66,6 +68,7 @@ function PhasePill({ status }: { status: string }) {
 }
 
 export function K8sStorage() {
+  const t = useT(k8sStorageDict);
   const hostId = useSelectedHost();
   const queryClient = useQueryClient();
   const { permissions } = useAuth();
@@ -108,39 +111,39 @@ export function K8sStorage() {
     queryClient.invalidateQueries({ queryKey: ["k8s", "pvs", hostId], exact: false });
 
   const pvCols: Column<PVInfo>[] = [
-    { key: "name", header: "Name", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
-    { key: "capacity", header: "Capacity", sortValue: (v) => v.capacity, cell: (v) => <span className="mono">{v.capacity || "—"}</span> },
-    { key: "status", header: "Status", sortValue: (v) => v.status, cell: (v) => <PhasePill status={v.status} /> },
+    { key: "name", header: t("col.name"), sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "capacity", header: t("col.capacity"), sortValue: (v) => v.capacity, cell: (v) => <span className="mono">{v.capacity || "—"}</span> },
+    { key: "status", header: t("col.status"), sortValue: (v) => v.status, cell: (v) => <PhasePill status={v.status} /> },
     {
       key: "accessModes",
-      header: "Access",
+      header: t("col.access"),
       cell: (v) => (
         <span className="row-wrap" style={{ gap: 4 }}>
           {v.accessModes.length ? v.accessModes.map((m) => <span key={m} className="chip text-xs">{m}</span>) : <span className="muted">—</span>}
         </span>
       ),
     },
-    { key: "reclaim", header: "Reclaim", sortValue: (v) => v.reclaimPolicy, cell: (v) => <span className="text-sm secondary">{v.reclaimPolicy || "—"}</span> },
-    { key: "storageClass", header: "Storage class", sortValue: (v) => v.storageClass, cell: (v) => (v.storageClass ? <span className="chip">{v.storageClass}</span> : <span className="muted">—</span>) },
-    { key: "claim", header: "Claim", sortValue: (v) => v.claim, cell: (v) => <span className="mono text-xs">{v.claim || "—"}</span> },
+    { key: "reclaim", header: t("col.reclaim"), sortValue: (v) => v.reclaimPolicy, cell: (v) => <span className="text-sm secondary">{v.reclaimPolicy || "—"}</span> },
+    { key: "storageClass", header: t("col.storageClass"), sortValue: (v) => v.storageClass, cell: (v) => (v.storageClass ? <span className="chip">{v.storageClass}</span> : <span className="muted">—</span>) },
+    { key: "claim", header: t("col.claim"), sortValue: (v) => v.claim, cell: (v) => <span className="mono text-xs">{v.claim || "—"}</span> },
   ];
 
   const pvcCols: Column<PVCInfo>[] = [
-    { key: "name", header: "Name", sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
-    { key: "namespace", header: "Namespace", sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
-    { key: "status", header: "Status", sortValue: (v) => v.status, cell: (v) => <PhasePill status={v.status} /> },
-    { key: "capacity", header: "Capacity", sortValue: (v) => v.capacity, cell: (v) => <span className="mono">{v.capacity || "—"}</span> },
+    { key: "name", header: t("col.name"), sortValue: (v) => v.name, cell: (v) => <span style={{ fontWeight: 600 }}>{v.name}</span> },
+    { key: "namespace", header: t("col.namespace"), sortValue: (v) => v.namespace, cell: (v) => <span className="chip">{v.namespace}</span> },
+    { key: "status", header: t("col.status"), sortValue: (v) => v.status, cell: (v) => <PhasePill status={v.status} /> },
+    { key: "capacity", header: t("col.capacity"), sortValue: (v) => v.capacity, cell: (v) => <span className="mono">{v.capacity || "—"}</span> },
     {
       key: "accessModes",
-      header: "Access",
+      header: t("col.access"),
       cell: (v) => (
         <span className="row-wrap" style={{ gap: 4 }}>
           {v.accessModes.length ? v.accessModes.map((m) => <span key={m} className="chip text-xs">{m}</span>) : <span className="muted">—</span>}
         </span>
       ),
     },
-    { key: "storageClass", header: "Storage class", sortValue: (v) => v.storageClass, cell: (v) => (v.storageClass ? <span className="chip">{v.storageClass}</span> : <span className="muted">—</span>) },
-    { key: "volume", header: "Volume", sortValue: (v) => v.volume, cell: (v) => <span className="mono text-xs muted">{v.volume || "—"}</span> },
+    { key: "storageClass", header: t("col.storageClass"), sortValue: (v) => v.storageClass, cell: (v) => (v.storageClass ? <span className="chip">{v.storageClass}</span> : <span className="muted">—</span>) },
+    { key: "volume", header: t("col.volume"), sortValue: (v) => v.volume, cell: (v) => <span className="mono text-xs muted">{v.volume || "—"}</span> },
     {
       key: "actions",
       header: "",
@@ -154,8 +157,8 @@ export function K8sStorage() {
               iconOnly
               variant="ghost"
               disabled={!allowed}
-              tooltip={allowed ? "Delete PVC" : reason}
-              aria-label="Delete PVC"
+              tooltip={allowed ? t("action.deletePvc") : reason}
+              aria-label={t("action.deletePvc")}
               onClick={() => setDeleteTarget(v)}
               style={allowed ? { color: "var(--danger)" } : undefined}
             >
@@ -170,7 +173,7 @@ export function K8sStorage() {
   const scCols: Column<StorageClassInfo>[] = [
     {
       key: "name",
-      header: "Name",
+      header: t("col.name"),
       sortValue: (v) => v.name,
       cell: (v) => (
         <span className="row" style={{ gap: "var(--sp-2)" }}>
@@ -183,9 +186,9 @@ export function K8sStorage() {
         </span>
       ),
     },
-    { key: "provisioner", header: "Provisioner", sortValue: (v) => v.provisioner, cell: (v) => <span className="mono text-xs">{v.provisioner}</span> },
-    { key: "reclaim", header: "Reclaim", sortValue: (v) => v.reclaimPolicy, cell: (v) => <span className="text-sm secondary">{v.reclaimPolicy || "—"}</span> },
-    { key: "binding", header: "Binding mode", sortValue: (v) => v.volumeBindingMode, cell: (v) => <span className="text-sm secondary">{v.volumeBindingMode || "—"}</span> },
+    { key: "provisioner", header: t("col.provisioner"), sortValue: (v) => v.provisioner, cell: (v) => <span className="mono text-xs">{v.provisioner}</span> },
+    { key: "reclaim", header: t("col.reclaim"), sortValue: (v) => v.reclaimPolicy, cell: (v) => <span className="text-sm secondary">{v.reclaimPolicy || "—"}</span> },
+    { key: "binding", header: t("col.bindingMode"), sortValue: (v) => v.volumeBindingMode, cell: (v) => <span className="text-sm secondary">{v.volumeBindingMode || "—"}</span> },
   ];
 
   const loading =
@@ -197,11 +200,11 @@ export function K8sStorage() {
     if (!deleteTarget) return;
     try {
       await api.k8sDeletePVC(hostId, deleteTarget.namespace, deleteTarget.name);
-      toast.success("PVC deleted", `${deleteTarget.namespace}/${deleteTarget.name}`);
+      toast.success(t("toast.deletedTitle"), `${deleteTarget.namespace}/${deleteTarget.name}`);
       invalidatePVCs();
       invalidatePVs();
     } catch (err) {
-      toastError("Delete failed", err);
+      toastError(t("toast.deleteFailed"), err);
       throw err;
     }
   };
@@ -211,17 +214,17 @@ export function K8sStorage() {
       <PageHeader
         title={
           <span className="row" style={{ gap: "var(--sp-3)" }}>
-            Storage
+            {t("header.title")}
             <OrchestratorBadge kind="kubernetes" />
           </span>
         }
-        subtitle="PersistentVolumes, claims and storage classes."
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             {tab === "pvcs" ? (
               <>
                 <select className="select" style={{ width: 200 }} value={namespace} onChange={(e) => setNamespace(e.target.value)}>
-                  <option value="">All namespaces</option>
+                  <option value="">{t("header.allNamespaces")}</option>
                   {namespaces.map((ns) => (
                     <option key={ns} value={ns}>
                       {ns}
@@ -237,13 +240,13 @@ export function K8sStorage() {
                       onClick={() => setCreateOpen(true)}
                     >
                       <IconPlus size={15} />
-                      Create PVC
+                      {t("header.createPvc")}
                     </ActionButton>
                   )}
                 </CapabilityGate>
               </>
             ) : null}
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={refetch}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={refetch}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="kubernetes" />
@@ -253,18 +256,18 @@ export function K8sStorage() {
 
       <div className="tabs">
         <button className={`tab${tab === "pvs" ? " active" : ""}`} onClick={() => setTab("pvs")}>
-          Persistent Volumes
+          {t("tab.pvs")}
         </button>
         <button className={`tab${tab === "pvcs" ? " active" : ""}`} onClick={() => setTab("pvcs")}>
-          Volume Claims
+          {t("tab.pvcs")}
         </button>
         <button className={`tab${tab === "storageclasses" ? " active" : ""}`} onClick={() => setTab("storageclasses")}>
-          Storage Classes
+          {t("tab.storageClasses")}
         </button>
       </div>
 
       {loading ? (
-        <LoadingFill label="Loading storage…" />
+        <LoadingFill label={t("list.loading")} />
       ) : tab === "pvs" ? (
         <DataTable
           columns={pvCols}
@@ -272,8 +275,8 @@ export function K8sStorage() {
           rowKey={(v) => v.name}
           defaultSortKey="name"
           emptyIcon={<IconVolumes size={40} />}
-          emptyTitle="No persistent volumes"
-          emptyMessage="No Kubernetes cluster is reachable, or no PVs are provisioned."
+          emptyTitle={t("empty.pvsTitle")}
+          emptyMessage={t("empty.pvsMessage")}
         />
       ) : tab === "pvcs" ? (
         <DataTable
@@ -282,8 +285,8 @@ export function K8sStorage() {
           rowKey={(v) => `${v.namespace}/${v.name}`}
           defaultSortKey="name"
           emptyIcon={<IconVolumes size={40} />}
-          emptyTitle="No volume claims"
-          emptyMessage="No PersistentVolumeClaims in this scope."
+          emptyTitle={t("empty.pvcsTitle")}
+          emptyMessage={t("empty.pvcsMessage")}
         />
       ) : (
         <DataTable
@@ -292,7 +295,7 @@ export function K8sStorage() {
           rowKey={(v) => v.name}
           defaultSortKey="name"
           emptyIcon={<IconVolumes size={40} />}
-          emptyTitle="No storage classes"
+          emptyTitle={t("empty.storageClassesTitle")}
         />
       )}
 
@@ -313,17 +316,16 @@ export function K8sStorage() {
       {/* ---- Delete PVC (confirm) ---- */}
       <ConfirmDestructiveDialog
         open={!!deleteTarget}
-        title="Delete volume claim"
+        title={t("dialog.deleteTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete{" "}
+            {t("dialog.deleteConfirm")}{" "}
             <strong className="mono">
               {deleteTarget?.namespace}/{deleteTarget?.name}
             </strong>
-            ? Depending on the volume&apos;s reclaim policy its bound PersistentVolume may be deleted too. This cannot be
-            undone.
+            {t("dialog.deleteDescriptionSuffix")}
           </>
         }
         onConfirm={doDeletePVC}
@@ -363,6 +365,7 @@ function CreatePVCModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const t = useT(k8sStorageDict);
   const [name, setName] = useState("");
   const [ns, setNs] = useState(defaultNamespace || "default");
   const [storageClass, setStorageClass] = useState("");
@@ -402,10 +405,10 @@ function CreatePVCModal({
         accessModes: [accessMode],
         requestBytes,
       });
-      toast.success("PVC created", `${ns.trim()}/${name.trim()} (${size}${unit})`);
+      toast.success(t("toast.createdTitle"), `${ns.trim()}/${name.trim()} (${size}${unit})`);
       onCreated();
     } catch (err) {
-      toastError("Create failed", err);
+      toastError(t("toast.createFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -418,16 +421,16 @@ function CreatePVCModal({
   return (
     <Modal
       open={open}
-      title="Create volume claim"
+      title={t("form.title")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("form.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            Create
+            {t("form.create")}
           </ActionButton>
         </>
       }
@@ -435,7 +438,7 @@ function CreatePVCModal({
       <div className="col" style={{ gap: "var(--sp-4)" }}>
         <div className="field">
           <label className="field-label" htmlFor="pvc-name">
-            Name
+            {t("form.name")}
           </label>
           <input
             id="pvc-name"
@@ -443,17 +446,17 @@ function CreatePVCModal({
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="data"
+            placeholder={t("form.namePlaceholder")}
           />
           {name !== "" && !nameValid ? (
-            <span className="field-error">Lowercase DNS label (a-z, 0-9, -).</span>
+            <span className="field-error">{t("form.nameError")}</span>
           ) : null}
         </div>
 
         <div className="row" style={{ gap: "var(--sp-4)", flexWrap: "wrap" }}>
           <div className="field" style={{ minWidth: 200, flex: 1 }}>
             <label className="field-label" htmlFor="pvc-ns">
-              Namespace
+              {t("form.namespace")}
             </label>
             <select id="pvc-ns" className="select" value={ns} onChange={(e) => setNs(e.target.value)}>
               {!nsOptions.includes(ns) ? <option value={ns}>{ns}</option> : null}
@@ -467,14 +470,14 @@ function CreatePVCModal({
 
           <div className="field" style={{ minWidth: 200, flex: 1 }}>
             <label className="field-label" htmlFor="pvc-sc">
-              Storage class
+              {t("form.storageClass")}
             </label>
             <select id="pvc-sc" className="select" value={storageClass} onChange={(e) => setStorageClass(e.target.value)}>
-              <option value="">Cluster default</option>
+              <option value="">{t("form.storageClassDefault")}</option>
               {storageClasses.map((sc) => (
                 <option key={sc.name} value={sc.name}>
                   {sc.name}
-                  {sc.isDefault ? " (default)" : ""}
+                  {sc.isDefault ? t("form.storageClassDefaultSuffix") : ""}
                 </option>
               ))}
             </select>
@@ -484,7 +487,7 @@ function CreatePVCModal({
         <div className="row" style={{ gap: "var(--sp-4)", flexWrap: "wrap", alignItems: "flex-start" }}>
           <div className="field" style={{ minWidth: 200, flex: 1 }}>
             <label className="field-label" htmlFor="pvc-access">
-              Access mode
+              {t("form.accessMode")}
             </label>
             <select
               id="pvc-access"
@@ -502,7 +505,7 @@ function CreatePVCModal({
 
           <div className="field" style={{ width: 130 }}>
             <label className="field-label" htmlFor="pvc-size">
-              Size
+              {t("form.size")}
             </label>
             <input
               id="pvc-size"
@@ -512,12 +515,12 @@ function CreatePVCModal({
               value={size}
               onChange={(e) => setSize(e.target.value)}
             />
-            {size !== "" && !sizeValid ? <span className="field-error">Positive number.</span> : null}
+            {size !== "" && !sizeValid ? <span className="field-error">{t("form.sizeError")}</span> : null}
           </div>
 
           <div className="field" style={{ width: 90 }}>
             <label className="field-label" htmlFor="pvc-unit">
-              Unit
+              {t("form.unit")}
             </label>
             <select id="pvc-unit" className="select" value={unit} onChange={(e) => setUnit(e.target.value as SizeUnit)}>
               {SIZE_UNITS.map((u) => (
@@ -530,8 +533,9 @@ function CreatePVCModal({
         </div>
 
         <span className="text-xs muted">
-          Requests <span className="mono">{sizeValid ? `${size}${unit}` : "—"}</span> of storage. A blank storage class
-          uses the cluster default provisioner.
+          {t("form.requestsHintPrefix")}
+          <span className="mono">{sizeValid ? `${size}${unit}` : "—"}</span>
+          {t("form.requestsHintSuffix")}
         </span>
       </div>
     </Modal>

@@ -17,6 +17,9 @@ import { HelpButton } from "../components/HelpButton";
 import { IconAudit, IconDownload, IconRefresh, IconSearch, IconInspect } from "../components/icons";
 import { formatDateTime, prettyJson, timeAgo } from "../lib/format";
 import { toast, toastError } from "../lib/toast";
+import { useT } from "../i18n";
+import { auditDict } from "../i18n/locales/audit";
+import { commonDict } from "../i18n/locales/common";
 import type { AuditEntry, AuditResult } from "../lib/types";
 
 // CSV columns exported for each audit row, in output order.
@@ -68,11 +71,13 @@ function downloadCsv(csv: string, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const RESULTS: { value: AuditResult | ""; label: string }[] = [
-  { value: "", label: "All results" },
-  { value: "success", label: "Success" },
-  { value: "denied", label: "Denied" },
-  { value: "error", label: "Error" },
+// Result filter options: technical `value` (sent to the API, never translated)
+// paired with the auditDict key for its display label.
+const RESULT_OPTIONS: { value: AuditResult | ""; labelKey: string }[] = [
+  { value: "", labelKey: "filter.resultAll" },
+  { value: "success", labelKey: "filter.resultSuccess" },
+  { value: "denied", labelKey: "filter.resultDenied" },
+  { value: "error", labelKey: "filter.resultError" },
 ];
 
 const RESULT_COLOR: Record<AuditResult, string> = {
@@ -81,7 +86,16 @@ const RESULT_COLOR: Record<AuditResult, string> = {
   error: "var(--danger)",
 };
 
+// auditDict key for each result value's capitalized display label.
+const RESULT_LABEL_KEY: Record<AuditResult, string> = {
+  success: "result.success",
+  denied: "result.denied",
+  error: "result.error",
+};
+
 export function Audit() {
+  const t = useT(auditDict);
+  const tc = useT(commonDict);
   const [action, setAction] = useState("");
   const [actorId, setActorId] = useState("");
   const [targetType, setTargetType] = useState("");
@@ -111,12 +125,12 @@ export function Audit() {
   // exportCsv writes the currently loaded rows to a CSV download (browser-only).
   const exportCsv = (data: AuditEntry[]) => {
     if (data.length === 0) {
-      toast.info("Nothing to export", "No audit rows are loaded.");
+      toast.info(t("toast.nothingTitle"), t("toast.nothingBody"));
       return;
     }
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     downloadCsv(auditRowsToCsv(data), `audit-${stamp}.csv`);
-    toast.success("Export ready", `${data.length} rows written to CSV.`);
+    toast.success(t("toast.exportedTitle"), t("toast.exportedBody", { count: data.length }));
   };
 
   // exportAll drains remaining pages (respecting the active filters) before
@@ -132,7 +146,7 @@ export function Audit() {
       const all = (result.data?.pages ?? []).flatMap((p) => p.items);
       exportCsv(all);
     } catch (err) {
-      toastError("Export failed", err);
+      toastError(t("toast.exportFailed"), err);
     } finally {
       setExporting(false);
     }
@@ -150,7 +164,7 @@ export function Audit() {
   const columns: Column<AuditEntry>[] = [
     {
       key: "ts",
-      header: "Time",
+      header: t("col.time"),
       sortValue: (a) => a.tsEpoch,
       width: "170px",
       cell: (a) => (
@@ -162,21 +176,21 @@ export function Audit() {
     },
     {
       key: "result",
-      header: "Result",
+      header: t("col.result"),
       sortValue: (a) => a.result,
       width: "110px",
       cell: (a) => (
         <span className="row" style={{ gap: 6 }}>
           <StatusDot color={RESULT_COLOR[a.result]} />
-          <span className="text-sm" style={{ color: RESULT_COLOR[a.result], textTransform: "capitalize" }}>
-            {a.result}
+          <span className="text-sm" style={{ color: RESULT_COLOR[a.result] }}>
+            {t(RESULT_LABEL_KEY[a.result])}
           </span>
         </span>
       ),
     },
     {
       key: "actor",
-      header: "Actor",
+      header: t("col.actor"),
       sortValue: (a) => a.actorName || a.actorId,
       cell: (a) => (
         <div className="col" style={{ gap: 0 }}>
@@ -187,10 +201,10 @@ export function Audit() {
         </div>
       ),
     },
-    { key: "action", header: "Action", sortValue: (a) => a.action, cell: (a) => <span className="mono text-sm" style={{ color: "var(--text-link)" }}>{a.action}</span> },
+    { key: "action", header: t("col.action"), sortValue: (a) => a.action, cell: (a) => <span className="mono text-sm" style={{ color: "var(--text-link)" }}>{a.action}</span> },
     {
       key: "target",
-      header: "Target",
+      header: t("col.target"),
       sortValue: (a) => a.targetType,
       cell: (a) => (
         <div className="col" style={{ gap: 0 }}>
@@ -201,7 +215,7 @@ export function Audit() {
     },
     {
       key: "http",
-      header: "HTTP",
+      header: t("col.http"),
       align: "right",
       sortValue: (a) => a.httpStatus,
       width: "80px",
@@ -217,7 +231,7 @@ export function Audit() {
       align: "right",
       width: "50px",
       cell: (a) => (
-        <ActionButton size="sm" iconOnly variant="ghost" tooltip="View detail" aria-label="View detail" onClick={() => setDetailRow(a)}>
+        <ActionButton size="sm" iconOnly variant="ghost" tooltip={t("row.viewDetail")} aria-label={t("row.viewDetail")} onClick={() => setDetailRow(a)}>
           <IconInspect size={15} />
         </ActionButton>
       ),
@@ -227,26 +241,26 @@ export function Audit() {
   return (
     <div className="page">
       <PageHeader
-        title="Audit log"
-        subtitle="Append-only record of every mutating action and access decision."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             <ActionButton
               variant="ghost"
               disabled={rows.length === 0}
-              tooltip={rows.length === 0 ? "No rows loaded yet" : undefined}
+              tooltip={rows.length === 0 ? t("header.exportLoadedEmpty") : undefined}
               onClick={() => exportCsv(rows)}
             >
               <IconDownload size={15} />
-              Export loaded rows
+              {t("header.exportLoaded")}
             </ActionButton>
             {query.hasNextPage ? (
               <ActionButton variant="ghost" loading={exporting} onClick={exportAll}>
                 <IconDownload size={15} />
-                Load all then export
+                {t("header.exportAll")}
               </ActionButton>
             ) : null}
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="audit" />
@@ -260,28 +274,28 @@ export function Audit() {
             <span className="muted">
               <IconSearch size={16} />
             </span>
-            <input className="input" placeholder="Action (e.g. docker.container.stop)" value={action} onChange={(e) => setAction(e.target.value)} />
+            <input className="input" placeholder={t("filter.actionPlaceholder")} value={action} onChange={(e) => setAction(e.target.value)} />
           </div>
-          <input className="input" style={{ width: 180 }} placeholder="Actor id" value={actorId} onChange={(e) => setActorId(e.target.value)} />
-          <input className="input" style={{ width: 160 }} placeholder="Target type" value={targetType} onChange={(e) => setTargetType(e.target.value)} />
+          <input className="input" style={{ width: 180 }} placeholder={t("filter.actorPlaceholder")} value={actorId} onChange={(e) => setActorId(e.target.value)} />
+          <input className="input" style={{ width: 160 }} placeholder={t("filter.targetPlaceholder")} value={targetType} onChange={(e) => setTargetType(e.target.value)} />
           <select className="select" style={{ width: 150 }} value={result} onChange={(e) => setResult(e.target.value as AuditResult | "")}>
-            {RESULTS.map((r) => (
+            {RESULT_OPTIONS.map((r) => (
               <option key={r.value} value={r.value}>
-                {r.label}
+                {t(r.labelKey)}
               </option>
             ))}
           </select>
           <ActionButton variant="primary" onClick={applyFilters}>
-            Apply
+            {t("filter.apply")}
           </ActionButton>
           <ActionButton variant="ghost" onClick={resetFilters}>
-            Reset
+            {t("filter.reset")}
           </ActionButton>
         </div>
       </div>
 
       {query.isLoading ? (
-        <LoadingFill label="Loading audit log…" />
+        <LoadingFill label={t("list.loading")} />
       ) : (
         <>
           <DataTable
@@ -292,51 +306,51 @@ export function Audit() {
             defaultSortDir="desc"
             onRowClick={(a) => setDetailRow(a)}
             emptyIcon={<IconAudit size={40} />}
-            emptyTitle="No audit entries"
-            emptyMessage="Nothing matches the current filters."
+            emptyTitle={t("empty.title")}
+            emptyMessage={t("empty.message")}
           />
           <div className="row" style={{ justifyContent: "center" }}>
             {query.hasNextPage ? (
               <ActionButton variant="ghost" loading={query.isFetchingNextPage} onClick={() => query.fetchNextPage()}>
-                Load more
+                {t("list.loadMore")}
               </ActionButton>
             ) : rows.length > 0 ? (
-              <span className="text-xs muted">End of log · {rows.length} entries loaded</span>
+              <span className="text-xs muted">{t("list.endOfLog", { count: rows.length })}</span>
             ) : null}
           </div>
         </>
       )}
 
-      <Modal open={!!detailRow} title="Audit entry" onClose={() => setDetailRow(null)} wide footer={<button className="btn" onClick={() => setDetailRow(null)}>Close</button>}>
+      <Modal open={!!detailRow} title={t("detail.title")} onClose={() => setDetailRow(null)} wide footer={<button className="btn" onClick={() => setDetailRow(null)}>{tc("close")}</button>}>
         {detailRow ? (
           <div className="col" style={{ gap: "var(--sp-4)" }}>
             <dl className="dl">
-              <dt>Time</dt>
+              <dt>{t("detail.time")}</dt>
               <dd>{formatDateTime(detailRow.ts)}</dd>
-              <dt>Result</dt>
-              <dd style={{ color: RESULT_COLOR[detailRow.result], textTransform: "capitalize" }}>{detailRow.result}</dd>
-              <dt>Actor</dt>
+              <dt>{t("detail.result")}</dt>
+              <dd style={{ color: RESULT_COLOR[detailRow.result] }}>{t(RESULT_LABEL_KEY[detailRow.result])}</dd>
+              <dt>{t("detail.actor")}</dt>
               <dd>
                 {detailRow.actorName || detailRow.actorId} {detailRow.actorIp ? <span className="muted mono">({detailRow.actorIp})</span> : null}
               </dd>
-              <dt>Action</dt>
+              <dt>{t("detail.action")}</dt>
               <dd className="mono">{detailRow.action}</dd>
-              <dt>Target</dt>
+              <dt>{t("detail.target")}</dt>
               <dd>
                 {detailRow.targetName || detailRow.targetId} <span className="muted">[{detailRow.targetType}]</span>
               </dd>
-              <dt>Scope</dt>
+              <dt>{t("detail.scope")}</dt>
               <dd className="mono">
                 {detailRow.scopeType}
                 {detailRow.scopeId ? `:${detailRow.scopeId}` : ""}
               </dd>
-              <dt>HTTP status</dt>
+              <dt>{t("detail.httpStatus")}</dt>
               <dd className="mono">{detailRow.httpStatus}</dd>
-              <dt>Request id</dt>
+              <dt>{t("detail.requestId")}</dt>
               <dd className="mono">{detailRow.requestId || "—"}</dd>
             </dl>
             <div className="col" style={{ gap: "var(--sp-2)" }}>
-              <span className="text-sm muted">Detail (sanitized)</span>
+              <span className="text-sm muted">{t("detail.sanitized")}</span>
               <pre className="code-block">{prettyJson(detailRow.detail ?? {})}</pre>
             </div>
           </div>

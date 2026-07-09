@@ -24,6 +24,8 @@ import { TextField, SelectField } from "../components/Field";
 import { IconImages, IconPlus, IconTrash, IconRefresh } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { timeAgo } from "../lib/format";
+import { useT } from "../i18n";
+import { registriesDict } from "../i18n/locales/registries";
 import type { Registry, RegistryInput, RegistryType } from "../lib/types";
 
 const EMPTY: Registry[] = [];
@@ -40,6 +42,7 @@ const TYPE_OPTIONS: { value: RegistryType; label: string }[] = [
 const TYPE_LABEL: Record<string, string> = Object.fromEntries(TYPE_OPTIONS.map((t) => [t.value, t.label]));
 
 export function Registries() {
+  const t = useT(registriesDict);
   const queryClient = useQueryClient();
   const { can } = useAuth();
   const registriesQ = useRegistries();
@@ -60,12 +63,12 @@ export function Registries() {
     try {
       const res = await api.registryTest(rg.id);
       if (res.ok) {
-        toast.success(`${rg.name}: login OK`, res.message);
+        toast.success(t("toast.loginOkTitle", { name: rg.name }), res.message);
       } else {
-        toast.warning(`${rg.name}: login failed`, res.message);
+        toast.warning(t("toast.loginFailedTitle", { name: rg.name }), res.message);
       }
     } catch (err) {
-      toastError("Test failed", err);
+      toastError(t("toast.testFailed"), err);
     } finally {
       setTestingId(null);
     }
@@ -74,7 +77,7 @@ export function Registries() {
   const columns: Column<Registry>[] = [
     {
       key: "name",
-      header: "Name",
+      header: t("col.name"),
       sortValue: (rg) => rg.name,
       cell: (rg) => (
         <div className="col" style={{ gap: 2 }}>
@@ -89,32 +92,32 @@ export function Registries() {
     },
     {
       key: "type",
-      header: "Type",
+      header: t("col.type"),
       sortValue: (rg) => rg.type,
       cell: (rg) => <span className="chip">{TYPE_LABEL[rg.type] ?? rg.type}</span>,
     },
     {
       key: "username",
-      header: "Username",
+      header: t("col.username"),
       sortValue: (rg) => rg.username,
       cell: (rg) => (rg.username ? <span className="mono text-sm">{rg.username}</span> : <span className="muted text-sm">—</span>),
     },
     {
       key: "secret",
-      header: "Credential",
+      header: t("col.credential"),
       sortValue: (rg) => (rg.hasSecret ? 1 : 0),
       cell: (rg) =>
         rg.hasSecret ? (
           <span className="pill" style={{ color: "var(--success)", background: "var(--success-bg)", borderColor: "transparent" }}>
-            •••• set
+            {t("badge.secretSet")}
           </span>
         ) : (
-          <span className="text-xs muted">none</span>
+          <span className="text-xs muted">{t("badge.secretNone")}</span>
         ),
     },
     {
       key: "created",
-      header: "Added",
+      header: t("col.added"),
       sortValue: (rg) => rg.createdAt,
       cell: (rg) => <span className="text-xs muted nowrap">{timeAgo(rg.createdAt)}</span>,
     },
@@ -130,27 +133,27 @@ export function Registries() {
             variant="ghost"
             loading={testingId === rg.id}
             disabled={!canWrite || testingId !== null}
-            tooltip={canWrite ? "Test login against the registry" : "Requires marketplace.registry.write"}
+            tooltip={canWrite ? t("action.testTooltip") : t("action.requiresWrite")}
             onClick={() => runTest(rg)}
           >
-            Test
+            {t("action.test")}
           </ActionButton>
           <ActionButton
             size="sm"
             variant="ghost"
             disabled={!canWrite}
-            tooltip={canWrite ? "Edit" : "Requires marketplace.registry.write"}
+            tooltip={canWrite ? t("action.editTooltip") : t("action.requiresWrite")}
             onClick={() => setEditTarget(rg)}
           >
-            Edit
+            {t("action.edit")}
           </ActionButton>
           <ActionButton
             size="sm"
             variant="ghost"
             iconOnly
             disabled={!canWrite}
-            tooltip={canWrite ? "Delete registry" : "Requires marketplace.registry.write"}
-            aria-label="Delete registry"
+            tooltip={canWrite ? t("action.delete") : t("action.requiresWrite")}
+            aria-label={t("action.delete")}
             onClick={() => setDeleteTarget(rg)}
             style={canWrite ? { color: "var(--danger)" } : undefined}
           >
@@ -164,20 +167,20 @@ export function Registries() {
   return (
     <div className="page">
       <PageHeader
-        title="Registries"
-        subtitle="Image registry credentials used to pull private (and rate-limited public) images."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             <ActionButton
               variant="primary"
               disabled={!canWrite}
-              tooltip={canWrite ? undefined : "Requires marketplace.registry.write"}
+              tooltip={canWrite ? undefined : t("action.requiresWrite")}
               onClick={() => setCreateOpen(true)}
             >
               <IconPlus size={15} />
-              Add registry
+              {t("header.add")}
             </ActionButton>
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => registriesQ.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => registriesQ.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="registries" />
@@ -186,7 +189,7 @@ export function Registries() {
       />
 
       {registriesQ.isLoading ? (
-        <LoadingFill label="Loading registries…" />
+        <LoadingFill label={t("list.loading")} />
       ) : (
         <DataTable
           columns={columns}
@@ -194,8 +197,8 @@ export function Registries() {
           rowKey={(rg) => rg.id}
           defaultSortKey="name"
           emptyIcon={<IconImages size={40} />}
-          emptyTitle="No registries"
-          emptyMessage="Add a registry to pull images that need authentication."
+          emptyTitle={t("empty.title")}
+          emptyMessage={t("empty.message")}
         />
       )}
 
@@ -204,22 +207,24 @@ export function Registries() {
 
       <ConfirmDestructiveDialog
         open={!!deleteTarget}
-        title="Delete registry"
+        title={t("dialog.deleteTitle")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("dialog.deleteConfirm")}
         description={
           <>
-            Delete registry <strong>{deleteTarget?.name}</strong> and its stored credential? Pulls that rely on it will fail until re-added.
+            {t("dialog.deletePrefix")}
+            <strong>{deleteTarget?.name}</strong>
+            {t("dialog.deleteSuffix")}
           </>
         }
         onConfirm={async () => {
           if (!deleteTarget) return;
           try {
             await api.registryDelete(deleteTarget.id);
-            toast.success("Registry deleted", deleteTarget.name);
+            toast.success(t("toast.deletedTitle"), deleteTarget.name);
             invalidate();
           } catch (err) {
-            toastError("Delete failed", err);
+            toastError(t("toast.deleteFailed"), err);
             throw err;
           }
         }}
@@ -238,6 +243,7 @@ function RegistryModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT(registriesDict);
   const editing = !!registry;
   const [name, setName] = useState(registry?.name ?? "");
   const [type, setType] = useState<RegistryType>(registry?.type ?? "dockerhub");
@@ -269,16 +275,16 @@ function RegistryModal({
         if (secret) base.secret = secret;
         else if (clearSecret) base.secret = "";
         await api.registryUpdate(registry!.id, base);
-        toast.success("Registry updated", base.name);
+        toast.success(t("toast.updatedTitle"), base.name);
       } else {
         if (secret) base.secret = secret;
         await api.registryCreate(base);
-        toast.success("Registry added", base.name);
+        toast.success(t("toast.addedTitle"), base.name);
       }
       onDone();
       onClose();
     } catch (err) {
-      toastError(editing ? "Update failed" : "Create failed", err);
+      toastError(editing ? t("toast.updateFailed") : t("toast.createFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -286,57 +292,57 @@ function RegistryModal({
 
   const urlHint =
     type === "ghcr"
-      ? "Defaults to ghcr.io when blank."
+      ? t("form.urlHintGhcr")
       : type === "quay"
-        ? "Defaults to quay.io when blank."
+        ? t("form.urlHintQuay")
         : type === "dockerhub"
-          ? "Leave blank for Docker Hub (the daemon default)."
-          : "Registry host, e.g. registry.gitlab.com or registry.example.com.";
+          ? t("form.urlHintDockerhub")
+          : t("form.urlHintCustom");
 
   return (
     <Modal
       open
-      title={editing ? `Edit ${registry!.name}` : "Add registry"}
+      title={editing ? t("form.editTitle", { name: registry!.name }) : t("form.addTitle")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("form.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            {editing ? "Save" : "Add"}
+            {editing ? t("form.save") : t("form.add")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-3)" }}>
-        <TextField label="Name" autoFocus value={name} onChange={(e) => setName(e.target.value)} hint="A label for this credential." />
-        <SelectField label="Type" value={type} onChange={(e) => setType(e.target.value as RegistryType)}>
-          {TYPE_OPTIONS.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
+        <TextField label={t("form.nameLabel")} autoFocus value={name} onChange={(e) => setName(e.target.value)} hint={t("form.nameHint")} />
+        <SelectField label={t("form.typeLabel")} value={type} onChange={(e) => setType(e.target.value as RegistryType)}>
+          {TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
             </option>
           ))}
         </SelectField>
-        <TextField label="URL (optional)" value={url} mono onChange={(e) => setUrl(e.target.value)} hint={urlHint} placeholder="registry.example.com" />
-        <TextField label="Username" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="off" />
+        <TextField label={t("form.urlLabel")} value={url} mono onChange={(e) => setUrl(e.target.value)} hint={urlHint} placeholder={t("form.urlPlaceholder")} />
+        <TextField label={t("form.usernameLabel")} value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="off" />
         <TextField
-          label="Password / token"
+          label={t("form.secretLabel")}
           type="password"
           value={secret}
           onChange={(e) => setSecret(e.target.value)}
           autoComplete="new-password"
-          placeholder={editing && registry?.hasSecret ? "•••• leave blank to keep current" : ""}
-          hint={editing && registry?.hasSecret ? "A credential is already stored. Type a new value to replace it." : "Stored encrypted; never displayed again."}
+          placeholder={editing && registry?.hasSecret ? t("form.secretPlaceholderKeep") : ""}
+          hint={editing && registry?.hasSecret ? t("form.secretHintReplace") : t("form.secretHintNew")}
         />
         {editing && registry?.hasSecret ? (
           <label className="checkbox-row">
             <input type="checkbox" checked={clearSecret} disabled={secret.length > 0} onChange={(e) => setClearSecret(e.target.checked)} />
-            <span>Clear the stored credential</span>
+            <span>{t("form.clearSecret")}</span>
           </label>
         ) : null}
-        <TextField label="Email (optional)" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <TextField label={t("form.emailLabel")} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
     </Modal>
   );

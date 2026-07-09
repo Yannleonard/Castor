@@ -25,6 +25,8 @@ import { TextField } from "../components/Field";
 import { IconVolumes, IconPlus, IconPrune, IconTrash, IconRefresh, IconSearch, IconDownload } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { formatBytes, timeAgo } from "../lib/format";
+import { useT, t as tr } from "../i18n";
+import { volumesDict } from "../i18n/locales/volumes";
 import type { DockerVolume } from "../lib/types";
 
 const EMPTY_VOLUMES: DockerVolume[] = [];
@@ -38,6 +40,7 @@ function looksProtected(name: string, mountpoint: string): boolean {
 }
 
 export function Volumes() {
+  const t = useT(volumesDict);
   const hostId = useSelectedHost();
   const queryClient = useQueryClient();
   const { can } = useAuth();
@@ -76,13 +79,13 @@ export function Volumes() {
       const name = createName.trim();
       const driver = createDriver.trim();
       await api.volumeCreate(hostId, driver ? { name, driver } : { name });
-      toast.success("Volume created", name);
+      toast.success(tr(volumesDict, "toast.createdTitle"), name);
       setCreateOpen(false);
       setCreateName("");
       setCreateDriver("");
       queryClient.invalidateQueries({ queryKey: ["volumes", hostId] });
     } catch (err) {
-      toastError("Create failed", err);
+      toastError(tr(volumesDict, "toast.createFailed"), err);
     } finally {
       setCreating(false);
     }
@@ -91,10 +94,13 @@ export function Volumes() {
   const doPrune = async () => {
     try {
       const res = await api.prune(hostId, { target: "volumes" });
-      toast.success("Volumes pruned", `${res.removed.length} volumes · ${formatBytes(res.spaceReclaimed)} reclaimed`);
+      toast.success(
+        tr(volumesDict, "toast.prunedTitle"),
+        tr(volumesDict, "toast.prunedBody", { count: res.removed.length, size: formatBytes(res.spaceReclaimed) }),
+      );
       queryClient.invalidateQueries({ queryKey: ["volumes", hostId] });
     } catch (err) {
-      toastError("Prune failed", err);
+      toastError(tr(volumesDict, "toast.pruneFailed"), err);
       throw err;
     }
   };
@@ -103,23 +109,23 @@ export function Volumes() {
     if (!removeTarget) return;
     try {
       await api.volumeRemove(hostId, removeTarget.name);
-      toast.success("Volume removed", removeTarget.name);
+      toast.success(tr(volumesDict, "toast.removedTitle"), removeTarget.name);
       queryClient.invalidateQueries({ queryKey: ["volumes", hostId] });
     } catch (err) {
-      toastError("Remove failed", err);
+      toastError(tr(volumesDict, "toast.removeFailed"), err);
       throw err;
     }
   };
 
   const doBackup = async (v: DockerVolume) => {
     setBackingUp(v.name);
-    toast.info("Backing up volume", `${v.name} — this may take a few seconds (a helper container streams the data).`);
+    toast.info(tr(volumesDict, "toast.backingUpTitle"), tr(volumesDict, "toast.backingUpBody", { name: v.name }));
     try {
       await api.backupCreate(hostId, { target: v.name });
-      toast.success("Backup complete", `${v.name} — available on the Backups page.`);
+      toast.success(tr(volumesDict, "toast.backupCompleteTitle"), tr(volumesDict, "toast.backupCompleteBody", { name: v.name }));
       queryClient.invalidateQueries({ queryKey: ["backups", hostId] });
     } catch (err) {
-      toastError("Backup failed", err);
+      toastError(tr(volumesDict, "toast.backupFailed"), err);
     } finally {
       setBackingUp(null);
     }
@@ -128,21 +134,21 @@ export function Volumes() {
   const columns: Column<DockerVolume>[] = [
     {
       key: "name",
-      header: "Name",
+      header: t("col.name"),
       sortValue: (v) => v.name,
       cell: (v) => (
         <div className="row" style={{ gap: "var(--sp-2)" }}>
           <span className="mono" style={{ fontWeight: 600 }}>
             {v.name}
           </span>
-          {looksProtected(v.name, v.mountpoint) ? <ProtectedTag title="Castor data volume — removal is blocked" /> : null}
+          {looksProtected(v.name, v.mountpoint) ? <ProtectedTag title={t("badge.protected")} /> : null}
         </div>
       ),
     },
-    { key: "driver", header: "Driver", sortValue: (v) => v.driver, cell: (v) => <span className="chip">{v.driver}</span> },
+    { key: "driver", header: t("col.driver"), sortValue: (v) => v.driver, cell: (v) => <span className="chip">{v.driver}</span> },
     {
       key: "mountpoint",
-      header: "Mountpoint",
+      header: t("col.mountpoint"),
       sortValue: (v) => v.mountpoint,
       cell: (v) => (
         <span className="mono text-xs muted truncate" style={{ maxWidth: 360, display: "inline-block" }} title={v.mountpoint}>
@@ -150,7 +156,7 @@ export function Volumes() {
         </span>
       ),
     },
-    { key: "created", header: "Created", sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
+    { key: "created", header: t("col.created"), sortValue: (v) => v.createdAt, cell: (v) => <span className="text-xs muted nowrap">{timeAgo(v.createdAt)}</span> },
     {
       key: "actions",
       header: "",
@@ -159,13 +165,13 @@ export function Volumes() {
       cell: (v) => {
         const isProtected = looksProtected(v.name, v.mountpoint);
         const removeReason = !hasVolumesCap
-          ? "Provider does not manage volumes"
+          ? t("gate.noVolumes")
           : isProtected
-            ? "Castor data volume is protected"
-            : "Requires docker.volume.remove (admin)";
+            ? t("gate.removeProtected")
+            : t("gate.removeRequires");
         const backupReason = !hasVolumesCap
-          ? "Provider does not manage volumes"
-          : "Requires docker.volume.backup";
+          ? t("gate.noVolumes")
+          : t("gate.backupRequires");
         return (
           <div className="row" style={{ gap: "var(--sp-1)", justifyContent: "flex-end" }}>
             <CapabilityGate allowed={!!canBackup} reason={backupReason}>
@@ -176,8 +182,8 @@ export function Volumes() {
                   variant="ghost"
                   loading={backingUp === v.name}
                   disabled={!allowed}
-                  tooltip={allowed ? "Back up this volume" : why}
-                  aria-label="Back up volume"
+                  tooltip={allowed ? t("action.backup") : why}
+                  aria-label={t("action.backupLabel")}
                   onClick={() => doBackup(v)}
                 >
                   <IconDownload size={15} />
@@ -191,8 +197,8 @@ export function Volumes() {
                   iconOnly
                   variant="ghost"
                   disabled={!allowed}
-                  tooltip={allowed ? "Remove volume" : why}
-                  aria-label="Remove volume"
+                  tooltip={allowed ? t("action.remove") : why}
+                  aria-label={t("action.removeLabel")}
                   onClick={() => setRemoveTarget(v)}
                   style={allowed ? { color: "var(--danger)" } : undefined}
                 >
@@ -209,33 +215,33 @@ export function Volumes() {
   return (
     <div className="page">
       <PageHeader
-        title="Volumes"
-        subtitle="Docker volumes on this host."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             <CapabilityGate
               allowed={!!canCreate}
-              reason={!hasVolumesCap ? "Provider does not manage volumes" : "Requires docker.volume.create"}
+              reason={!hasVolumesCap ? t("gate.noVolumes") : t("gate.createRequires")}
             >
               {(allowed, reason) => (
                 <ActionButton variant="primary" disabled={!allowed} tooltip={allowed ? undefined : reason} onClick={() => setCreateOpen(true)}>
                   <IconPlus size={15} />
-                  Create volume
+                  {t("header.create")}
                 </ActionButton>
               )}
             </CapabilityGate>
             <CapabilityGate
               allowed={!!canPrune}
-              reason={!hasVolumesCap ? "Provider does not manage volumes" : "Requires docker.system.prune (admin)"}
+              reason={!hasVolumesCap ? t("gate.noVolumes") : t("gate.pruneRequires")}
             >
               {(allowed, reason) => (
-                <ActionButton variant="ghost" disabled={!allowed} tooltip={allowed ? "Remove all unused volumes" : reason} onClick={() => setPruneOpen(true)}>
+                <ActionButton variant="ghost" disabled={!allowed} tooltip={allowed ? t("header.pruneTooltip") : reason} onClick={() => setPruneOpen(true)}>
                   <IconPrune size={15} />
-                  Prune
+                  {t("header.prune")}
                 </ActionButton>
               )}
             </CapabilityGate>
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="volumes" />
@@ -248,29 +254,29 @@ export function Volumes() {
           <span className="muted">
             <IconSearch size={16} />
           </span>
-          <input className="input" placeholder="Search volumes…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 360 }} />
+          <input className="input" placeholder={t("filter.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 360 }} />
           <span className="spacer" />
           <span className="text-sm muted">
-            {filtered.length} of {volumes.length}
+            {t("filter.count", { shown: filtered.length, total: volumes.length })}
           </span>
         </div>
       </div>
 
       {query.isLoading ? (
-        <LoadingFill label="Loading volumes…" />
+        <LoadingFill label={t("list.loading")} />
       ) : volumes.length === 0 ? (
         // No volumes on the host: open the existing create modal directly
         // (only when the caller may create).
         <div className="card">
           <EmptyState
             icon={<IconVolumes size={40} />}
-            title="No volumes"
-            message="Create a volume to persist data across container restarts."
+            title={t("empty.title")}
+            message={t("empty.message")}
             action={
               canCreate ? (
                 <ActionButton variant="primary" onClick={() => setCreateOpen(true)}>
                   <IconPlus size={15} />
-                  Create a volume
+                  {t("empty.action")}
                 </ActionButton>
               ) : undefined
             }
@@ -283,57 +289,57 @@ export function Volumes() {
           rowKey={(v) => v.name}
           defaultSortKey="name"
           emptyIcon={<IconVolumes size={40} />}
-          emptyTitle="No volumes"
+          emptyTitle={t("empty.title")}
         />
       )}
 
       <Modal
         open={createOpen}
-        title="Create volume"
+        title={t("form.title")}
         busy={creating}
         onClose={() => setCreateOpen(false)}
         footer={
           <>
             <button className="btn" onClick={() => setCreateOpen(false)} disabled={creating}>
-              Cancel
+              {t("form.cancel")}
             </button>
             <ActionButton variant="primary" loading={creating} disabled={!nameOk} onClick={doCreate}>
-              Create
+              {t("form.submit")}
             </ActionButton>
           </>
         }
       >
         <div className="col" style={{ gap: "var(--sp-3)" }}>
           <TextField
-            label="Name"
+            label={t("form.nameLabel")}
             mono
             autoFocus
-            placeholder="my-volume"
+            placeholder={t("form.namePlaceholder")}
             value={createName}
             onChange={(e) => setCreateName(e.target.value)}
-            error={createName && !nameOk ? "Letters, digits, then letters, digits, '_', '.' or '-' only." : undefined}
+            error={createName && !nameOk ? t("form.nameError") : undefined}
           />
           <TextField
-            label="Driver"
+            label={t("form.driverLabel")}
             mono
-            placeholder="local"
+            placeholder={t("form.driverPlaceholder")}
             value={createDriver}
             onChange={(e) => setCreateDriver(e.target.value)}
-            hint="Optional — leave empty for the default local driver."
+            hint={t("form.driverHint")}
           />
         </div>
       </Modal>
 
       <ConfirmDestructiveDialog
         open={pruneOpen}
-        title="Prune unused volumes"
+        title={t("dialog.pruneTitle")}
         variant="danger"
-        confirmLabel="Prune"
+        confirmLabel={t("dialog.pruneConfirm")}
         description={
           <>
-            Delete <strong>every volume not attached to a container</strong> on this host. All data in those
-            volumes will be <strong>lost permanently</strong> — this cannot be undone. Volumes currently in
-            use are not affected.
+            {t("dialog.pruneLead")} <strong>{t("dialog.pruneEvery")}</strong>
+            {t("dialog.pruneMid")} <strong>{t("dialog.pruneLost")}</strong>
+            {t("dialog.pruneTail")}
           </>
         }
         onConfirm={doPrune}
@@ -342,12 +348,13 @@ export function Volumes() {
 
       <ConfirmDestructiveDialog
         open={!!removeTarget}
-        title="Remove volume"
+        title={t("dialog.removeTitle")}
         variant="danger"
-        confirmLabel="Remove"
+        confirmLabel={t("dialog.removeConfirm")}
         description={
           <>
-            Remove volume <strong className="mono">{removeTarget?.name}</strong>? Data in this volume will be lost permanently.
+            {t("dialog.removeLead")} <strong className="mono">{removeTarget?.name}</strong>
+            {t("dialog.removeQuestion")}
           </>
         }
         onConfirm={doRemove}

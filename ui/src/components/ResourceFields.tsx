@@ -15,6 +15,9 @@
 // Memory is entered as a number + a MiB/GiB unit selector; the helpers below
 // convert to/from bytes so callers always get/produce raw byte counts.
 
+import { useT } from "../i18n";
+import { resourceFieldsDict } from "../i18n/locales/resourceFields";
+
 /* ============================ byte helpers ============================ */
 
 export type MemUnit = "MiB" | "GiB";
@@ -129,20 +132,22 @@ function MemoryInput({
   unit,
   onValue,
   onUnit,
-  ariaPrefix,
+  amountAria,
+  unitAria,
 }: {
   value: string;
   unit: MemUnit;
   onValue: (v: string) => void;
   onUnit: (u: MemUnit) => void;
-  ariaPrefix: string;
+  amountAria: string;
+  unitAria: string;
 }) {
   return (
     <span className="row" style={{ gap: 6, alignItems: "center" }}>
-      <NumInput value={value} onChange={onValue} placeholder="0" ariaLabel={`${ariaPrefix} amount`} width={96} />
+      <NumInput value={value} onChange={onValue} placeholder="0" ariaLabel={amountAria} width={96} />
       <select
         className="select"
-        aria-label={`${ariaPrefix} unit`}
+        aria-label={unitAria}
         value={unit}
         onChange={(e) => onUnit(e.target.value as MemUnit)}
         style={{ width: 78 }}
@@ -219,58 +224,61 @@ export function DockerSwarmResourceFields({
   /** hide the reservation row (limits only) */
   showReservations?: boolean;
 }) {
+  const t = useT(resourceFieldsDict);
   const set = (patch: Partial<DockerSwarmResourcesDraft>) => onChange({ ...draft, ...patch });
   return (
     <div className="col" style={{ gap: "var(--sp-3)" }}>
       <div className="row" style={{ gap: "var(--sp-4)", flexWrap: "wrap", alignItems: "flex-end" }}>
         <div className="field" style={{ margin: 0 }}>
-          <span className="field-label">CPU limit (cores)</span>
+          <span className="field-label">{t("docker.cpuLimitLabel")}</span>
           <NumInput
             value={draft.cpuLimit}
             onChange={(v) => set({ cpuLimit: v })}
-            placeholder="e.g. 0.5"
-            ariaLabel="CPU limit in cores"
+            placeholder={t("docker.cpuLimitPlaceholder")}
+            ariaLabel={t("docker.cpuLimitAria")}
             width={120}
             step="0.1"
           />
         </div>
         <div className="field" style={{ margin: 0 }}>
-          <span className="field-label">Memory limit</span>
+          <span className="field-label">{t("docker.memLimitLabel")}</span>
           <MemoryInput
             value={draft.memLimitValue}
             unit={draft.memLimitUnit}
             onValue={(v) => set({ memLimitValue: v })}
             onUnit={(u) => set({ memLimitUnit: u })}
-            ariaPrefix="Memory limit"
+            amountAria={t("mem.amountAria", { prefix: t("docker.memLimitLabel") })}
+            unitAria={t("mem.unitAria", { prefix: t("docker.memLimitLabel") })}
           />
         </div>
       </div>
       {showReservations ? (
         <div className="row" style={{ gap: "var(--sp-4)", flexWrap: "wrap", alignItems: "flex-end" }}>
           <div className="field" style={{ margin: 0 }}>
-            <span className="field-label">CPU reservation (cores)</span>
+            <span className="field-label">{t("docker.cpuReservationLabel")}</span>
             <NumInput
               value={draft.cpuReservation}
               onChange={(v) => set({ cpuReservation: v })}
-              placeholder="e.g. 0.25"
-              ariaLabel="CPU reservation in cores"
+              placeholder={t("docker.cpuReservationPlaceholder")}
+              ariaLabel={t("docker.cpuReservationAria")}
               width={120}
               step="0.1"
             />
           </div>
           <div className="field" style={{ margin: 0 }}>
-            <span className="field-label">Memory reservation</span>
+            <span className="field-label">{t("docker.memReservationLabel")}</span>
             <MemoryInput
               value={draft.memResValue}
               unit={draft.memResUnit}
               onValue={(v) => set({ memResValue: v })}
               onUnit={(u) => set({ memResUnit: u })}
-              ariaPrefix="Memory reservation"
+              amountAria={t("mem.amountAria", { prefix: t("docker.memReservationLabel") })}
+              unitAria={t("mem.unitAria", { prefix: t("docker.memReservationLabel") })}
             />
           </div>
         </div>
       ) : null}
-      <span className="field-hint">Leave a field blank to leave that limit unset.</span>
+      <span className="field-hint">{t("hint.blankUnset")}</span>
     </div>
   );
 }
@@ -322,7 +330,9 @@ export function K8sResourcePairFields({
   draft: K8sPairDraft;
   onChange: (d: K8sPairDraft) => void;
 }) {
+  const t = useT(resourceFieldsDict);
   const set = (patch: Partial<K8sPairDraft>) => onChange({ ...draft, ...patch });
+  const memoryAria = t("k8s.memoryAria", { label });
   return (
     <div className="col" style={{ gap: "var(--sp-2)" }}>
       <span className="field-label" style={{ margin: 0 }}>
@@ -331,27 +341,28 @@ export function K8sResourcePairFields({
       <div className="row" style={{ gap: "var(--sp-4)", flexWrap: "wrap", alignItems: "flex-end" }}>
         <div className="field" style={{ margin: 0 }}>
           <span className="field-hint" style={{ marginBottom: 4 }}>
-            CPU (millicores)
+            {t("k8s.cpuHint")}
           </span>
           <NumInput
             value={draft.cpuMilli}
             onChange={(v) => set({ cpuMilli: v.replace(/[^0-9]/g, "") })}
-            placeholder="e.g. 500"
-            ariaLabel={`${label} CPU in millicores`}
+            placeholder={t("k8s.cpuPlaceholder")}
+            ariaLabel={t("k8s.cpuAria", { label })}
             width={120}
             step="10"
           />
         </div>
         <div className="field" style={{ margin: 0 }}>
           <span className="field-hint" style={{ marginBottom: 4 }}>
-            Memory
+            {t("k8s.memoryHint")}
           </span>
           <MemoryInput
             value={draft.memValue}
             unit={draft.memUnit}
             onValue={(v) => set({ memValue: v })}
             onUnit={(u) => set({ memUnit: u })}
-            ariaPrefix={`${label} memory`}
+            amountAria={t("mem.amountAria", { prefix: memoryAria })}
+            unitAria={t("mem.unitAria", { prefix: memoryAria })}
           />
         </div>
       </div>

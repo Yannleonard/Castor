@@ -11,12 +11,15 @@ import { useAuth } from "../lib/auth";
 import { AuthBrand } from "./AuthBrand";
 import { TextField } from "../components/Field";
 import { ActionButton } from "../components/ActionButton";
+import { useT, t as tr } from "../i18n";
+import { totpChallengeDict } from "../i18n/locales/totpChallenge";
 
 interface LocationState {
   from?: { pathname: string };
 }
 
 export function TotpChallenge() {
+  const t = useT(totpChallengeDict);
   const navigate = useNavigate();
   const location = useLocation();
   const auth = useAuth();
@@ -54,11 +57,11 @@ export function TotpChallenge() {
       navigate(from, { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        setError(useRecovery ? "Invalid recovery code." : "Invalid authentication code.");
+        setError(tr(totpChallengeDict, useRecovery ? "error.invalidRecovery" : "error.invalidCode"));
       } else if (err instanceof ApiError) {
         setError(err.message);
       } else {
-        setError("Unable to reach the server.");
+        setError(tr(totpChallengeDict, "error.unreachable"));
       }
     } finally {
       setBusy(false);
@@ -68,11 +71,11 @@ export function TotpChallenge() {
   return (
     <div className="auth-screen">
       <div className="auth-card">
-        <AuthBrand subtitle="Two-factor authentication" />
+        <AuthBrand subtitle={t("brand.subtitle")} />
         <form className="auth-form" onSubmit={submit}>
           <TextField
             name="code"
-            label={useRecovery ? "Recovery code" : "Authentication code"}
+            label={useRecovery ? t("field.recoveryLabel") : t("field.codeLabel")}
             inputMode={useRecovery ? "text" : "numeric"}
             autoComplete="one-time-code"
             autoFocus
@@ -80,11 +83,7 @@ export function TotpChallenge() {
             placeholder={useRecovery ? "xxxx-xxxx-xx" : "123456"}
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            hint={
-              useRecovery
-                ? "Enter one of your saved single-use recovery codes."
-                : "Open your authenticator app and enter the 6-digit code."
-            }
+            hint={useRecovery ? t("field.recoveryHint") : t("field.codeHint")}
             required
           />
           {error ? (
@@ -100,7 +99,7 @@ export function TotpChallenge() {
             loading={busy}
             disabled={!code}
           >
-            Verify
+            {t("action.verify")}
           </ActionButton>
         </form>
         <div className="auth-footnote">
@@ -113,7 +112,7 @@ export function TotpChallenge() {
               setError("");
             }}
           >
-            {useRecovery ? "Use authenticator app instead" : "Use a recovery code"}
+            {useRecovery ? t("action.useAuthenticator") : t("action.useRecovery")}
           </button>
         </div>
       </div>

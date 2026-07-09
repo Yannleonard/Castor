@@ -11,6 +11,9 @@ import { Modal } from "../../components/Modal";
 import { ActionButton } from "../../components/ActionButton";
 import { TextField, TextAreaField } from "../../components/Field";
 import { toast, toastError } from "../../lib/toast";
+import { useT, t as tr } from "../../i18n";
+import { mktCustomTemplateDict } from "../../i18n/locales/mktCustomTemplate";
+import { commonDict } from "../../i18n/locales/common";
 import type { Template, TemplateWriteRequest } from "../../lib/types";
 import {
   EnvRowsEditor,
@@ -42,6 +45,8 @@ interface Props {
 }
 
 export function CustomTemplateModal({ mode, template, onClose, onDone }: Props) {
+  const t = useT(mktCustomTemplateDict);
+  const tc = useT(commonDict);
   const [name, setName] = useState(template?.name ?? "");
   const [slug, setSlug] = useState(template?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
@@ -72,10 +77,10 @@ export function CustomTemplateModal({ mode, template, onClose, onDone }: Props) 
   const valid = name.trim() !== "" && effectiveSlug !== "" && imageOk && envKeysOk;
 
   const invalidHint = useMemo(() => {
-    if (name.trim() === "") return "Name is required.";
-    if (effectiveSlug === "") return "A valid slug is required.";
-    if (!imageOk) return "A valid image reference is required.";
-    if (!envKeysOk) return "Every environment row needs a key.";
+    if (name.trim() === "") return tr(mktCustomTemplateDict, "valid.nameRequired");
+    if (effectiveSlug === "") return tr(mktCustomTemplateDict, "valid.slugRequired");
+    if (!imageOk) return tr(mktCustomTemplateDict, "valid.imageRequired");
+    if (!envKeysOk) return tr(mktCustomTemplateDict, "valid.envKeyRequired");
     return undefined;
   }, [name, effectiveSlug, imageOk, envKeysOk]);
 
@@ -101,15 +106,18 @@ export function CustomTemplateModal({ mode, template, onClose, onDone }: Props) 
       };
       if (mode === "create") {
         await api.templateCreate(body);
-        toast.success("Template created", body.name);
+        toast.success(tr(mktCustomTemplateDict, "toast.created"), body.name);
       } else if (template) {
         await api.templateUpdate(template.id, body);
-        toast.success("Template updated", body.name);
+        toast.success(tr(mktCustomTemplateDict, "toast.updated"), body.name);
       }
       onDone();
       onClose();
     } catch (err) {
-      toastError(mode === "create" ? "Create failed" : "Update failed", err);
+      toastError(
+        tr(mktCustomTemplateDict, mode === "create" ? "toast.createFailed" : "toast.updateFailed"),
+        err,
+      );
     } finally {
       setBusy(false);
     }
@@ -120,15 +128,19 @@ export function CustomTemplateModal({ mode, template, onClose, onDone }: Props) 
       open
       wide
       busy={busy}
-      title={mode === "create" ? "Add custom template" : `Edit ${template?.name ?? "template"}`}
+      title={
+        mode === "create"
+          ? t("dialog.createTitle")
+          : t("dialog.editTitle", { name: template?.name ?? t("dialog.editTitleFallback") })
+      }
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {tc("cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} tooltip={invalidHint} onClick={submit}>
-            {mode === "create" ? "Create" : "Save"}
+            {mode === "create" ? t("dialog.create") : t("dialog.save")}
           </ActionButton>
         </>
       }
@@ -136,19 +148,19 @@ export function CustomTemplateModal({ mode, template, onClose, onDone }: Props) 
       <div className="col" style={{ gap: "var(--sp-5)" }}>
         <div className="row-wrap" style={{ gap: "var(--sp-3)" }}>
           <div style={{ flex: "1 1 220px" }}>
-            <TextField label="Name" autoFocus value={name} onChange={(e) => onNameChange(e.target.value)} />
+            <TextField label={t("field.name")} autoFocus value={name} onChange={(e) => onNameChange(e.target.value)} />
           </div>
           <div style={{ flex: "1 1 180px" }}>
             <TextField
-              label="Slug"
+              label={t("field.slug")}
               mono
               value={slug}
               onChange={(e) => {
                 setSlug(e.target.value);
                 setSlugTouched(true);
               }}
-              error={slug && effectiveSlug === "" ? "Use a-z, 0-9, -" : undefined}
-              hint={!slug || effectiveSlug === slug ? "Used for deploy + URLs." : `Stored as: ${effectiveSlug}`}
+              error={slug && effectiveSlug === "" ? t("field.slugError") : undefined}
+              hint={!slug || effectiveSlug === slug ? t("field.slugHint") : t("field.slugHintStored", { slug: effectiveSlug })}
             />
           </div>
         </div>
@@ -156,59 +168,59 @@ export function CustomTemplateModal({ mode, template, onClose, onDone }: Props) 
         <div className="row-wrap" style={{ gap: "var(--sp-3)" }}>
           <div style={{ flex: "1 1 160px" }}>
             <TextField
-              label="Category"
+              label={t("field.category")}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              placeholder="database, web…"
+              placeholder={t("field.categoryPlaceholder")}
             />
           </div>
           <div style={{ flex: "2 1 240px" }}>
             <TextField
-              label="Image"
+              label={t("field.image")}
               mono
               value={image}
               onChange={(e) => setImage(e.target.value)}
-              placeholder="nginx:latest"
-              error={image && !imageOk ? "Enter a valid image reference (e.g. registry/name:tag)." : undefined}
+              placeholder={t("field.imagePlaceholder")}
+              error={image && !imageOk ? t("field.imageError") : undefined}
             />
           </div>
         </div>
 
         <TextAreaField
-          label="Description"
+          label={t("field.description")}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
-          placeholder="One-line summary shown on the card."
+          placeholder={t("field.descriptionPlaceholder")}
         />
 
         <TextField
-          label="Logo URL (optional)"
+          label={t("field.logoUrl")}
           value={logoUrl}
           onChange={(e) => setLogoUrl(e.target.value)}
-          placeholder="/templates/logos/my-app.svg or https://…"
-          hint="Leave blank to show an auto-generated initials tile."
+          placeholder={t("field.logoUrlPlaceholder")}
+          hint={t("field.logoUrlHint")}
         />
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>
-          <span className="mkt-section-label">Default ports</span>
+          <span className="mkt-section-label">{t("section.ports")}</span>
           <PortRowsEditor rows={ports} onChange={setPorts} />
-          <span className="field-hint">Container ports published on deploy (host:container default 1:1).</span>
+          <span className="field-hint">{t("section.portsHint")}</span>
         </div>
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <span className="mkt-section-label">
-            <span>Default environment</span>
-            <span className="text-xs muted">required</span>
+            <span>{t("section.env")}</span>
+            <span className="text-xs muted">{t("section.envRequired")}</span>
           </span>
           <EnvRowsEditor rows={env} onChange={setEnv} editableKeys showRequiredToggle />
-          <span className="field-hint">Mark variables the operator must fill in before deploy.</span>
+          <span className="field-hint">{t("section.envHint")}</span>
         </div>
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>
-          <span className="mkt-section-label">Default volumes</span>
+          <span className="mkt-section-label">{t("section.volumes")}</span>
           <VolRowsEditor rows={volumes} onChange={setVolumes} />
-          <span className="field-hint">Only the container path is stored; deploy creates a named volume per path.</span>
+          <span className="field-hint">{t("section.volumesHint")}</span>
         </div>
       </div>
     </Modal>

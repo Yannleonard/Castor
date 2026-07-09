@@ -9,6 +9,8 @@ import { NavLink } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuth } from "../lib/auth";
 import { canAny } from "../lib/rbac";
+import { useT } from "../i18n";
+import { navDict } from "../i18n/locales/nav";
 import {
   IconDashboard,
   IconHosts,
@@ -132,6 +134,7 @@ export interface SidebarProps {
 
 export function Sidebar({ open = false, onNavigate }: SidebarProps) {
   const { permissions } = useAuth();
+  const t = useT(navDict);
 
   return (
     <aside id="app-sidebar" className={`sidebar${open ? " sidebar-open" : ""}`}>
@@ -148,7 +151,7 @@ export function Sidebar({ open = false, onNavigate }: SidebarProps) {
           if (items.length === 0) return null;
           return (
             <div key={group.label}>
-              <div className="nav-group-label">{group.label}</div>
+              <div className="nav-group-label">{t(`group.${group.label}`)}</div>
               <div className="nav-group">
                 {items.map((it) => (
                   <NavLink
@@ -159,7 +162,7 @@ export function Sidebar({ open = false, onNavigate }: SidebarProps) {
                     className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
                   >
                     <span className="nav-icon">{it.icon}</span>
-                    <span className="nav-label">{it.label}</span>
+                    <span className="nav-label">{t(`item.${it.label}`)}</span>
                   </NavLink>
                 ))}
               </div>

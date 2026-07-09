@@ -13,10 +13,13 @@ import { TextField } from "../components/Field";
 import { ActionButton } from "../components/ActionButton";
 import { LoadingFill } from "../components/Spinner";
 import { toast } from "../lib/toast";
+import { useT, t as tr } from "../i18n";
+import { bootstrapDict } from "../i18n/locales/bootstrap";
 
 export function Bootstrap() {
   const navigate = useNavigate();
   const { refresh } = useAuth();
+  const t = useT(bootstrapDict);
 
   const [checking, setChecking] = useState(true);
   const [required, setRequired] = useState(false);
@@ -54,8 +57,8 @@ export function Bootstrap() {
     return (
       <div className="auth-screen">
         <div className="auth-card">
-          <AuthBrand subtitle="Initializing" />
-          <LoadingFill label="Checking instance status…" />
+          <AuthBrand subtitle={t("brand.initializing")} />
+          <LoadingFill label={t("loading.checking")} />
         </div>
       </div>
     );
@@ -85,7 +88,7 @@ export function Bootstrap() {
       const login = await api.login({ username: username.trim(), password });
       api.setCsrfToken(login.csrfToken);
       await refresh();
-      toast.success("Castor initialized", "Welcome aboard. Consider enabling 2FA in Profile.");
+      toast.success(tr(bootstrapDict, "toast.readyTitle"), tr(bootstrapDict, "toast.readyBody"));
       navigate("/", { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
@@ -93,15 +96,15 @@ export function Bootstrap() {
           // already handled by mode; surface message
           setError(err.message);
         } else if (err.status === 409) {
-          setError("Castor is already initialized. Please sign in.");
+          setError(tr(bootstrapDict, "error.alreadyInitialized"));
           setRequired(false);
         } else if (err.status === 422) {
-          setError(err.message || "Please check the form values.");
+          setError(err.message || tr(bootstrapDict, "error.checkForm"));
         } else {
           setError(err.message);
         }
       } else {
-        setError("Unable to reach the server.");
+        setError(tr(bootstrapDict, "error.unreachable"));
       }
     } finally {
       setBusy(false);
@@ -111,22 +114,22 @@ export function Bootstrap() {
   return (
     <div className="auth-screen">
       <div className="auth-card" style={{ maxWidth: 440 }}>
-        <AuthBrand subtitle="Create the first administrator" />
+        <AuthBrand subtitle={t("brand.createFirstAdmin")} />
         <form className="auth-form" onSubmit={submit}>
           <TextField
             name="username"
-            label="Admin username"
+            label={t("form.usernameLabel")}
             autoComplete="username"
             autoFocus
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            hint="At least 3 characters."
+            hint={t("form.usernameHint")}
             required
           />
           <TextField
             name="email"
             type="email"
-            label="Email (optional)"
+            label={t("form.emailLabel")}
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -134,31 +137,31 @@ export function Bootstrap() {
           <TextField
             name="password"
             type="password"
-            label="Password"
+            label={t("form.passwordLabel")}
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            error={password && !pwOk ? "Use at least 10 characters." : undefined}
-            hint={!password ? "At least 10 characters." : undefined}
+            error={password && !pwOk ? t("form.passwordTooShort") : undefined}
+            hint={!password ? t("form.passwordHint") : undefined}
             required
           />
           <TextField
             name="confirm"
             type="password"
-            label="Confirm password"
+            label={t("form.confirmLabel")}
             autoComplete="new-password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            error={confirm && !match ? "Passwords do not match." : undefined}
+            error={confirm && !match ? t("form.confirmMismatch") : undefined}
             required
           />
           <TextField
             name="bootstrapToken"
-            label="Bootstrap token (if required)"
+            label={t("form.tokenLabel")}
             value={token}
             onChange={(e) => setToken(e.target.value)}
             mono
-            hint="Set CASTOR_BOOTSTRAP_TOKEN to require this. Leave blank otherwise."
+            hint={t("form.tokenHint")}
           />
           {error ? (
             <div className="banner danger" role="alert">
@@ -173,7 +176,7 @@ export function Bootstrap() {
             loading={busy}
             disabled={!valid}
           >
-            Create administrator
+            {t("action.create")}
           </ActionButton>
         </form>
       </div>

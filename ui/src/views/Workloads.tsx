@@ -29,10 +29,15 @@ import { IconDownload, IconPlay, IconPrune, IconRefresh, IconSearch, IconStop, I
 import { gatePrune, gateWorkloadAction, type WorkloadAction } from "../lib/rbac";
 import { toast, toastError } from "../lib/toast";
 import { cleanName, formatBytes, shortId, timeAgo } from "../lib/format";
+import { useT, t as tr } from "../i18n";
+import { workloadsDict } from "../i18n/locales/workloads";
 import type { OrchestratorKind, UpdateStatus, Workload, WorkloadState } from "../lib/types";
 
-const KINDS: { value: "" | OrchestratorKind; label: string }[] = [
-  { value: "", label: "All orchestrators" },
+// Orchestrator kind filter options: technical `value` (sent to the API / used by
+// gates, never translated) paired with the workloadsDict key for its label.
+// `docker`, `swarm`, `kubernetes` labels are proper names, rendered verbatim.
+const KINDS: { value: "" | OrchestratorKind; labelKey?: string; label?: string }[] = [
+  { value: "", labelKey: "filter.kindAll" },
   { value: "docker", label: "Docker" },
   { value: "swarm", label: "Swarm" },
   { value: "kubernetes", label: "Kubernetes" },
@@ -45,17 +50,20 @@ const EMPTY_WORKLOADS: Workload[] = [];
 // orchestrators stay distinct. Must match the DataTable rowKey exactly.
 const wKey = (w: Workload) => `${w.providerId}:${w.id}`;
 
-const STATES: { value: "" | WorkloadState; label: string }[] = [
-  { value: "", label: "All states" },
-  { value: "running", label: "Running" },
-  { value: "stopped", label: "Stopped" },
-  { value: "paused", label: "Paused" },
-  { value: "restarting", label: "Restarting" },
-  { value: "pending", label: "Pending" },
-  { value: "unknown", label: "Unknown" },
+// State filter options: technical `value` (workload state, never translated)
+// paired with the workloadsDict key for its display label.
+const STATES: { value: "" | WorkloadState; labelKey: string }[] = [
+  { value: "", labelKey: "filter.stateAll" },
+  { value: "running", labelKey: "filter.stateRunning" },
+  { value: "stopped", labelKey: "filter.stateStopped" },
+  { value: "paused", labelKey: "filter.statePaused" },
+  { value: "restarting", labelKey: "filter.stateRestarting" },
+  { value: "pending", labelKey: "filter.statePending" },
+  { value: "unknown", labelKey: "filter.stateUnknown" },
 ];
 
 export function Workloads() {
+  const t = useT(workloadsDict);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const hostId = useSelectedHost();
@@ -89,10 +97,13 @@ export function Workloads() {
   const confirmPrune = async () => {
     try {
       const res = await api.prune(hostId, { target: "containers" });
-      toast.success("Pruned", `${res.removed.length} containers · ${formatBytes(res.spaceReclaimed)} reclaimed`);
+      toast.success(
+        tr(workloadsDict, "toast.prunedTitle"),
+        tr(workloadsDict, "toast.prunedBody", { count: res.removed.length, size: formatBytes(res.spaceReclaimed) }),
+      );
       queryClient.invalidateQueries({ queryKey: ["workloads", hostId] });
     } catch (err) {
-      toastError("Prune failed", err);
+      toastError(tr(workloadsDict, "toast.pruneFailed"), err);
       throw err;
     }
   };
@@ -101,12 +112,12 @@ export function Workloads() {
   // every image, so fresh statuses are ready as soon as it resolves.
   const runCheckUpdates = async () => {
     setCheckingUpdates(true);
-    toast.success("Update check started", "Comparing image digests against registries…");
+    toast.success(tr(workloadsDict, "toast.updateCheckStartedTitle"), tr(workloadsDict, "toast.updateCheckStartedBody"));
     try {
       await api.updatesCheck(hostId);
       queryClient.invalidateQueries({ queryKey: qk.updates(hostId) });
     } catch (err) {
-      toastError("Update check failed", err);
+      toastError(tr(workloadsDict, "toast.updateCheckFailed"), err);
     } finally {
       setCheckingUpdates(false);
     }
@@ -116,11 +127,11 @@ export function Workloads() {
     if (!updateTarget) return;
     try {
       await api.workloadUpdate(hostId, updateTarget.id);
-      toast.success("Updated", `${cleanName(updateTarget.name)} recreated on the newest image`);
+      toast.success(tr(workloadsDict, "toast.updatedTitle"), tr(workloadsDict, "toast.updatedBody", { name: cleanName(updateTarget.name) }));
       queryClient.invalidateQueries({ queryKey: ["workloads", hostId] });
       queryClient.invalidateQueries({ queryKey: qk.updates(hostId) });
     } catch (err) {
-      toastError("Update failed", err);
+      toastError(tr(workloadsDict, "toast.updateFailed"), err);
       throw err;
     }
   };
@@ -208,7 +219,7 @@ export function Workloads() {
   const columns: Column<Workload>[] = [
     {
       key: "name",
-      header: "Name",
+      header: t("col.name"),
       sortValue: (w) => cleanName(w.name),
       cell: (w) => {
         const upd = updatesById.get(w.id);
@@ -223,9 +234,9 @@ export function Workloads() {
                 <span
                   className="pill"
                   style={{ background: "var(--info-bg)", color: "var(--accent)" }}
-                  title={`New image digest available: ${upd.image}`}
+                  title={t("col.updateAvailableTitle", { image: upd.image })}
                 >
-                  update
+                  {t("col.updatePill")}
                 </span>
               ) : null}
             </div>
@@ -236,19 +247,19 @@ export function Workloads() {
     },
     {
       key: "state",
-      header: "State",
+      header: t("col.state"),
       sortValue: (w) => w.state,
       cell: (w) => <StateBadge state={w.state} raw={w.stateRaw} />,
     },
     {
       key: "kind",
-      header: "Orchestrator",
+      header: t("col.orchestrator"),
       sortValue: (w) => w.kind,
       cell: (w) => <OrchestratorBadge kind={w.kind} readonly={capsForKind(w.kind)?.includes("readonly")} />,
     },
     {
       key: "image",
-      header: "Image",
+      header: t("col.image"),
       sortValue: (w) => w.image,
       cell: (w) => (
         <span className="mono text-xs truncate" style={{ maxWidth: 240, display: "inline-block" }} title={w.image}>
@@ -258,13 +269,13 @@ export function Workloads() {
     },
     {
       key: "group",
-      header: "Stack / group",
+      header: t("col.group"),
       sortValue: (w) => w.group ?? "",
       cell: (w) => (w.group ? <span className="chip">{w.group}</span> : <span className="muted">—</span>),
     },
     {
       key: "ports",
-      header: "Ports",
+      header: t("col.ports"),
       cell: (w) =>
         w.ports && w.ports.length ? (
           <div className="row-wrap" style={{ gap: 4 }}>
@@ -282,7 +293,7 @@ export function Workloads() {
     },
     {
       key: "created",
-      header: "Created",
+      header: t("col.created"),
       sortValue: (w) => w.createdAt,
       cell: (w) => <span className="text-xs muted nowrap">{timeAgo(w.createdAt)}</span>,
     },
@@ -304,8 +315,8 @@ export function Workloads() {
                 iconOnly
                 variant="ghost"
                 disabled={w.protected}
-                tooltip={w.protected ? "Protected — cannot be recreated" : "Update to the newest image"}
-                aria-label="Update"
+                tooltip={w.protected ? t("row.protectedTooltip") : t("row.updateTooltip")}
+                aria-label={t("row.updateLabel")}
                 onClick={() => setUpdateTarget(w)}
                 style={w.protected ? undefined : { color: "var(--accent)" }}
               >
@@ -333,8 +344,8 @@ export function Workloads() {
   return (
     <div className="page">
       <PageHeader
-        title="Workloads"
-        subtitle="Every container, service-task and pod across your orchestrators."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             <CapabilityGate gate={gatePrune("docker", capsForKind("docker"), permissions)}>
@@ -346,13 +357,13 @@ export function Workloads() {
                   onClick={() => setPruneOpen(true)}
                 >
                   <IconPrune size={15} />
-                  Prune stopped
+                  {t("header.pruneStopped")}
                 </ActionButton>
               )}
             </CapabilityGate>
             <CapabilityGate
               allowed={can("docker.image.pull")}
-              reason="You lack the docker.image.pull permission"
+              reason={t("gate.needImagePull")}
             >
               {(allowed, reason) => (
                 <ActionButton
@@ -363,11 +374,11 @@ export function Workloads() {
                   onClick={runCheckUpdates}
                 >
                   <IconDownload size={15} />
-                  Check updates
+                  {t("header.checkUpdates")}
                 </ActionButton>
               )}
             </CapabilityGate>
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" onClick={() => query.refetch()} aria-label="Refresh">
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} onClick={() => query.refetch()} aria-label={t("header.refresh")}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="workloads" />
@@ -384,7 +395,7 @@ export function Workloads() {
             </span>
             <input
               className="input"
-              placeholder="Search name, image, id, node…"
+              placeholder={t("filter.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -392,19 +403,19 @@ export function Workloads() {
           <select className="select" style={{ width: 180 }} value={kind} onChange={(e) => setKind(e.target.value as OrchestratorKind | "")}>
             {KINDS.map((k) => (
               <option key={k.value} value={k.value}>
-                {k.label}
+                {k.labelKey ? t(k.labelKey) : k.label}
               </option>
             ))}
           </select>
           <select className="select" style={{ width: 160 }} value={state} onChange={(e) => setState(e.target.value as WorkloadState | "")}>
             {STATES.map((s) => (
               <option key={s.value} value={s.value}>
-                {s.label}
+                {t(s.labelKey)}
               </option>
             ))}
           </select>
           <select className="select" style={{ width: 200 }} value={group} onChange={(e) => setGroup(e.target.value)} disabled={groups.length === 0}>
-            <option value="">All stacks</option>
+            <option value="">{t("filter.stacksAll")}</option>
             {groups.map((g) => (
               <option key={g} value={g}>
                 {g}
@@ -413,28 +424,28 @@ export function Workloads() {
           </select>
           <label className="checkbox-row">
             <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-            <span>Include stopped</span>
+            <span>{t("filter.includeStopped")}</span>
           </label>
           <span className="spacer" />
           <span className="text-sm muted">
-            {filtered.length} of {workloads.length}
+            {t("filter.counter", { shown: filtered.length, total: workloads.length })}
           </span>
         </div>
       </div>
 
       {query.isLoading ? (
-        <LoadingFill label="Loading workloads…" />
+        <LoadingFill label={t("list.loading")} />
       ) : workloads.length === 0 && !kind && showAll ? (
         // Nothing on the host at all (not a filter miss): springboard to the
         // Marketplace instead of a dead-end empty table.
         <div className="card">
           <EmptyState
             icon={<IconWorkloads size={40} />}
-            title="No workloads yet"
-            message="Deploy your first app from the Marketplace — a container will show up here."
+            title={t("empty.noneTitle")}
+            message={t("empty.noneMessage")}
             action={
               <ActionButton variant="primary" onClick={() => navigate("/marketplace")}>
-                Deploy your first app
+                {t("empty.noneAction")}
               </ActionButton>
             }
           />
@@ -447,11 +458,11 @@ export function Workloads() {
               style={{ gap: "var(--sp-3)", alignItems: "center", borderColor: "var(--accent)" }}
             >
               <span className="text-sm" style={{ fontWeight: 600 }}>
-                {selected.size} selected
+                {t("bulk.selected", { count: selected.size })}
               </span>
               {bulkTargets.length < selected.size ? (
                 <span className="text-xs muted">
-                  {bulkTargets.length} actionable (docker, unprotected)
+                  {t("bulk.actionable", { count: bulkTargets.length })}
                 </span>
               ) : null}
               <span className="spacer" />
@@ -459,35 +470,35 @@ export function Workloads() {
                 size="sm"
                 variant="ghost"
                 disabled={!bulkGate("start")}
-                tooltip={bulkGate("start") ? undefined : "No selected docker workloads can be started"}
+                tooltip={bulkGate("start") ? undefined : t("bulk.startDisabled")}
                 onClick={() => runBulkAction("start")}
               >
                 <IconPlay size={14} />
-                Start
+                {t("bulk.start")}
               </ActionButton>
               <ActionButton
                 size="sm"
                 variant="ghost"
                 disabled={!bulkGate("stop")}
-                tooltip={bulkGate("stop") ? undefined : "No selected docker workloads can be stopped"}
+                tooltip={bulkGate("stop") ? undefined : t("bulk.stopDisabled")}
                 onClick={() => runBulkAction("stop")}
               >
                 <IconStop size={14} />
-                Stop
+                {t("bulk.stop")}
               </ActionButton>
               <ActionButton
                 size="sm"
                 variant="ghost"
                 disabled={!bulkGate("remove")}
-                tooltip={bulkGate("remove") ? undefined : "No selected docker workloads can be removed"}
+                tooltip={bulkGate("remove") ? undefined : t("bulk.removeDisabled")}
                 onClick={() => runBulkAction("remove")}
                 style={bulkGate("remove") ? { color: "var(--danger)" } : undefined}
               >
                 <IconTrash size={14} />
-                Remove
+                {t("bulk.remove")}
               </ActionButton>
               <ActionButton size="sm" variant="ghost" onClick={clearSelection}>
-                Clear
+                {t("bulk.clear")}
               </ActionButton>
             </div>
           ) : null}
@@ -498,8 +509,8 @@ export function Workloads() {
             defaultSortKey="name"
             onRowClick={(w) => navigate(`/workloads/${encodeURIComponent(hostId)}/${encodeURIComponent(w.id)}`)}
             emptyIcon={<IconWorkloads size={40} />}
-            emptyTitle="No workloads match"
-            emptyMessage="Adjust the filters above, or start some containers."
+            emptyTitle={t("empty.noMatchTitle")}
+            emptyMessage={t("empty.noMatchMessage")}
             selectable
             selectedKeys={selected}
             onToggleRow={toggleRow}
@@ -510,13 +521,14 @@ export function Workloads() {
 
       <ConfirmDestructiveDialog
         open={pruneOpen}
-        title="Prune stopped containers"
+        title={t("dialog.pruneTitle")}
         variant="danger"
-        confirmLabel="Prune"
+        confirmLabel={t("dialog.pruneConfirm")}
         description={
           <>
-            Permanently remove <strong>all stopped containers</strong> on this host. Their writable
-            layers are deleted; images and named volumes are kept. This cannot be undone.
+            {t("dialog.pruneBody1")}
+            <strong>{t("dialog.pruneAllStopped")}</strong>
+            {t("dialog.pruneBody2")}
           </>
         }
         onConfirm={confirmPrune}
@@ -525,14 +537,16 @@ export function Workloads() {
 
       <ConfirmDestructiveDialog
         open={updateTarget !== null}
-        title="Update container"
+        title={t("dialog.updateTitle")}
         variant="primary"
-        confirmLabel="Update"
+        confirmLabel={t("dialog.updateConfirm")}
         description={
           <>
-            Pull the newest image for <strong className="mono">{updateTarget?.image}</strong> and
-            recreate <strong className="mono">{cleanName(updateTarget?.name)}</strong> with the same
-            configuration. The container restarts on the new image — expect a brief downtime.
+            {t("dialog.updateBody1")}
+            <strong className="mono">{updateTarget?.image}</strong>
+            {t("dialog.updateBody2")}
+            <strong className="mono">{cleanName(updateTarget?.name)}</strong>
+            {t("dialog.updateBody3")}
           </>
         }
         onConfirm={confirmUpdate}

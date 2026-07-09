@@ -10,6 +10,8 @@ import { api } from "../lib/api";
 import { useHosts } from "../lib/hooks";
 import { useHostStore } from "../lib/hostStore";
 import { useThemeStore, type ThemePreference } from "../lib/themeStore";
+import { useT, useLang, setLang, type Lang } from "../i18n";
+import { navDict } from "../i18n/locales/nav";
 import { wsClient } from "../lib/ws";
 import { toast, toastError } from "../lib/toast";
 import { StatusDot } from "./StatusDot";
@@ -27,25 +29,28 @@ import {
   IconMonitor,
 } from "./icons";
 
-const TITLES: Record<string, string> = {
-  "/": "Dashboard",
-  "/hosts": "Hosts",
-  "/workloads": "Workloads",
-  "/images": "Images",
-  "/networks": "Networks",
-  "/volumes": "Volumes",
-  "/swarm": "Swarm",
-  "/k8s": "Kubernetes",
-  "/audit": "Audit log",
-  "/users": "Users",
-  "/roles": "Roles",
-  "/settings": "Settings",
-  "/profile": "Profile",
-};
+// Routes that have a translated title in navDict under the `title.<path>` key.
+const TITLED_PATHS = new Set([
+  "/",
+  "/hosts",
+  "/workloads",
+  "/images",
+  "/networks",
+  "/volumes",
+  "/swarm",
+  "/k8s",
+  "/audit",
+  "/users",
+  "/roles",
+  "/settings",
+  "/profile",
+]);
 
-function titleFor(pathname: string): string {
-  if (pathname.startsWith("/workloads/")) return "Workload detail";
-  return TITLES[pathname] ?? "Castor";
+// titleKeyFor maps a pathname to a navDict key (translated at render time). The
+// nested workload-detail route and any unknown path fall back to dedicated keys.
+function titleKeyFor(pathname: string): string {
+  if (pathname.startsWith("/workloads/")) return "title.workloadDetail";
+  return TITLED_PATHS.has(pathname) ? `title.${pathname}` : "title.fallback";
 }
 
 // Theme menu item cycles Light -> Dark -> System.
@@ -54,10 +59,11 @@ const THEME_CYCLE: Record<ThemePreference, ThemePreference> = {
   dark: "system",
   system: "light",
 };
-const THEME_LABEL: Record<ThemePreference, string> = {
-  light: "Light",
-  dark: "Dark",
-  system: "System",
+// navDict key for each theme preference's display name.
+const THEME_LABEL_KEY: Record<ThemePreference, string> = {
+  light: "theme.light",
+  dark: "theme.dark",
+  system: "theme.system",
 };
 
 export interface TopBarProps {
@@ -93,6 +99,8 @@ export function TopBar({ sidebarOpen = false, onToggleSidebar }: TopBarProps) {
   const { data: hosts } = useHosts();
   const { selectedHostId, setSelectedHost } = useHostStore();
   const { theme, setTheme } = useThemeStore();
+  const lang = useLang();
+  const t = useT(navDict);
   const openPalette = usePaletteStore((s) => s.openPalette);
 
   const [hostMenu, setHostMenu] = useState(false);
@@ -122,7 +130,7 @@ export function TopBar({ sidebarOpen = false, onToggleSidebar }: TopBarProps) {
       toastError("Logout", err);
     } finally {
       clear();
-      toast.info("Signed out");
+      toast.info(t("menu.signedOut"));
       navigate("/login", { replace: true });
     }
   };
@@ -136,7 +144,7 @@ export function TopBar({ sidebarOpen = false, onToggleSidebar }: TopBarProps) {
       <button
         className="topbar-hamburger"
         onClick={onToggleSidebar}
-        aria-label="Toggle navigation menu"
+        aria-label={t("topbar.toggleNav")}
         aria-expanded={sidebarOpen}
         aria-controls="app-sidebar"
       >
@@ -146,28 +154,28 @@ export function TopBar({ sidebarOpen = false, onToggleSidebar }: TopBarProps) {
       <div className="crumbs">
         <span className="muted">Castor</span>
         <span className="sep">/</span>
-        <span className="current truncate">{titleFor(location.pathname)}</span>
+        <span className="current truncate">{t(titleKeyFor(location.pathname))}</span>
       </div>
 
       {/* Command palette trigger — also opens with Cmd/Ctrl-K. */}
-      <button className="cmdk-trigger" onClick={openPalette} aria-label="Open command palette">
+      <button className="cmdk-trigger" onClick={openPalette} aria-label={t("topbar.openPalette")}>
         <IconSearch size={15} />
-        <span className="cmdk-trigger-text">Search…</span>
+        <span className="cmdk-trigger-text">{t("topbar.search")}</span>
         <kbd className="cmdk-trigger-kbd">⌘K</kbd>
       </button>
 
       <span className="spacer" />
 
       {anyDegraded ? (
-        <span className="degraded-pill" title="One or more hosts/providers are degraded">
+        <span className="degraded-pill" title={t("topbar.degradedTitle")}>
           <IconAlert size={13} />
-          Degraded
+          {t("topbar.degraded")}
         </span>
       ) : null}
 
-      <span className="ws-pill" title={wsOpen ? "Live updates connected" : "Live updates offline"}>
+      <span className="ws-pill" title={wsOpen ? t("topbar.liveOn") : t("topbar.liveOff")}>
         <StatusDot color={wsOpen ? "var(--success)" : "var(--state-stopped)"} pulse={wsOpen} />
-        Live
+        {t("topbar.live")}
       </span>
 
       {/* host switcher */}
@@ -182,7 +190,7 @@ export function TopBar({ sidebarOpen = false, onToggleSidebar }: TopBarProps) {
         </button>
         {hostMenu ? (
           <div className="menu-pop" role="menu">
-            <div className="menu-header text-xs muted">Hosts</div>
+            <div className="menu-header text-xs muted">{t("menu.hosts")}</div>
             {(hosts ?? []).map((h) => (
               <button
                 key={h.id}
@@ -201,7 +209,7 @@ export function TopBar({ sidebarOpen = false, onToggleSidebar }: TopBarProps) {
                 {h.id === selectedHostId ? <IconCheck size={14} /> : null}
               </button>
             ))}
-            {(hosts ?? []).length === 0 ? <div className="menu-item muted">No hosts</div> : null}
+            {(hosts ?? []).length === 0 ? <div className="menu-item muted">{t("menu.noHosts")}</div> : null}
           </div>
         ) : null}
       </div>
@@ -232,13 +240,13 @@ export function TopBar({ sidebarOpen = false, onToggleSidebar }: TopBarProps) {
               }}
             >
               <IconProfile size={16} />
-              Profile & security
+              {t("menu.profile")}
             </button>
             <button
               className="menu-item"
               onClick={() => setTheme(THEME_CYCLE[theme])}
-              title="Cycle theme: Light → Dark → System"
-              aria-label={`Theme: ${THEME_LABEL[theme]} (click to change)`}
+              title={t("menu.themeTooltip")}
+              aria-label={t("menu.themeAria", { theme: t(THEME_LABEL_KEY[theme]) })}
             >
               {theme === "light" ? (
                 <IconSun size={16} />
@@ -247,11 +255,31 @@ export function TopBar({ sidebarOpen = false, onToggleSidebar }: TopBarProps) {
               ) : (
                 <IconMonitor size={16} />
               )}
-              Theme: {THEME_LABEL[theme]}
+              {t("menu.theme")}: {t(THEME_LABEL_KEY[theme])}
             </button>
+            {/* Language selector — mirrors the theme toggle: EN / FR with the
+                active language marked. Persists via the global langStore. Styled
+                inline (reusing menu-item hover semantics) to keep the change
+                self-contained to this component. */}
+            <div className="menu-header text-xs muted">{t("menu.language")}</div>
+            {(["en", "fr"] as Lang[]).map((l) => (
+              <button
+                key={l}
+                type="button"
+                className={`menu-item${lang === l ? " active" : ""}`}
+                aria-pressed={lang === l}
+                onClick={() => setLang(l)}
+              >
+                <span style={{ width: 16, display: "inline-flex", justifyContent: "center" }}>
+                  {lang === l ? <IconCheck size={14} /> : null}
+                </span>
+                {l === "fr" ? "Français (FR)" : "English (EN)"}
+              </button>
+            ))}
+            <div className="menu-divider" />
             <button className="menu-item" onClick={logout} style={{ color: "var(--danger)" }}>
               <IconLogout size={16} />
-              Sign out
+              {t("menu.signOut")}
             </button>
           </div>
         ) : null}

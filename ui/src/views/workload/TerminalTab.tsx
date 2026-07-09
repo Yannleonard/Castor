@@ -10,6 +10,8 @@ import { subscribeExec } from "../../lib/ws";
 import { Terminal } from "../../components/Terminal";
 import { ActionButton } from "../../components/ActionButton";
 import { IconTerminal } from "../../components/icons";
+import { useT } from "../../i18n";
+import { wlTerminalTabDict } from "../../i18n/locales/wlTerminalTab";
 import type { WsRefKind } from "../../lib/types";
 
 interface Props {
@@ -29,6 +31,7 @@ const SHELLS = [
 ];
 
 export function TerminalTab({ hostId, workloadId, refKind, containers }: Props) {
+  const t = useT(wlTerminalTabDict);
   const [shellIdx, setShellIdx] = useState(0);
   const [containerIdx, setContainerIdx] = useState(0);
   const [sessionKey, setSessionKey] = useState(0);
@@ -84,7 +87,7 @@ export function TerminalTab({ hostId, workloadId, refKind, containers }: Props) 
       <div className="row-wrap" style={{ gap: "var(--sp-2)" }}>
         {showContainerPicker ? (
           <>
-            <span className="text-sm muted">Container</span>
+            <span className="text-sm muted">{t("picker.container")}</span>
             <select
               className="select"
               style={{ width: 180 }}
@@ -100,7 +103,7 @@ export function TerminalTab({ hostId, workloadId, refKind, containers }: Props) 
             </select>
           </>
         ) : null}
-        <span className="text-sm muted">Shell</span>
+        <span className="text-sm muted">{t("picker.shell")}</span>
         <select
           className="select"
           style={{ width: 160 }}
@@ -124,17 +127,17 @@ export function TerminalTab({ hostId, workloadId, refKind, containers }: Props) 
             }}
           >
             <IconTerminal size={15} />
-            Open session
+            {t("action.open")}
           </ActionButton>
         ) : (
           <ActionButton variant="ghost" onClick={() => setSessionKey((k) => k + 1)}>
-            Restart session
+            {t("action.restart")}
           </ActionButton>
         )}
         <span className="spacer" />
         {exitCode !== undefined ? (
           <span className="text-xs muted">
-            Last session exited{exitCode === null ? "" : ` (code ${exitCode})`}
+            {exitCode === null ? t("status.exited") : t("status.exitedCode", { code: exitCode })}
           </span>
         ) : null}
       </div>
@@ -152,7 +155,7 @@ export function TerminalTab({ hostId, workloadId, refKind, containers }: Props) 
           }}
         >
           <IconTerminal size={36} />
-          <span className="text-sm muted">Pick a shell and open an interactive session.</span>
+          <span className="text-sm muted">{t("empty.hint")}</span>
         </div>
       )}
     </div>

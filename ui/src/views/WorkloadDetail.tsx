@@ -37,6 +37,8 @@ import {
 import { gateExec, gateLogs, gateStats } from "../lib/rbac";
 import { toast, toastError } from "../lib/toast";
 import { cleanName, shortId } from "../lib/format";
+import { useT } from "../i18n";
+import { workloadDetailDict } from "../i18n/locales/workloadDetail";
 import { OverviewTab } from "./workload/OverviewTab";
 import { LogsTab } from "./workload/LogsTab";
 import { StatsTab } from "./workload/StatsTab";
@@ -61,6 +63,7 @@ export function WorkloadDetail() {
   const params = useParams<{ hostId: string; id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const t = useT(workloadDetailDict);
   const { permissions, can } = useAuth();
   const { capsForKind } = useCapabilityLookup();
 
@@ -85,26 +88,26 @@ export function WorkloadDetail() {
     const stats = gateStats(caps, permissions);
     const exec = gateExec(caps, permissions);
     const list: { key: TabKey; label: string; icon: JSX.Element; enabled: boolean; reason: string }[] = [
-      { key: "overview", label: "Overview", icon: <IconDashboard size={15} />, enabled: true, reason: "" },
-      { key: "logs", label: "Logs", icon: <IconLogs size={15} />, enabled: logs.allowed, reason: logs.reason },
+      { key: "overview", label: t("tab.overview"), icon: <IconDashboard size={15} />, enabled: true, reason: "" },
+      { key: "logs", label: t("tab.logs"), icon: <IconLogs size={15} />, enabled: logs.allowed, reason: logs.reason },
     ];
     // Stats tab hidden entirely when the provider has no CapStats (e.g. k8s).
     if (caps?.includes("stats")) {
-      list.push({ key: "stats", label: "Stats", icon: <IconStats size={15} />, enabled: stats.allowed, reason: stats.reason });
+      list.push({ key: "stats", label: t("tab.stats"), icon: <IconStats size={15} />, enabled: stats.allowed, reason: stats.reason });
     }
     // Terminal hidden entirely for non-Docker / no CapExec.
     if (caps?.includes("exec")) {
       list.push({
         key: "terminal",
-        label: "Terminal",
+        label: t("tab.terminal"),
         icon: <IconTerminal size={15} />,
         enabled: exec.allowed,
         reason: exec.reason,
       });
     }
-    list.push({ key: "inspect", label: "Inspect", icon: <IconInspect size={15} />, enabled: true, reason: "" });
+    list.push({ key: "inspect", label: t("tab.inspect"), icon: <IconInspect size={15} />, enabled: true, reason: "" });
     return list;
-  }, [detail, caps, permissions]);
+  }, [detail, caps, permissions, t]);
 
   // If the selected tab becomes unavailable (e.g. nav to a k8s pod), fall back.
   useEffect(() => {
@@ -114,19 +117,19 @@ export function WorkloadDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs.map((t) => `${t.key}:${t.enabled}`).join(",")]);
 
-  if (query.isLoading) return <LoadingFill label="Loading workload…" />;
+  if (query.isLoading) return <LoadingFill label={t("loading.workload")} />;
 
   if (query.isError || !detail) {
     return (
       <div className="page">
-        <PageHeader title="Workload" />
+        <PageHeader title={t("empty.pageTitle")} />
         <EmptyState
           icon={<IconWorkloads size={40} />}
-          title="Workload not found"
-          message="It may have been removed, or you may not have access."
+          title={t("empty.title")}
+          message={t("empty.message")}
           action={
             <ActionButton variant="ghost" onClick={() => navigate("/workloads")}>
-              Back to workloads
+              {t("empty.back")}
             </ActionButton>
           }
         />
@@ -149,14 +152,14 @@ export function WorkloadDetail() {
   const confirmUpdate = async () => {
     try {
       await api.workloadUpdate(hostId, detail.id);
-      toast.success("Updated", `${cleanName(detail.name)} recreated on the newest image`);
+      toast.success(t("toast.updatedTitle"), t("toast.updatedBody", { name: cleanName(detail.name) }));
       queryClient.invalidateQueries({ queryKey: ["workloads", hostId] });
       queryClient.invalidateQueries({ queryKey: qk.updates(hostId) });
       // The recreate gives the container a NEW id, so this detail route is now
       // stale — return to the list instead of refetching into a 404.
       navigate("/workloads");
     } catch (err) {
-      toastError("Update failed", err);
+      toastError(t("toast.updateFailed"), err);
       throw err;
     }
   };
@@ -195,7 +198,7 @@ export function WorkloadDetail() {
               onRestart={actions.triggerRestart}
               onRemove={actions.triggerRemove}
             />
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="terminal" />
@@ -209,15 +212,11 @@ export function WorkloadDetail() {
           style={{ justifyContent: "space-between", gap: "var(--sp-3)", flexWrap: "wrap" }}
         >
           <span className="text-sm">
-            A newer image is available for <strong className="mono">{updateInfo.image}</strong>.
+            {t("banner.updateAvailable")} <strong className="mono">{updateInfo.image}</strong>.
           </span>
           <CapabilityGate
             allowed={can("docker.container.update") && !detail.protected}
-            reason={
-              detail.protected
-                ? "Protected — cannot be recreated"
-                : "You lack the docker.container.update permission"
-            }
+            reason={detail.protected ? t("gate.protected") : t("gate.missingPermission")}
           >
             {(allowed, reason) => (
               <ActionButton
@@ -227,7 +226,7 @@ export function WorkloadDetail() {
                 tooltip={allowed ? undefined : reason}
                 onClick={() => setUpdateOpen(true)}
               >
-                Update now
+                {t("banner.updateNow")}
               </ActionButton>
             )}
           </CapabilityGate>
@@ -267,14 +266,13 @@ export function WorkloadDetail() {
 
       <ConfirmDestructiveDialog
         open={updateOpen}
-        title="Update container"
+        title={t("dialog.title")}
         variant="primary"
-        confirmLabel="Update"
+        confirmLabel={t("dialog.confirm")}
         description={
           <>
-            Pull the newest image for <strong className="mono">{detail.image}</strong> and recreate{" "}
-            <strong className="mono">{cleanName(detail.name)}</strong> with the same configuration.
-            The container restarts on the new image — expect a brief downtime.
+            {t("dialog.descPull")} <strong className="mono">{detail.image}</strong> {t("dialog.descRecreate")}{" "}
+            <strong className="mono">{cleanName(detail.name)}</strong> {t("dialog.descConfig")}
           </>
         }
         onConfirm={confirmUpdate}

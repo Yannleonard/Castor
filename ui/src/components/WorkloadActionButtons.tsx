@@ -12,6 +12,8 @@ import { gateWorkloadAction } from "../lib/rbac";
 import { CapabilityGate } from "./CapabilityGate";
 import { ActionButton } from "./ActionButton";
 import { IconPlay, IconPause, IconStop, IconRestart, IconTrash } from "./icons";
+import { useT } from "../i18n";
+import { workloadButtonsDict } from "../i18n/locales/workloadButtons";
 
 interface Props {
   workload: Workload;
@@ -42,9 +44,11 @@ export function WorkloadActionButtons({
   onRestart,
   onRemove,
 }: Props) {
+  const t = useT(workloadButtonsDict);
+
   // Read-only orchestrators: no lifecycle affordances at all.
   if (workload.kind !== "docker") {
-    return <span className="text-xs muted">Read-only</span>;
+    return <span className="text-xs muted">{t("badge.readOnly")}</span>;
   }
 
   const isStopped = workload.state === "stopped" || workload.state === "unknown";
@@ -69,8 +73,8 @@ export function WorkloadActionButtons({
               variant="ghost"
               disabled={!allowed}
               loading={busy}
-              tooltip={allowed ? "Start" : reason}
-              aria-label="Start"
+              tooltip={allowed ? t("action.start") : reason}
+              aria-label={t("action.start")}
               onClick={() => onStart(workload)}
               style={allowed ? { color: "var(--success)" } : undefined}
             >
@@ -89,8 +93,8 @@ export function WorkloadActionButtons({
               variant="ghost"
               disabled={!allowed}
               loading={busy}
-              tooltip={allowed ? "Unpause" : reason}
-              aria-label="Unpause"
+              tooltip={allowed ? t("action.unpause") : reason}
+              aria-label={t("action.unpause")}
               onClick={() => onUnpause?.(workload)}
               style={allowed ? { color: "var(--success)" } : undefined}
             >
@@ -109,8 +113,8 @@ export function WorkloadActionButtons({
               variant="ghost"
               disabled={!allowed}
               loading={busy}
-              tooltip={allowed ? "Restart" : reason}
-              aria-label="Restart"
+              tooltip={allowed ? t("action.restart") : reason}
+              aria-label={t("action.restart")}
               onClick={() => onRestart(workload)}
             >
               <IconRestart size={15} />
@@ -128,8 +132,8 @@ export function WorkloadActionButtons({
               variant="ghost"
               disabled={!allowed}
               loading={busy}
-              tooltip={allowed ? "Pause" : reason}
-              aria-label="Pause"
+              tooltip={allowed ? t("action.pause") : reason}
+              aria-label={t("action.pause")}
               onClick={() => onPause?.(workload)}
             >
               <IconPause size={15} />
@@ -147,8 +151,8 @@ export function WorkloadActionButtons({
               variant="ghost"
               disabled={!allowed}
               loading={busy}
-              tooltip={allowed ? "Stop" : reason}
-              aria-label="Stop"
+              tooltip={allowed ? t("action.stop") : reason}
+              aria-label={t("action.stop")}
               onClick={() => onStop(workload)}
               style={allowed ? { color: "var(--warning)" } : undefined}
             >
@@ -163,7 +167,7 @@ export function WorkloadActionButtons({
           // protected workloads: button visible but explains why it is blocked.
           const protectedBlock = workload.protected && !(permissions ?? []).includes("*");
           const finalReason = protectedBlock
-            ? "Protected — only an administrator can override removal"
+            ? t("tooltip.protected")
             : reason;
           return (
             <ActionButton
@@ -172,8 +176,8 @@ export function WorkloadActionButtons({
               variant="ghost"
               disabled={!allowed || protectedBlock}
               loading={busy}
-              tooltip={allowed && !protectedBlock ? "Remove" : finalReason}
-              aria-label="Remove"
+              tooltip={allowed && !protectedBlock ? t("action.remove") : finalReason}
+              aria-label={t("action.remove")}
               onClick={() => onRemove(workload)}
               style={allowed && !protectedBlock ? { color: "var(--danger)" } : undefined}
             >

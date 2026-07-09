@@ -46,6 +46,8 @@ import {
   IconAudit,
 } from "../components/icons";
 import { formatBytes, formatPct, timeAgo } from "../lib/format";
+import { useT } from "../i18n";
+import { dashboardDict } from "../i18n/locales/dashboard";
 import type { AuditResult, DashboardTopContainer } from "../lib/types";
 
 const RESULT_COLOR: Record<AuditResult, string> = {
@@ -81,6 +83,7 @@ function stateColor(state: string, chart: Record<string, string>): string {
 }
 
 export function Dashboard() {
+  const t = useT(dashboardDict);
   const navigate = useNavigate();
   const hostId = useSelectedHost();
   const { can, user } = useAuth();
@@ -122,7 +125,7 @@ export function Dashboard() {
   const anyDegraded = (hostsQ.data ?? []).some((h) => h.degraded || h.status !== "connected");
 
   if (metricsQ.isLoading && !m) {
-    return <LoadingFill label="Loading dashboard…" />;
+    return <LoadingFill label={t("header.loading")} />;
   }
 
   const c = m?.containers;
@@ -139,8 +142,12 @@ export function Dashboard() {
   return (
     <div className="page">
       <PageHeader
-        title={`Welcome back, ${user?.username ?? ""}`.trim()}
-        subtitle={`Live analytics for ${hostId}${m?.engine.version ? ` · Docker ${m.engine.version}` : ""}`}
+        title={t("header.welcome", { name: user?.username ?? "" }).trim()}
+        subtitle={
+          m?.engine.version
+            ? t("header.subtitleDocker", { host: hostId, version: m.engine.version })
+            : t("header.subtitle", { host: hostId })
+        }
         actions={<HelpButton topic="dashboard" />}
       />
 
@@ -148,9 +155,9 @@ export function Dashboard() {
         <div className="banner warning">
           <IconHosts size={16} />
           <span>
-            One or more hosts or providers are degraded. Cached data may be stale.{" "}
+            {t("banner.degraded")}{" "}
             <a href="/hosts" onClick={(e) => { e.preventDefault(); navigate("/hosts"); }}>
-              Review hosts
+              {t("banner.reviewHosts")}
             </a>
             .
           </span>
@@ -163,19 +170,19 @@ export function Dashboard() {
       {/* ---- KPI row ---- */}
       <div className="dash-kpis">
         <Kpi
-          label="Running"
+          label={t("kpi.running")}
           icon={<IconWorkloads size={18} />}
           value={c ? c.running : "—"}
           onClick={() => navigate("/workloads")}
           sub={
             <span className="dash-kpi-sub">
               <span className="dot" style={{ background: "var(--state-stopped)" }} />
-              {stopped} stopped · {c ? c.total : 0} total
+              {t("kpi.runningSub", { stopped, total: c ? c.total : 0 })}
             </span>
           }
         />
         <Kpi
-          label="CPU usage"
+          label={t("kpi.cpu")}
           icon={<IconStats size={18} />}
           accent="var(--chart-1)"
           value={
@@ -186,52 +193,52 @@ export function Dashboard() {
           }
           sub={
             <span className="dash-kpi-sub">
-              across {m?.cpu.cores ?? m?.engine.ncpu ?? 0} cores
+              {t("kpi.cpuSub", { cores: m?.cpu.cores ?? m?.engine.ncpu ?? 0 })}
             </span>
           }
         />
         <Kpi
-          label="Memory used"
+          label={t("kpi.memory")}
           icon={<IconStats size={18} />}
           accent="var(--success)"
           value={formatBytes(m?.memory.usedBytes)}
           sub={
             <span className="dash-kpi-sub">
               {m && m.memory.totalBytes > 0
-                ? `${formatPct(memPct)} of ${formatBytes(m.memory.totalBytes)}`
-                : "capacity unknown"}
+                ? t("kpi.memorySub", { pct: formatPct(memPct), total: formatBytes(m.memory.totalBytes) })
+                : t("kpi.memorySubUnknown")}
             </span>
           }
         />
         <Kpi
-          label="Images"
+          label={t("kpi.images")}
           icon={<IconImages size={18} />}
           value={m ? m.images : "—"}
           onClick={() => navigate("/images")}
-          sub={<span className="dash-kpi-sub">pulled on host</span>}
+          sub={<span className="dash-kpi-sub">{t("kpi.imagesSub")}</span>}
         />
         <Kpi
-          label="Volumes"
+          label={t("kpi.volumes")}
           icon={<IconVolumes size={18} />}
           value={m ? m.volumes : "—"}
           onClick={() => navigate("/volumes")}
-          sub={<span className="dash-kpi-sub">persistent data</span>}
+          sub={<span className="dash-kpi-sub">{t("kpi.volumesSub")}</span>}
         />
         <Kpi
-          label="Networks"
+          label={t("kpi.networks")}
           icon={<IconNetworks size={18} />}
           value={m ? m.networks : "—"}
           onClick={() => navigate("/networks")}
-          sub={<span className="dash-kpi-sub">docker networks</span>}
+          sub={<span className="dash-kpi-sub">{t("kpi.networksSub")}</span>}
         />
       </div>
 
       {/* ---- chart cards ---- */}
       <div className="dash-charts">
         {/* container state donut */}
-        <ChartCard title="Container states" hint={`${stateTotal} total`}>
+        <ChartCard title={t("chart.states")} hint={t("chart.statesHint", { count: stateTotal })}>
           {stateData.length === 0 ? (
-            <EmptyState icon={<IconWorkloads size={28} />} title="No containers" />
+            <EmptyState icon={<IconWorkloads size={28} />} title={t("chart.statesEmpty")} />
           ) : (
             <>
               <div className="dash-chart-frame dash-donut-wrap">
@@ -258,7 +265,7 @@ export function Dashboard() {
                 </ResponsiveContainer>
                 <div className="dash-donut-center">
                   <span className="big">{c ? c.running : 0}</span>
-                  <span className="small">running</span>
+                  <span className="small">{t("chart.donutRunning")}</span>
                 </div>
               </div>
               <div className="dash-legend">
@@ -274,23 +281,23 @@ export function Dashboard() {
         </ChartCard>
 
         {/* resource gauges */}
-        <ChartCard title="Resource utilization" hint="live sample">
+        <ChartCard title={t("chart.resource")} hint={t("chart.resourceHint")}>
           <div className="dash-gauges">
-            <Gauge label="CPU" valueText={formatPct(cpuPct)} pct={cpuPct} cap={100 * (m?.cpu.cores || 1)} color={chart.blue}
-              foot={`${m?.cpu.cores ?? 0} cores`} />
-            <Gauge label="Memory" valueText={m && m.memory.totalBytes > 0 ? formatPct(memPct) : formatBytes(m?.memory.usedBytes)} pct={memPct} cap={100} color={chart.teal}
-              foot={m && m.memory.totalBytes > 0 ? `${formatBytes(m.memory.usedBytes)} / ${formatBytes(m.memory.totalBytes)}` : "limit unknown"} />
+            <Gauge label={t("gauge.cpu")} valueText={formatPct(cpuPct)} pct={cpuPct} cap={100 * (m?.cpu.cores || 1)} color={chart.blue}
+              foot={t("gauge.cores", { cores: m?.cpu.cores ?? 0 })} />
+            <Gauge label={t("gauge.memory")} valueText={m && m.memory.totalBytes > 0 ? formatPct(memPct) : formatBytes(m?.memory.usedBytes)} pct={memPct} cap={100} color={chart.teal}
+              foot={m && m.memory.totalBytes > 0 ? `${formatBytes(m.memory.usedBytes)} / ${formatBytes(m.memory.totalBytes)}` : t("gauge.limitUnknown")} />
           </div>
         </ChartCard>
 
         {/* top by CPU */}
-        <ChartCard title="Top containers by CPU" hint="%">
-          <TopBar data={m?.topByCpu ?? []} metric="cpu" color={chart.blue} axis={chart.axis} grid={chart.grid} cursor={chart.accentSoft} />
+        <ChartCard title={t("chart.topCpu")} hint={t("chart.topCpuHint")}>
+          <TopBar data={m?.topByCpu ?? []} metric="cpu" color={chart.blue} axis={chart.axis} grid={chart.grid} cursor={chart.accentSoft} emptyLabel={t("chart.topEmpty")} />
         </ChartCard>
 
         {/* top by memory */}
-        <ChartCard title="Top containers by memory" hint="bytes">
-          <TopBar data={m?.topByMem ?? []} metric="mem" color={chart.teal} axis={chart.axis} grid={chart.grid} cursor={chart.accentSoft} />
+        <ChartCard title={t("chart.topMem")} hint={t("chart.topMemHint")}>
+          <TopBar data={m?.topByMem ?? []} metric="mem" color={chart.teal} axis={chart.axis} grid={chart.grid} cursor={chart.accentSoft} emptyLabel={t("chart.topEmpty")} />
         </ChartCard>
       </div>
 
@@ -298,10 +305,10 @@ export function Dashboard() {
       <div className="dash-split">
         <div className="dash-card">
           <div className="dash-card-head">
-            <span className="dash-card-title">Orchestrators</span>
+            <span className="dash-card-title">{t("orch.title")}</span>
             {m ? (
               <span className="dash-card-hint">
-                {m.swarmServices} svc · {m.swarmTasks} tasks · {m.k8sPods} pods
+                {t("orch.hint", { svc: m.swarmServices, tasks: m.swarmTasks, pods: m.k8sPods })}
               </span>
             ) : null}
           </div>
@@ -327,7 +334,7 @@ export function Dashboard() {
                   </div>
                 ))}
                 {(providersQ.data ?? []).length === 0 ? (
-                  <span className="muted text-sm">No orchestrators connected.</span>
+                  <span className="muted text-sm">{t("orch.empty")}</span>
                 ) : null}
               </div>
             )}
@@ -336,20 +343,20 @@ export function Dashboard() {
 
         <div className="dash-card">
           <div className="dash-card-head">
-            <span className="dash-card-title">Recent activity</span>
+            <span className="dash-card-title">{t("activity.title")}</span>
             {canAudit ? (
               <a href="/audit" onClick={(e) => { e.preventDefault(); navigate("/audit"); }} className="text-sm">
-                View all
+                {t("activity.viewAll")}
               </a>
             ) : null}
           </div>
           <div className="dash-card-body">
             {!canAudit ? (
-              <span className="muted text-sm">You do not have permission to view the audit log.</span>
+              <span className="muted text-sm">{t("activity.noPermission")}</span>
             ) : auditQ.isLoading ? (
               <LoadingFill />
             ) : (auditQ.data?.items ?? []).length === 0 ? (
-              <EmptyState icon={<IconAudit size={32} />} title="No activity yet" />
+              <EmptyState icon={<IconAudit size={32} />} title={t("activity.empty")} />
             ) : (
               <div className="dash-activity">
                 {(auditQ.data?.items ?? []).map((a) => (
@@ -466,6 +473,7 @@ function TopBar({
   axis,
   grid,
   cursor,
+  emptyLabel,
 }: {
   data: DashboardTopContainer[];
   metric: "cpu" | "mem";
@@ -473,9 +481,10 @@ function TopBar({
   axis: string;
   grid: string;
   cursor: string;
+  emptyLabel: string;
 }) {
   if (data.length === 0) {
-    return <EmptyState icon={<IconStats size={28} />} title="No live samples" />;
+    return <EmptyState icon={<IconStats size={28} />} title={emptyLabel} />;
   }
   // shorten container names for the y-axis; keep full name for the tooltip.
   const rows = data.map((d) => ({
@@ -514,15 +523,17 @@ function TopBar({
 /* ----- tooltips (typed to recharts' TooltipProps) ----- */
 
 function CountTip({ active, payload }: TooltipProps<number, string>) {
+  const t = useT(dashboardDict);
   if (!active || !payload || payload.length === 0) return null;
   const p = payload[0]!;
   const color = (p.payload as { color?: string }).color ?? "var(--accent)";
+  const count = p.value ?? 0;
   return (
     <div className="dash-tip">
       <div className="dash-tip-name">{p.name}</div>
       <div className="dash-tip-row">
         <span className="swatch" style={{ background: color }} />
-        {p.value} container{p.value === 1 ? "" : "s"}
+        {count === 1 ? t("tip.containerOne", { count }) : t("tip.containerOther", { count })}
       </div>
     </div>
   );

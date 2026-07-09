@@ -9,12 +9,15 @@ import { prettyJson } from "../../lib/format";
 import { ActionButton } from "../../components/ActionButton";
 import { IconCopy, IconSearch } from "../../components/icons";
 import { toast } from "../../lib/toast";
+import { useT, t as tr } from "../../i18n";
+import { wlInspectTabDict } from "../../i18n/locales/wlInspectTab";
 
 interface Props {
   raw: unknown;
 }
 
 export function InspectTab({ raw }: Props) {
+  const t = useT(wlInspectTabDict);
   const [filter, setFilter] = useState("");
   const full = useMemo(() => prettyJson(raw), [raw]);
 
@@ -30,9 +33,15 @@ export function InspectTab({ raw }: Props) {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(full);
-      toast.success("Copied", "Inspect JSON copied to clipboard.");
+      toast.success(
+        tr(wlInspectTabDict, "toast.copiedTitle"),
+        tr(wlInspectTabDict, "toast.copiedBody"),
+      );
     } catch {
-      toast.error("Copy failed", "Clipboard is unavailable.");
+      toast.error(
+        tr(wlInspectTabDict, "toast.copyFailedTitle"),
+        tr(wlInspectTabDict, "toast.copyFailedBody"),
+      );
     }
   };
 
@@ -46,21 +55,21 @@ export function InspectTab({ raw }: Props) {
           <input
             className="input input-mono"
             style={{ height: 30, maxWidth: 360 }}
-            placeholder="Filter JSON lines…"
+            placeholder={t("filter.placeholder")}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
           <span className="text-xs muted" style={{ marginLeft: 8 }}>
-            Secret env masked unless granted.
+            {t("filter.secretNote")}
           </span>
         </div>
         <ActionButton size="sm" variant="ghost" onClick={copy}>
           <IconCopy size={14} />
-          Copy
+          {t("action.copy")}
         </ActionButton>
       </div>
       <pre className="code-block" style={{ borderRadius: 0, border: "none", maxHeight: "68vh" }}>
-        {shown || "// no matching lines"}
+        {shown || t("empty.noMatch")}
       </pre>
     </div>
   );

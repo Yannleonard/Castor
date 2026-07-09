@@ -28,6 +28,8 @@ import { HelpButton } from "../components/HelpButton";
 import { IconShield, IconPlus, IconTrash, IconRefresh, IconRoles } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { timeAgo } from "../lib/format";
+import { useT } from "../i18n";
+import { authenticationDict } from "../i18n/locales/authentication";
 import type {
   AuthProvider,
   AuthProviderInput,
@@ -39,18 +41,22 @@ import type {
 const EMPTY: AuthProvider[] = [];
 const EMPTY_ROLES: RoleRecord[] = [];
 
-const KIND_LABEL: Record<AuthProviderKind, string> = {
-  ldap: "LDAP / LDAPS",
-  oidc: "OpenID Connect",
+// authenticationDict key for each provider kind's display label.
+const KIND_LABEL_KEY: Record<AuthProviderKind, string> = {
+  ldap: "kind.ldap",
+  oidc: "kind.oidc",
 };
 
-const TLS_OPTIONS: { value: LDAPTLSMode; label: string }[] = [
-  { value: "ldaps", label: "LDAPS (implicit TLS, port 636)" },
-  { value: "starttls", label: "STARTTLS (upgrade on 389)" },
-  { value: "none", label: "None (plaintext — lab only)" },
+// TLS transport options: technical `value` (sent to the API, never translated)
+// paired with the authenticationDict key for its display label.
+const TLS_OPTIONS: { value: LDAPTLSMode; labelKey: string }[] = [
+  { value: "ldaps", labelKey: "tls.ldaps" },
+  { value: "starttls", labelKey: "tls.starttls" },
+  { value: "none", labelKey: "tls.none" },
 ];
 
 export function Authentication() {
+  const t = useT(authenticationDict);
   const queryClient = useQueryClient();
   const { can } = useAuth();
   const providersQ = useAuthProviders();
@@ -80,12 +86,15 @@ export function Authentication() {
     try {
       const res = await api.authProviderTest(p.id);
       if (res.ok) {
-        toast.success(`${p.name}: test OK`, res.sampleUser ? `${res.message} (e.g. ${res.sampleUser})` : res.message);
+        toast.success(
+          t("toast.testOk", { name: p.name }),
+          res.sampleUser ? t("toast.testOkSample", { message: res.message, sample: res.sampleUser }) : res.message,
+        );
       } else {
-        toast.warning(`${p.name}: test failed`, res.message);
+        toast.warning(t("toast.testFailed", { name: p.name }), res.message);
       }
     } catch (err) {
-      toastError("Test failed", err);
+      toastError(t("toast.testFailedTitle"), err);
     } finally {
       setTestingId(null);
     }
@@ -98,10 +107,10 @@ export function Authentication() {
     setTogglingId(p.id);
     try {
       await api.authProviderUpdate(p.id, { ...providerToInput(p), enabled: !p.enabled });
-      toast.success(p.enabled ? "Provider disabled" : "Provider enabled", p.name);
+      toast.success(p.enabled ? t("toast.disabledTitle") : t("toast.enabledTitle"), p.name);
       invalidate();
     } catch (err) {
-      toastError("Update failed", err);
+      toastError(t("toast.updateFailed"), err);
     } finally {
       setTogglingId(null);
     }
@@ -110,7 +119,7 @@ export function Authentication() {
   const columns: Column<AuthProvider>[] = [
     {
       key: "name",
-      header: "Provider",
+      header: t("col.provider"),
       sortValue: (p) => p.name,
       cell: (p) => (
         <div className="col" style={{ gap: 2 }}>
@@ -123,42 +132,42 @@ export function Authentication() {
     },
     {
       key: "kind",
-      header: "Type",
+      header: t("col.type"),
       sortValue: (p) => p.kind,
-      cell: (p) => <span className="chip">{KIND_LABEL[p.kind]}</span>,
+      cell: (p) => <span className="chip">{t(KIND_LABEL_KEY[p.kind])}</span>,
     },
     {
       key: "enabled",
-      header: "Status",
+      header: t("col.status"),
       sortValue: (p) => (p.enabled ? 1 : 0),
       cell: (p) => (
         <span className="row" style={{ gap: 6 }}>
           <StatusDot color={p.enabled ? "var(--success)" : "var(--state-stopped)"} />
-          <span className="text-sm secondary">{p.enabled ? "Enabled" : "Disabled"}</span>
+          <span className="text-sm secondary">{p.enabled ? t("status.enabled") : t("status.disabled")}</span>
         </span>
       ),
     },
     {
       key: "secret",
-      header: "Secret",
+      header: t("col.secret"),
       sortValue: (p) => (secretSet(p) ? 1 : 0),
       cell: (p) =>
         secretSet(p) ? (
           <span className="pill" style={{ color: "var(--success)", background: "var(--success-bg)", borderColor: "transparent" }}>
-            •••• set
+            {t("secret.set")}
           </span>
         ) : (
-          <span className="text-xs muted">none</span>
+          <span className="text-xs muted">{t("secret.none")}</span>
         ),
     },
     {
       key: "default",
-      header: "Default role",
-      cell: (p) => (p.defaultRoleId ? <span className="chip text-xs">{roleName(p.defaultRoleId)}</span> : <span className="muted text-sm">none</span>),
+      header: t("col.defaultRole"),
+      cell: (p) => (p.defaultRoleId ? <span className="chip text-xs">{roleName(p.defaultRoleId)}</span> : <span className="muted text-sm">{t("role.none")}</span>),
     },
     {
       key: "created",
-      header: "Added",
+      header: t("col.added"),
       sortValue: (p) => p.createdAt,
       cell: (p) => <span className="text-xs muted nowrap">{timeAgo(p.createdAt)}</span>,
     },
@@ -174,8 +183,8 @@ export function Authentication() {
             variant="ghost"
             iconOnly
             disabled={!canWrite}
-            tooltip={canWrite ? "Group → role mappings" : "Requires auth.provider.write"}
-            aria-label="Group role mappings"
+            tooltip={canWrite ? t("action.mappings") : t("action.requiresWrite")}
+            aria-label={t("action.mappingsAria")}
             onClick={() => setMappingsTarget(p)}
           >
             <IconRoles size={15} />
@@ -185,37 +194,37 @@ export function Authentication() {
             variant="ghost"
             loading={testingId === p.id}
             disabled={!canWrite || testingId !== null}
-            tooltip={canWrite ? "Test connection" : "Requires auth.provider.write"}
+            tooltip={canWrite ? t("action.testTooltip") : t("action.requiresWrite")}
             onClick={() => runTest(p)}
           >
-            Test
+            {t("action.test")}
           </ActionButton>
           <ActionButton
             size="sm"
             variant="ghost"
             loading={togglingId === p.id}
             disabled={!canWrite || togglingId !== null}
-            tooltip={canWrite ? (p.enabled ? "Disable" : "Enable") : "Requires auth.provider.write"}
+            tooltip={canWrite ? (p.enabled ? t("action.disable") : t("action.enable")) : t("action.requiresWrite")}
             onClick={() => toggleEnabled(p)}
           >
-            {p.enabled ? "Disable" : "Enable"}
+            {p.enabled ? t("action.disable") : t("action.enable")}
           </ActionButton>
           <ActionButton
             size="sm"
             variant="ghost"
             disabled={!canWrite}
-            tooltip={canWrite ? "Edit" : "Requires auth.provider.write"}
+            tooltip={canWrite ? t("action.edit") : t("action.requiresWrite")}
             onClick={() => setEditTarget(p)}
           >
-            Edit
+            {t("action.edit")}
           </ActionButton>
           <ActionButton
             size="sm"
             variant="ghost"
             iconOnly
             disabled={!canWrite}
-            tooltip={canWrite ? "Delete provider" : "Requires auth.provider.write"}
-            aria-label="Delete provider"
+            tooltip={canWrite ? t("action.delete") : t("action.requiresWrite")}
+            aria-label={t("action.deleteAria")}
             onClick={() => setDeleteTarget(p)}
             style={canWrite ? { color: "var(--danger)" } : undefined}
           >
@@ -229,20 +238,20 @@ export function Authentication() {
   return (
     <div className="page">
       <PageHeader
-        title="Authentication"
-        subtitle="External identity providers (LDAP / LDAPS and Microsoft Entra ID via OpenID Connect) for enterprise single sign-on."
+        title={t("header.title")}
+        subtitle={t("header.subtitle")}
         actions={
           <div className="row">
             <ActionButton
               variant="primary"
               disabled={!canWrite}
-              tooltip={canWrite ? undefined : "Requires auth.provider.write"}
+              tooltip={canWrite ? undefined : t("action.requiresWrite")}
               onClick={() => setCreateOpen(true)}
             >
               <IconPlus size={15} />
-              Add provider
+              {t("header.addProvider")}
             </ActionButton>
-            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => providersQ.refetch()}>
+            <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => providersQ.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
             <HelpButton topic="authentication" />
@@ -251,7 +260,7 @@ export function Authentication() {
       />
 
       {providersQ.isLoading ? (
-        <LoadingFill label="Loading providers…" />
+        <LoadingFill label={t("header.loading")} />
       ) : (
         <DataTable
           columns={columns}
@@ -259,8 +268,8 @@ export function Authentication() {
           rowKey={(p) => p.id}
           defaultSortKey="name"
           emptyIcon={<IconShield size={40} />}
-          emptyTitle="No identity providers"
-          emptyMessage="Add an LDAP directory or a Microsoft Entra ID (OIDC) app to let your team sign in with their corporate accounts."
+          emptyTitle={t("empty.title")}
+          emptyMessage={t("empty.message")}
         />
       )}
 
@@ -272,23 +281,23 @@ export function Authentication() {
 
       <ConfirmDestructiveDialog
         open={!!deleteTarget}
-        title="Delete provider"
+        title={t("delete.title")}
         variant="danger"
-        confirmLabel="Delete"
+        confirmLabel={t("delete.confirm")}
         description={
           <>
-            Delete provider <strong>{deleteTarget?.name}</strong>, its stored secret and all its group mappings? Users who signed in through it
-            keep their accounts but can no longer authenticate via this provider until it is re-added.
+            {t("delete.descBefore")} <strong>{deleteTarget?.name}</strong>
+            {t("delete.descAfter")}
           </>
         }
         onConfirm={async () => {
           if (!deleteTarget) return;
           try {
             await api.authProviderDelete(deleteTarget.id);
-            toast.success("Provider deleted", deleteTarget.name);
+            toast.success(t("toast.deletedTitle"), deleteTarget.name);
             invalidate();
           } catch (err) {
-            toastError("Delete failed", err);
+            toastError(t("toast.deleteFailed"), err);
             throw err;
           }
         }}
@@ -362,6 +371,7 @@ function ProviderModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT(authenticationDict);
   const editing = !!provider;
   // Kind is immutable after create; default new providers to OIDC (Entra ID).
   const [kind, setKind] = useState<AuthProviderKind>(provider?.kind ?? "oidc");
@@ -450,52 +460,52 @@ function ProviderModal({
 
       if (editing) {
         await api.authProviderUpdate(provider!.id, body);
-        toast.success("Provider updated", body.name);
+        toast.success(t("toast.updatedTitle"), body.name);
       } else {
         await api.authProviderCreate(body);
-        toast.success("Provider added", body.name);
+        toast.success(t("toast.addedTitle"), body.name);
       }
       onDone();
       onClose();
     } catch (err) {
-      toastError(editing ? "Update failed" : "Create failed", err);
+      toastError(editing ? t("toast.updateFailed") : t("toast.createFailed"), err);
     } finally {
       setBusy(false);
     }
   };
 
-  const secretLabel = kind === "ldap" ? "Bind password" : "Client secret";
+  const secretLabel = kind === "ldap" ? t("secret.labelBind") : t("secret.labelClient");
 
   return (
     <Modal
       open
       wide
-      title={editing ? `Edit ${provider!.name}` : "Add identity provider"}
+      title={editing ? t("form.editTitle", { name: provider!.name }) : t("form.addTitle")}
       busy={busy}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("form.cancel")}
           </button>
           <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
-            {editing ? "Save" : "Add"}
+            {editing ? t("form.save") : t("form.add")}
           </ActionButton>
         </>
       }
     >
       <div className="col" style={{ gap: "var(--sp-3)" }}>
         <div className="row-wrap" style={{ gap: "var(--sp-3)" }}>
-          <TextField label="Name" autoFocus value={name} onChange={(e) => setName(e.target.value)} hint="A label shown on the login screen." />
+          <TextField label={t("form.name")} autoFocus value={name} onChange={(e) => setName(e.target.value)} hint={t("form.nameHint")} />
           <SelectField
-            label="Type"
+            label={t("form.type")}
             value={kind}
             disabled={editing}
             onChange={(e) => setKind(e.target.value as AuthProviderKind)}
-            hint={editing ? "Type cannot be changed after creation." : "OpenID Connect for Microsoft Entra ID; LDAP for Active Directory / OpenLDAP."}
+            hint={editing ? t("form.typeHintEditing") : t("form.typeHintNew")}
           >
-            <option value="oidc">OpenID Connect (Entra ID)</option>
-            <option value="ldap">LDAP / LDAPS</option>
+            <option value="oidc">{t("form.typeOidc")}</option>
+            <option value="ldap">{t("form.typeLdap")}</option>
           </SelectField>
         </div>
 
@@ -554,30 +564,30 @@ function ProviderModal({
           value={secret}
           onChange={(e) => setSecret(e.target.value)}
           autoComplete="new-password"
-          placeholder={hasStoredSecret ? "•••• leave blank to keep current" : ""}
+          placeholder={hasStoredSecret ? t("secret.placeholderKeep") : ""}
           hint={
             hasStoredSecret
-              ? "A secret is already stored. Type a new value to replace it."
+              ? t("secret.hintStored")
               : kind === "ldap"
-                ? "Password for the service bind DN. Stored encrypted; never displayed again."
-                : "The Entra app registration client secret value. Stored encrypted; never displayed again."
+                ? t("secret.hintBind")
+                : t("secret.hintClient")
           }
         />
         {hasStoredSecret ? (
           <label className="checkbox-row">
             <input type="checkbox" checked={clearSecret} disabled={secret.length > 0} onChange={(e) => setClearSecret(e.target.checked)} />
-            <span>Clear the stored {kind === "ldap" ? "bind password" : "client secret"}</span>
+            <span>{kind === "ldap" ? t("secret.clearBind") : t("secret.clearClient")}</span>
           </label>
         ) : null}
 
         {/* Shared: default role + enabled. */}
         <SelectField
-          label="Default role (fallback)"
+          label={t("form.defaultRole")}
           value={defaultRoleId}
           onChange={(e) => setDefaultRoleId(e.target.value)}
-          hint="Assigned at sign-in when no group mapping matches. Leave as “No default” to grant nothing until an admin does."
+          hint={t("form.defaultRoleHint")}
         >
-          <option value="">No default (deny by default)</option>
+          <option value="">{t("form.defaultRoleNone")}</option>
           {roles.map((r) => (
             <option key={r.id} value={r.id}>
               {r.name}
@@ -586,7 +596,7 @@ function ProviderModal({
         </SelectField>
         <label className="checkbox-row">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-          <span>Enabled (show on the login screen and accept sign-ins)</span>
+          <span>{t("form.enabled")}</span>
         </label>
       </div>
     </Modal>
@@ -623,83 +633,84 @@ function LDAPFields(p: {
   attrMember: string;
   setAttrMember: (v: string) => void;
 }) {
+  const t = useT(authenticationDict);
   return (
     <div className="col" style={{ gap: "var(--sp-3)" }}>
-      <SectionLabel>Connection</SectionLabel>
+      <SectionLabel>{t("ldap.section.connection")}</SectionLabel>
       <div className="row-wrap" style={{ gap: "var(--sp-3)" }}>
-        <TextField label="Host" value={p.host} mono onChange={(e) => p.setHost(e.target.value)} placeholder="dc01.corp.example.com" />
+        <TextField label={t("ldap.host")} value={p.host} mono onChange={(e) => p.setHost(e.target.value)} placeholder="dc01.corp.example.com" />
         <TextField
-          label="Port"
+          label={t("ldap.port")}
           type="number"
           value={String(p.port)}
           onChange={(e) => p.setPort(parseInt(e.target.value, 10) || 0)}
-          hint="636 for LDAPS, 389 otherwise."
+          hint={t("ldap.portHint")}
         />
       </div>
-      <SelectField label="Transport security" value={p.tls} onChange={(e) => p.setTls(e.target.value as LDAPTLSMode)}>
-        {TLS_OPTIONS.map((t) => (
-          <option key={t.value} value={t.value}>
-            {t.label}
+      <SelectField label={t("ldap.transport")} value={p.tls} onChange={(e) => p.setTls(e.target.value as LDAPTLSMode)}>
+        {TLS_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {t(opt.labelKey)}
           </option>
         ))}
       </SelectField>
       <label className="checkbox-row">
         <input type="checkbox" checked={p.skipVerify} onChange={(e) => p.setSkipVerify(e.target.checked)} />
-        <span>Skip TLS certificate verification (self-signed — not recommended in production)</span>
+        <span>{t("ldap.skipVerify")}</span>
       </label>
 
-      <SectionLabel>Service account &amp; search</SectionLabel>
+      <SectionLabel>{t("ldap.section.service")}</SectionLabel>
       <TextField
-        label="Bind DN"
+        label={t("ldap.bindDn")}
         value={p.bindDn}
         mono
         onChange={(e) => p.setBindDn(e.target.value)}
         placeholder="CN=castor-svc,OU=Service,DC=corp,DC=example,DC=com"
-        hint="A read-only service account used to search for users. Leave blank for anonymous bind."
+        hint={t("ldap.bindDnHint")}
       />
       <TextField
-        label="Base DN"
+        label={t("ldap.baseDn")}
         value={p.baseDn}
         mono
         onChange={(e) => p.setBaseDn(e.target.value)}
         placeholder="DC=corp,DC=example,DC=com"
-        hint="Subtree searched for user entries."
+        hint={t("ldap.baseDnHint")}
       />
       <TextField
-        label="User filter"
+        label={t("ldap.userFilter")}
         value={p.userFilter}
         mono
         onChange={(e) => p.setUserFilter(e.target.value)}
-        hint="LDAP filter for the login lookup. %s is replaced with the (escaped) username."
+        hint={t("ldap.userFilterHint")}
       />
       <div className="row-wrap" style={{ gap: "var(--sp-3)" }}>
-        <TextField label="Username attribute" value={p.attrUsername} mono onChange={(e) => p.setAttrUsername(e.target.value)} />
-        <TextField label="Email attribute" value={p.attrEmail} mono onChange={(e) => p.setAttrEmail(e.target.value)} />
-        <TextField label="Display-name attribute" value={p.attrDisplay} mono onChange={(e) => p.setAttrDisplay(e.target.value)} />
+        <TextField label={t("ldap.attrUsername")} value={p.attrUsername} mono onChange={(e) => p.setAttrUsername(e.target.value)} />
+        <TextField label={t("ldap.attrEmail")} value={p.attrEmail} mono onChange={(e) => p.setAttrEmail(e.target.value)} />
+        <TextField label={t("ldap.attrDisplay")} value={p.attrDisplay} mono onChange={(e) => p.setAttrDisplay(e.target.value)} />
       </div>
 
-      <SectionLabel>Group membership</SectionLabel>
+      <SectionLabel>{t("ldap.section.group")}</SectionLabel>
       <TextField
-        label="Member attribute"
+        label={t("ldap.attrMember")}
         value={p.attrMember}
         mono
         onChange={(e) => p.setAttrMember(e.target.value)}
-        hint="Attribute on the user entry listing their groups (e.g. memberOf). Used when no group base DN is set."
+        hint={t("ldap.attrMemberHint")}
       />
       <TextField
-        label="Group base DN (optional)"
+        label={t("ldap.groupBaseDn")}
         value={p.groupBaseDn}
         mono
         onChange={(e) => p.setGroupBaseDn(e.target.value)}
         placeholder="OU=Groups,DC=corp,DC=example,DC=com"
-        hint="Set to resolve groups via a reverse search instead of the member attribute."
+        hint={t("ldap.groupBaseDnHint")}
       />
       <TextField
-        label="Group filter"
+        label={t("ldap.groupFilter")}
         value={p.groupFilter}
         mono
         onChange={(e) => p.setGroupFilter(e.target.value)}
-        hint="Filter for the group search. %s is replaced with the user's DN."
+        hint={t("ldap.groupFilterHint")}
       />
     </div>
   );
@@ -723,52 +734,53 @@ function OIDCFields(p: {
   emailClaim: string;
   setEmailClaim: (v: string) => void;
 }) {
+  const t = useT(authenticationDict);
   const defaultRedirect = publicCallbackURL();
   return (
     <div className="col" style={{ gap: "var(--sp-3)" }}>
-      <SectionLabel>Microsoft Entra ID (OpenID Connect)</SectionLabel>
+      <SectionLabel>{t("oidc.section.entra")}</SectionLabel>
       <div className="banner info" role="note" style={{ fontSize: "0.85em" }}>
-        In the Entra admin center, register an application, add the redirect URI below as a <strong>Web</strong> platform, enable the{" "}
-        <strong>ID token</strong> under Authentication, create a <strong>client secret</strong>, and add an optional{" "}
-        <strong>groups claim</strong> (Token configuration → groups) so role mappings work. The issuer is{" "}
+        {t("oidc.banner.p1")} <strong>{t("oidc.banner.web")}</strong> {t("oidc.banner.p2")}{" "}
+        <strong>{t("oidc.banner.idToken")}</strong> {t("oidc.banner.p3")} <strong>{t("oidc.banner.clientSecret")}</strong>{t("oidc.banner.p4")}{" "}
+        <strong>{t("oidc.banner.groupsClaim")}</strong> {t("oidc.banner.p5")}{" "}
         <span className="mono">https://login.microsoftonline.com/&lt;tenant-id&gt;/v2.0</span>.
       </div>
       <TextField
-        label="Issuer"
+        label={t("oidc.issuer")}
         value={p.issuer}
         mono
         onChange={(e) => p.setIssuer(e.target.value)}
         placeholder="https://login.microsoftonline.com/<tenant-id>/v2.0"
-        hint="The OIDC issuer URL. Discovery (/.well-known/openid-configuration) is performed automatically."
+        hint={t("oidc.issuerHint")}
       />
       <TextField
-        label="Client ID"
+        label={t("oidc.clientId")}
         value={p.clientId}
         mono
         onChange={(e) => p.setClientId(e.target.value)}
         placeholder="00000000-0000-0000-0000-000000000000"
-        hint="The application (client) ID of the Entra app registration."
+        hint={t("oidc.clientIdHint")}
       />
       <TextField
-        label="Redirect URL"
+        label={t("oidc.redirectUrl")}
         value={p.redirectUrl}
         mono
         onChange={(e) => p.setRedirectUrl(e.target.value)}
         placeholder={defaultRedirect}
-        hint={`Must exactly match a redirect URI registered in Entra. Leave blank to use ${defaultRedirect}`}
+        hint={t("oidc.redirectUrlHint", { url: defaultRedirect })}
       />
       <TextField
-        label="Scopes"
+        label={t("oidc.scopes")}
         value={p.scopes}
         mono
         onChange={(e) => p.setScopes(e.target.value)}
-        hint="Space-separated OAuth scopes. Keep openid; profile/email populate the username and email."
+        hint={t("oidc.scopesHint")}
       />
-      <SectionLabel>Claim names</SectionLabel>
+      <SectionLabel>{t("oidc.section.claims")}</SectionLabel>
       <div className="row-wrap" style={{ gap: "var(--sp-3)" }}>
-        <TextField label="Username claim" value={p.usernameClaim} mono onChange={(e) => p.setUsernameClaim(e.target.value)} />
-        <TextField label="Email claim" value={p.emailClaim} mono onChange={(e) => p.setEmailClaim(e.target.value)} />
-        <TextField label="Groups claim" value={p.groupsClaim} mono onChange={(e) => p.setGroupsClaim(e.target.value)} />
+        <TextField label={t("oidc.usernameClaim")} value={p.usernameClaim} mono onChange={(e) => p.setUsernameClaim(e.target.value)} />
+        <TextField label={t("oidc.emailClaim")} value={p.emailClaim} mono onChange={(e) => p.setEmailClaim(e.target.value)} />
+        <TextField label={t("oidc.groupsClaim")} value={p.groupsClaim} mono onChange={(e) => p.setGroupsClaim(e.target.value)} />
       </div>
     </div>
   );
@@ -795,6 +807,7 @@ function MappingsModal({
   canWrite: boolean;
   onClose: () => void;
 }) {
+  const t = useT(authenticationDict);
   const queryClient = useQueryClient();
   const mappingsQ = useProviderMappings(provider.id);
   const [externalGroup, setExternalGroup] = useState("");
@@ -810,11 +823,11 @@ function MappingsModal({
     setBusy(true);
     try {
       await api.authProviderMappingCreate(provider.id, { externalGroup: externalGroup.trim(), roleId });
-      toast.success("Mapping added");
+      toast.success(t("toast.mappingAdded"));
       setExternalGroup("");
       refresh();
     } catch (err) {
-      toastError("Add mapping failed", err);
+      toastError(t("toast.mappingAddFailed"), err);
     } finally {
       setBusy(false);
     }
@@ -824,34 +837,30 @@ function MappingsModal({
     setBusy(true);
     try {
       await api.authProviderMappingDelete(provider.id, mappingId);
-      toast.success("Mapping removed");
+      toast.success(t("toast.mappingRemoved"));
       refresh();
     } catch (err) {
-      toastError("Remove mapping failed", err);
+      toastError(t("toast.mappingRemoveFailed"), err);
     } finally {
       setBusy(false);
     }
   };
 
-  const groupCaption =
-    provider.kind === "ldap"
-      ? "Match against the LDAP group DN or its CN (e.g. CN=Castor-Admins,OU=Groups,DC=corp,DC=example,DC=com or Castor-Admins). Matching is case-insensitive."
-      : "Match against the Entra group's object id (GUID) or its display name as it appears in the token's groups claim. Matching is case-insensitive.";
+  const groupCaption = provider.kind === "ldap" ? t("mappings.captionLdap") : t("mappings.captionOidc");
 
   return (
-    <Modal open wide title={`Group mappings · ${provider.name}`} busy={busy} onClose={onClose} footer={<button className="btn" onClick={onClose}>Done</button>}>
+    <Modal open wide title={t("mappings.title", { name: provider.name })} busy={busy} onClose={onClose} footer={<button className="btn" onClick={onClose}>{t("mappings.done")}</button>}>
       <div className="col" style={{ gap: "var(--sp-4)" }}>
         <div className="text-sm secondary">
-          At sign-in, the union of the user's external groups is resolved to Castor roles. A user matching no mapping receives the provider's
-          default role.
+          {t("mappings.intro")}
         </div>
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>
-          <span className="text-sm muted">Current mappings</span>
+          <span className="text-sm muted">{t("mappings.current")}</span>
           {mappingsQ.isLoading ? (
-            <LoadingFill label="Loading mappings…" />
+            <LoadingFill label={t("mappings.loading")} />
           ) : mappings.length === 0 ? (
-            <span className="muted text-sm">No group mappings yet.</span>
+            <span className="muted text-sm">{t("mappings.empty")}</span>
           ) : (
             <div className="col" style={{ gap: "var(--sp-1)" }}>
               {mappings.map((m) => (
@@ -867,8 +876,8 @@ function MappingsModal({
                     size="sm"
                     variant="ghost"
                     iconOnly
-                    aria-label="Remove mapping"
-                    tooltip={canWrite ? "Remove mapping" : "Requires auth.provider.write"}
+                    aria-label={t("mappings.removeAria")}
+                    tooltip={canWrite ? t("mappings.removeTooltip") : t("action.requiresWrite")}
                     disabled={!canWrite}
                     onClick={() => remove(m.id)}
                     style={canWrite ? { color: "var(--danger)" } : undefined}
@@ -883,18 +892,18 @@ function MappingsModal({
 
         <div className="card card-pad col" style={{ gap: "var(--sp-3)" }}>
           <span className="text-sm" style={{ fontWeight: 600 }}>
-            Add mapping
+            {t("mappings.addTitle")}
           </span>
           <TextField
-            label="External group"
+            label={t("mappings.externalGroup")}
             value={externalGroup}
             mono
             onChange={(e) => setExternalGroup(e.target.value)}
-            placeholder={provider.kind === "ldap" ? "Castor-Admins" : "Castor-Admins or a group GUID"}
+            placeholder={provider.kind === "ldap" ? "Castor-Admins" : t("mappings.externalGroupPlaceholderOidc")}
             hint={groupCaption}
           />
           <div className="row-wrap" style={{ gap: "var(--sp-3)", alignItems: "flex-end" }}>
-            <SelectField label="Role" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+            <SelectField label={t("mappings.role")} value={roleId} onChange={(e) => setRoleId(e.target.value)}>
               {roles.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
@@ -905,11 +914,11 @@ function MappingsModal({
               variant="primary"
               loading={busy}
               disabled={!canWrite || !externalGroup.trim() || !roleId}
-              tooltip={canWrite ? undefined : "Requires auth.provider.write"}
+              tooltip={canWrite ? undefined : t("action.requiresWrite")}
               onClick={add}
             >
               <IconPlus size={14} />
-              Add
+              {t("mappings.add")}
             </ActionButton>
           </div>
         </div>
