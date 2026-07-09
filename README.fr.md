@@ -30,13 +30,31 @@ monté, et lit Kubernetes au travers d'un kubeconfig monté.
 
 | Orchestrateur | Périmètre V1 |
 |---|---|
-| **Docker** | Lecture **+ écriture** complète — liste/inspection, démarrer/arrêter/redémarrer/supprimer, logs, stats, exec, événements, images, réseaux, volumes |
+| **Docker** | Lecture **+ écriture** complète — liste/inspection, démarrer/arrêter/redémarrer/mettre en pause/reprendre/supprimer, logs, stats, exec, événements ; images, réseaux & volumes (avec **création** et **prune**) ; **mise à jour d'image en un clic avec rollback automatique** |
 | **Docker Swarm** | **Lecture seule** — services / nœuds / tâches |
-| **Kubernetes** | **Lecture seule** — pods / déploiements / nœuds (via `client-go` + kubeconfig) |
+| **Kubernetes** | **Lecture seule** — pods / deployments / statefulsets / daemonsets / jobs / cronjobs / nœuds (via `client-go` + kubeconfig) |
 
 > Les **agents Go multi-hôtes sont prévus pour la V2.** La couture interne `Provider` est conçue pour
 > qu'un agent distant devienne « juste un provider de plus » sans retoucher l'API ni l'UI — mais
 > aucun agent n'est intégré en V1.
+
+---
+
+## ✨ Points forts fonctionnels
+
+- **Détection de mises à jour d'images & mise à jour en un clic** — Castor compare le digest de
+  l'image de chaque conteneur avec celui du registre et signale les mises à jour disponibles
+  (désactivable dans les réglages). Mettez à jour en un clic — avec **rollback automatique** si le
+  nouveau conteneur ne démarre pas.
+- **Notifications sortantes** — Discord, Slack, [ntfy](https://ntfy.sh) ou webhook générique,
+  déclenchées sur les événements *conteneur down* et *mise à jour d'image disponible*.
+- **Personal Access Tokens + métriques Prometheus** — appelez l'API avec des jetons
+  `Authorization: Bearer` et scrapez l'endpoint `/metrics` (format Prometheus).
+- **Entretien intégré** — pause/reprise des conteneurs, création de réseaux et de volumes, et prune
+  des images / conteneurs / volumes / réseaux depuis l'UI.
+- **UX soignée** — **mode sombre** (Clair / Sombre / Système), une **checklist d'onboarding
+  « Getting started »**, et une **aide contextuelle bilingue (FR/EN)** sur chaque vue via le
+  bouton « ? ».
 
 ---
 
@@ -219,6 +237,8 @@ docker compose --env-file .env up -d
 
 - **Auth locale + 2FA TOTP** (hachage des mots de passe argon2id ; secret TOTP scellé en AES-256-GCM au repos).
 - **RBAC à portée de ressource** avec les rôles intégrés `admin` / `operator` / `viewer`, conçu pour la V2 multi-hôtes.
+- **Personal Access Tokens** — jetons Bearer (`Authorization: Bearer`) pour l'API et le scraping de
+  `/metrics`, en alternative à l'authentification par session.
 - **Journal d'audit complet** — chaque action mutante écrit exactement une ligne en ajout seul.
 - **Conteneurs protégés** — le conteneur de Castor lui-même et le volume `/data` ne peuvent **jamais**
   être supprimés via l'UI (même par un admin) ; les conteneurs étiquetés `io.castor.protected="true"` sont protégés aussi.
@@ -290,9 +310,13 @@ un tag `v*.*.*`.
   docker run --rm -v castor-data:/data -v "$PWD:/backup" busybox \
     sh -c 'cp /data/castor.db /backup/castor-$(date +%Y%m%d).db'
   ```
+- **Métriques :** `GET /metrics` expose des métriques au format Prometheus — authentifiez le
+  scraping avec un Personal Access Token (`Authorization: Bearer`).
 - **Logs :** `docker logs castor` (JSON structuré ; les secrets sont caviardés avant journalisation).
 - **Mise à jour :** `docker compose pull && docker compose up -d` — la base sur `/data` persiste ; les
-  migrations de schéma s'exécutent automatiquement au démarrage.
+  migrations de schéma s'exécutent automatiquement au démarrage. Castor **détecte aussi les mises à
+  jour d'images** de vos conteneurs (comparaison de digest au registre, désactivable dans les
+  réglages) et peut les appliquer en un clic avec rollback automatique.
 
 Plus : [`docs/runbooks/install.md`](docs/runbooks/install.md).
 

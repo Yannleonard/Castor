@@ -15,6 +15,21 @@ export const dashboardCard: HelpCard = {
         ],
       },
       {
+        title: "The 'Getting started' checklist",
+        blocks: [
+          { kind: "p", text: "On a fresh install, a **Getting started** card sits at the top of the dashboard with a progress counter (e.g. `2 of 5 done`). It suggests the first steps to make Castor yours:" },
+          { kind: "list", items: [
+            "**Secure your account with 2FA** — links to your Profile.",
+            "**Deploy your first app from the Marketplace**.",
+            "**Create a stack (compose)**.",
+            "**Invite your team & assign roles**.",
+            "**Connect Swarm or Kubernetes**.",
+          ] },
+          { kind: "p", text: "Each pending step is a **link** to the right page; completed steps turn grey with a check mark. Completion is detected automatically from the real state (2FA enabled, at least one container, one stack, more than one user, a Swarm/Kubernetes provider connected) — you never tick anything by hand." },
+          { kind: "note", text: "The **Dismiss** button hides the card permanently (remembered per browser). It also disappears for good once every step is complete. Some steps need permissions to be detected: stacks require `docker.container.read`, the team step requires `rbac.user.read`." },
+        ],
+      },
+      {
         title: "The KPI tiles",
         blocks: [
           { kind: "p", text: "A row of counters summarises the host at a glance:" },
@@ -81,6 +96,21 @@ export const dashboardCard: HelpCard = {
         title: "À quoi sert le tableau de bord",
         blocks: [
           { kind: "p", text: "Le tableau de bord est la **vue d'accueil** de l'hôte que vous avez sélectionné. Il donne un aperçu temps réel du moteur Docker — combien de conteneurs tournent, combien de CPU et de mémoire l'hôte consomme, et ce qui a changé récemment — sans avoir à ouvrir chaque page de détail. C'est le cockpit de santé : un coup d'œil suffit à savoir si quelque chose demande votre attention." },
+        ],
+      },
+      {
+        title: "La checklist « Getting started »",
+        blocks: [
+          { kind: "p", text: "Sur une installation neuve, une carte **Getting started** s'affiche en haut du tableau de bord avec un compteur de progression (ex. `2 of 5 done`). Elle propose les premiers pas pour prendre Castor en main :" },
+          { kind: "list", items: [
+            "**Sécuriser votre compte avec la 2FA** — renvoie vers votre Profil.",
+            "**Déployer votre première application depuis la Marketplace**.",
+            "**Créer une stack (compose)**.",
+            "**Inviter votre équipe et assigner les rôles**.",
+            "**Connecter Swarm ou Kubernetes**.",
+          ] },
+          { kind: "p", text: "Chaque étape en attente est un **lien** vers la bonne page ; les étapes accomplies passent en gris avec une coche. L'accomplissement est détecté automatiquement d'après l'état réel (2FA activée, au moins un conteneur, une stack, plus d'un utilisateur, un provider Swarm/Kubernetes connecté) — vous ne cochez jamais rien à la main." },
+          { kind: "note", text: "Le bouton **Dismiss** masque la carte définitivement (mémorisé par navigateur). Elle disparaît aussi pour de bon une fois toutes les étapes accomplies. Certaines étapes exigent des permissions pour être détectées : les stacks demandent `docker.container.read`, l'étape équipe demande `rbac.user.read`." },
         ],
       },
       {

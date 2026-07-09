@@ -70,6 +70,21 @@ export const kubernetesCard: HelpCard = {
         ],
       },
       {
+        title: "Workload controllers — StatefulSets, DaemonSets, Jobs, CronJobs",
+        blocks: [
+          { kind: "p", text: "Beyond **Pods** and **Deployments**, the Kubernetes page has dedicated tabs for the other workload controllers. They honor the same namespace selector, and every action button is greyed out (with the reason in its tooltip) when the host is read-only or your role lacks the permission." },
+          { kind: "list", items: [
+            "**StatefulSets** — **Scale**, **Rollout restart** (pods are recreated in ordinal order, one at a time) and **Delete**.",
+            "**DaemonSets** — one pod per node; **Rollout restart** (pods are recreated node by node) and **Delete** (removes the pod from every node).",
+            "**Jobs** — a status pill shows **Succeeded**, **Failed**, **Active** or Pending, plus the run duration; finished or stuck jobs can be **deleted** (their pods are removed with them).",
+            "**CronJobs** — the table shows the **cron schedule**, the Active/Suspended state and the last run. **Run now** creates a one-off Job immediately (it then appears in the Jobs tab), **Suspend / Resume** toggles scheduling with a single click (reversible, no confirmation), and **Delete** stops all future runs.",
+          ] },
+          { kind: "callout", tone: "warn", text: "**StatefulSets carry persistent storage**: each replica owns its own volume (PVC). Scale down with care, and note that deleting a StatefulSet terminates its pods but **retains the PVCs** — remove the volumes separately if you really mean to discard the data." },
+          { kind: "p", text: "These tabs manage **existing** objects. To create a StatefulSet, DaemonSet, Job or CronJob, use **Apply YAML** — the server-side apply already accepts multi-document manifests of **any kind**." },
+          { kind: "note", text: "RBAC: the day-to-day verbs carry per-kind permissions granted to **admin and operator** (`k8s.statefulset.scale`, `k8s.statefulset.restart`, `k8s.daemonset.restart`, `k8s.cronjob.trigger`, `k8s.cronjob.suspend`). **Every delete** requires the admin-grade `k8s.workload.delete`." },
+        ],
+      },
+      {
         title: "Best practices",
         blocks: [
           { kind: "callout", tone: "info", text: "K8s access is read **+ write**, but Castor works fine with a read-scoped kubeconfig — mount a **read-only-scoped** kubeconfig unless you actually need to mutate the cluster from Castor." },
@@ -156,6 +171,21 @@ export const kubernetesCard: HelpCard = {
         blocks: [
           { kind: "p", text: "Une fois connecté, la page Kubernetes travaille **par namespace** et permet d'inspecter et d'agir sur tout le cluster : **pods**, **deployments** (scaler, rollout restart), **appliquer du YAML** (server-side apply), **HPA** (autoscalers horizontaux), **namespaces**, **stockage** (PVC), **services**, **configmaps**, **secrets** (clés seulement — les valeurs ne sont jamais affichées), **events** et **ingress**. Les **métriques** (CPU / mémoire) apparaissent lorsqu'un **metrics-server** est installé, et vous pouvez ouvrir un **exec** dans un conteneur et suivre les **logs**." },
           { kind: "note", text: "Ouvrir un terminal dans un conteneur (exec) exige toujours une élévation TOTP (2FA), et les mutations peuvent l'exiger selon le réglage « 2FA requise pour les mutations ». Les rôles RBAC (admin / operator / viewer) et les permissions dottées déterminent ce que chaque compte peut faire." },
+        ],
+      },
+      {
+        title: "Contrôleurs de charge — StatefulSets, DaemonSets, Jobs, CronJobs",
+        blocks: [
+          { kind: "p", text: "Au-delà des **Pods** et des **Deployments**, la page Kubernetes propose des onglets dédiés aux autres contrôleurs de charge. Ils respectent le même sélecteur de namespace, et chaque bouton d'action est grisé (avec la raison dans son infobulle) lorsque l'hôte est en lecture seule ou que votre rôle n'a pas la permission." },
+          { kind: "list", items: [
+            "**StatefulSets** — **Scale**, **Rollout restart** (les pods sont recréés dans l'ordre des ordinaux, un à la fois) et **Delete**.",
+            "**DaemonSets** — un pod par nœud ; **Rollout restart** (les pods sont recréés nœud par nœud) et **Delete** (retire le pod de chaque nœud).",
+            "**Jobs** — une pastille de statut affiche **Succeeded**, **Failed**, **Active** ou Pending, avec la durée d'exécution ; les jobs terminés ou bloqués peuvent être **supprimés** (leurs pods partent avec eux).",
+            "**CronJobs** — le tableau affiche la **planification cron**, l'état Active/Suspended et la dernière exécution. **Run now** crée immédiatement un Job ponctuel (il apparaît ensuite dans l'onglet Jobs), **Suspend / Resume** bascule la planification d'un simple clic (réversible, sans confirmation), et **Delete** arrête toute exécution future.",
+          ] },
+          { kind: "callout", tone: "warn", text: "**Les StatefulSets portent du stockage persistant** : chaque réplique possède son propre volume (PVC). Réduisez le nombre de répliques avec prudence, et notez que supprimer un StatefulSet termine ses pods mais **conserve les PVC** — supprimez les volumes séparément si vous voulez vraiment abandonner les données." },
+          { kind: "p", text: "Ces onglets gèrent des objets **existants**. Pour créer un StatefulSet, un DaemonSet, un Job ou un CronJob, utilisez **Apply YAML** — le server-side apply accepte déjà des manifestes multi-documents de **n'importe quel kind**." },
+          { kind: "note", text: "RBAC : les verbes du quotidien portent des permissions par kind accordées aux rôles **admin et operator** (`k8s.statefulset.scale`, `k8s.statefulset.restart`, `k8s.daemonset.restart`, `k8s.cronjob.trigger`, `k8s.cronjob.suspend`). **Toute suppression** exige la permission de niveau admin `k8s.workload.delete`." },
         ],
       },
       {
