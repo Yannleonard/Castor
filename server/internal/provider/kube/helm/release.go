@@ -121,6 +121,73 @@ func (s *Service) UpgradeRelease(ctx context.Context, release, chartRef, namespa
 	return mapRelease(rel), nil
 }
 
+// UpgradePreview is the rendered-manifest pair for an upgrade preview: the
+// currently deployed manifest and the manifest a matching upgrade would produce.
+// The UI diffs the two. Current is "" when the release does not yet exist (the
+// preview then represents a first install).
+type UpgradePreview struct {
+	Current string `json:"current"`
+	Pending string `json:"pending"`
+}
+
+// PreviewUpgrade renders — without applying — the manifest an upgrade of release
+// to chartRef (optionally re-pinning version) with the given values would
+// produce, alongside the release's current manifest, so the caller can diff
+// them. It runs a server-side dry-run when this SDK build supports it (more
+// accurate: admission/defaulting are applied), falling back to a client dry-run
+// otherwise. Nothing is written to the cluster or the release history. A missing
+// release yields Current == "" (install preview); other Helm errors are mapped
+// via mapReleaseErr.
+func (s *Service) PreviewUpgrade(ctx context.Context, release, chartRef, namespace, version string, values map[string]interface{}) (*UpgradePreview, error) {
+	release = strings.TrimSpace(release)
+	chartRef = strings.TrimSpace(chartRef)
+	if release == "" || chartRef == "" {
+		return nil, errors.New("helm: release name and chart are required")
+	}
+	if namespace == "" {
+		namespace = "default"
+	}
+	cfg, err := s.actionConfig(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	up := action.NewUpgrade(cfg)
+	up.Namespace = namespace
+	up.Version = version
+	up.Timeout = installTimeout
+	up.DryRun = true
+	// Prefer a server-side dry-run (renders through the API server, so
+	// admission/defaulting are reflected); "client" avoids any cluster round-trip.
+	up.DryRunOption = "server"
+
+	ch, err := s.loadChartForAction(&up.ChartPathOptions, chartRef, version)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, installTimeout)
+	defer cancel()
+	rel, err := up.RunWithContext(ctx, release, ch, values)
+	if err != nil {
+		return nil, mapReleaseErr(fmt.Errorf("helm: preview upgrade %q: %w", release, err), err)
+	}
+
+	out := &UpgradePreview{Pending: rel.Manifest}
+
+	// Current manifest: absent for a release that does not exist yet, which the
+	// UI renders as a pure-addition (install) diff rather than an error.
+	cur, err := action.NewGet(cfg).Run(release)
+	if err != nil {
+		if mapped := mapReleaseErr(err, err); errors.Is(mapped, ErrReleaseNotFound) {
+			return out, nil
+		}
+		return nil, mapReleaseErr(fmt.Errorf("helm: preview upgrade %q: %w", release, err), err)
+	}
+	out.Current = cur.Manifest
+	return out, nil
+}
+
 // RollbackRelease rolls a release back to a prior revision (revision 0 => the
 // immediately previous one, matching `helm rollback`).
 func (s *Service) RollbackRelease(release, namespace string, revision int) error {

@@ -39,6 +39,13 @@ func (s *Server) Router() http.Handler {
 		api.Post("/bootstrap", s.Bootstrap)
 		api.Post("/auth/login", s.bootstrapGate(http.HandlerFunc(s.Login)).ServeHTTP)
 
+		// Public GitOps redeploy hook (no SessionAuth/CSRF): a git-forge webhook
+		// posts here with the stack's redeploy secret. Authenticated by the secret
+		// alone (constant-time hash match + auto_deploy), audited via AuditWrap so
+		// every hook call is recorded exactly once, even on a generic 404.
+		api.With(s.authz.AuditWrap("docker.stack.redeploy")).
+			Post("/hooks/stacks/{id}/redeploy", s.RedeployWebhook)
+
 		// ---- public SSO routes (pre-auth) ----
 		// Enumerating enabled providers is a non-sensitive read (no secrets, no
 		// audit). The login flows ARE audited (AuditWrap outermost) so every
@@ -432,6 +439,11 @@ func (s *Server) mountHelmRoutes(pr chi.Router) {
 		Get("/hosts/{hostID}/helm/releases/{ns}/{name}/history", s.HelmReleaseHistory)
 	pr.With(az.RequirePermission("helm.release.read", scopeFromHost)).
 		Get("/hosts/{hostID}/helm/releases/{ns}/{name}/values", s.HelmReleaseValues)
+	// Upgrade preview: renders current+pending manifests without applying, so it
+	// is read-shaped (helm.release.read, no AuditWrap/RequireAAL) despite being a
+	// POST — the body carries the candidate chart/version/values.
+	pr.With(az.RequirePermission("helm.release.read", scopeFromHost)).
+		Post("/hosts/{hostID}/helm/releases/{ns}/{name}/preview", s.HelmPreviewUpgrade)
 
 	// Release lifecycle (gated writes, per-verb permissions).
 	pr.With(az.AuditWrap("helm.release.install"), az.RequireAAL, az.RequirePermission("helm.release.install", scopeFromHost)).
@@ -619,6 +631,11 @@ func (s *Server) mountStackRoutes(pr chi.Router) {
 	pr.With(az.RequirePermission("docker.container.read", scopeFromHost)).
 		Get("/hosts/{hostID}/stacks/{id}", s.StackDetail)
 
+	// GitOps diff: fetch the repo compose at HEAD and compare to the stored one.
+	// A read (no deploy), gated like the other stack reads.
+	pr.With(az.RequirePermission("docker.container.read", scopeFromHost)).
+		Get("/hosts/{hostID}/stacks/{id}/diff", s.StackDiff)
+
 	// Validate is a pure parse (no daemon) but is gated to deploy-capable
 	// operators; it is non-mutating so it is not audited.
 	pr.With(az.RequirePermission("docker.container.create", scopeFromHost)).
@@ -627,6 +644,13 @@ func (s *Server) mountStackRoutes(pr chi.Router) {
 	// Create + up: creates+starts containers on the host engine.
 	pr.With(az.AuditWrap("docker.container.create"), az.RequireAAL, az.RequirePermission("docker.container.create", scopeFromHost)).
 		Post("/hosts/{hostID}/stacks", s.CreateStack)
+
+	// GitOps sync: pull the compose from git and (re)deploy. It re-creates
+	// containers, so it reuses the deploy-grade docker.container.create permission
+	// (identical power to CreateStack) rather than a weaker/new one — the
+	// host-mount escalation guard still runs per-sync. Fixed mutation chain.
+	pr.With(az.AuditWrap("docker.stack.sync"), az.RequireAAL, az.RequirePermission("docker.container.create", scopeFromHost)).
+		Post("/hosts/{hostID}/stacks/{id}/sync", s.SyncStack)
 
 	// Delete + down: stop+remove the stack's containers and network.
 	pr.With(az.AuditWrap("docker.container.remove"), az.RequireAAL, az.RequirePermission("docker.container.remove", scopeFromHost)).
