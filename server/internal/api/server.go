@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gtek-it/castor/server/internal/authz"
@@ -27,6 +28,13 @@ type Server struct {
 	guard   *authz.Guard
 	manager *cache.Manager
 	reg     *provider.Registry
+
+	// stackLocks serializes sync+deploy per stack id. SyncStack, the redeploy
+	// webhook, and a double-click all target the same clone dir and recreate the
+	// same containers; a per-stack lock makes a second concurrent sync fail fast
+	// (409) instead of racing on the working tree. Guarded by stackLocksMu.
+	stackLocksMu sync.Mutex
+	stackLocks   map[string]*sync.Mutex
 }
 
 // NewServer constructs the API server.
@@ -45,13 +53,28 @@ func NewServer(cfg *config.Config, st *store.Store, az *authz.Deps, guard *authz
 		mgr.ConfigureUpdates(st, updates.NewChecker(registryCredentials(st, cfg.SecretKey)))
 	}
 	return &Server{
-		cfg:     cfg,
-		store:   st,
-		authz:   az,
-		guard:   guard,
-		manager: mgr,
-		reg:     reg,
+		cfg:        cfg,
+		store:      st,
+		authz:      az,
+		guard:      guard,
+		manager:    mgr,
+		reg:        reg,
+		stackLocks: make(map[string]*sync.Mutex),
 	}
+}
+
+// stackMutex returns the per-stack mutex for id, creating it on first use. The
+// registry itself is guarded by stackLocksMu; the returned mutex serializes
+// sync/deploy for that one stack.
+func (s *Server) stackMutex(id string) *sync.Mutex {
+	s.stackLocksMu.Lock()
+	defer s.stackLocksMu.Unlock()
+	m, ok := s.stackLocks[id]
+	if !ok {
+		m = &sync.Mutex{}
+		s.stackLocks[id] = m
+	}
+	return m
 }
 
 // maxBodyBytes caps request bodies to a sane size (anti-DoS).

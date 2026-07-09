@@ -40,6 +40,10 @@ interface BulkPending {
   action: BulkAction;
   // Already filtered to actionable docker targets (non-protected) by the caller.
   workloads: Workload[];
+  // Fired once the bulk run settles (success or partial), so the caller can
+  // clear its selection — start/stop keep the rows in view, so nothing else
+  // would drop the now-stale selected ids.
+  onDone?: () => void;
 }
 
 // bulkApi maps a bulk action to its single-target api call.
@@ -214,7 +218,7 @@ export function useWorkloadActions(hostId: string) {
   // docker workloads (non-protected); protected/non-docker are dropped here so
   // the dialog never lists something the backend would refuse. Nothing to do →
   // an info toast instead of an empty dialog.
-  const runBulk = (action: BulkAction, workloads: Workload[]) => {
+  const runBulk = (action: BulkAction, workloads: Workload[], onDone?: () => void) => {
     const targets = workloads.filter((w) => w.kind === "docker" && !w.protected);
     if (targets.length === 0) {
       toast.info(
@@ -223,7 +227,7 @@ export function useWorkloadActions(hostId: string) {
       );
       return;
     }
-    setBulkPending({ action, workloads: targets });
+    setBulkPending({ action, workloads: targets, onDone });
   };
 
   const closeBulk = () => setBulkPending(null);
@@ -233,7 +237,7 @@ export function useWorkloadActions(hostId: string) {
   // even on partial failure; per-item errors are summarized, not re-toasted.
   const confirmBulk = async (opts: DestructiveOptions) => {
     if (!bulkPending) return;
-    const { action, workloads } = bulkPending;
+    const { action, workloads, onDone } = bulkPending;
     const results = await Promise.allSettled(
       workloads.map((w) => bulkApi(action, hostId, w, opts)),
     );
@@ -257,6 +261,9 @@ export function useWorkloadActions(hostId: string) {
       );
     }
     invalidate();
+    // Clear the caller's selection so it never references now-stale ids (start/
+    // stop leave rows in place, so no other path would prune them).
+    onDone?.();
   };
 
   const dialogs = (

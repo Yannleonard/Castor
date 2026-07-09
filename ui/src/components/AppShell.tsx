@@ -4,7 +4,7 @@
 // fleet-wide events WS subscription that invalidates React Query caches so lists
 // stay reactive within ~1s (ADR-001 events channel).
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "./Sidebar";
@@ -24,20 +24,87 @@ export function AppShell() {
   // navigation both close it.
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  // Element that held focus before the drawer opened, so we can restore it on close.
+  const drawerRestoreFocus = useRef<HTMLElement | null>(null);
 
   // Close the drawer whenever the route changes (navigating from within it).
   useEffect(() => {
     setDrawerOpen(false);
   }, [location.pathname]);
 
-  // Escape closes the drawer (same cleanup pattern as the palette handler).
+  // While the drawer is open: lock body scroll, trap focus inside it, and let
+  // Escape close it — mirroring the CommandPalette overlay so the two modal
+  // surfaces behave identically. All effects here no-op when closed.
   useEffect(() => {
     if (!drawerOpen) return;
+
+    const drawer = document.getElementById("app-sidebar");
+    // Query focusables lazily inside the handler so nav-permission changes or
+    // async renders don't leave us trapping against a stale list.
+    const focusables = (): HTMLElement[] =>
+      drawer
+        ? Array.from(
+            drawer.querySelectorAll<HTMLElement>(
+              'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+            ),
+          )
+        : [];
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDrawerOpen(false);
+      if (e.key === "Escape") {
+        setDrawerOpen(false);
+        return;
+      }
+      if (e.key !== "Tab" || !drawer) return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const activeInDrawer = drawer.contains(document.activeElement);
+      // Wrap the cycle at both ends, and pull focus in if it escaped the drawer.
+      if (e.shiftKey) {
+        if (document.activeElement === first || !activeInDrawer) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (document.activeElement === last || !activeInDrawer) {
+        e.preventDefault();
+        first.focus();
+      }
     };
+
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    // Mark the drawer as a modal dialog for assistive tech while it is open.
+    // (Set here rather than on Sidebar so the semantics apply only when the
+    // off-canvas drawer is actually presented.)
+    if (drawer) {
+      drawer.setAttribute("role", "dialog");
+      drawer.setAttribute("aria-modal", "true");
+      drawer.setAttribute("aria-label", "Navigation menu");
+    }
+
+    // Body scroll lock (restored to the prior inline value on cleanup).
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    // Move focus into the drawer, remembering where it was so we can return it.
+    drawerRestoreFocus.current = document.activeElement as HTMLElement | null;
+    const raf = window.requestAnimationFrame(() => focusables()[0]?.focus());
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.cancelAnimationFrame(raf);
+      document.body.style.overflow = prevOverflow;
+      if (drawer) {
+        drawer.removeAttribute("role");
+        drawer.removeAttribute("aria-modal");
+        drawer.removeAttribute("aria-label");
+      }
+      // Restore focus to the trigger (e.g. the hamburger) on close/unmount.
+      drawerRestoreFocus.current?.focus?.();
+      drawerRestoreFocus.current = null;
+    };
   }, [drawerOpen]);
 
   // Global Cmd/Ctrl-K opens (toggles) the command palette. Same cleanup pattern

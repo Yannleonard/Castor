@@ -33,6 +33,33 @@ const defaultTimeout = 3 * time.Minute
 // ErrEmptyURL is returned when SyncTo is called without a repository URL.
 var ErrEmptyURL = errors.New("git: repository URL is required")
 
+// ErrUnsupportedScheme is returned when a repository URL uses a scheme other than
+// http/https. Only those two are allowed so a stack cannot be pointed at file://
+// (local repo read / LFI), ssh://, or git:// (SSRF into internal hosts).
+var ErrUnsupportedScheme = errors.New("git: repository URL must use http:// or https://")
+
+// ValidateRepoURL enforces the repository-URL scheme allowlist. Only http:// and
+// https:// (scheme compared case-insensitively) are permitted; every other scheme
+// — file://, ssh://, git://, and any scheme-less path — is rejected so the git
+// client cannot be steered at a local repository or an internal network endpoint.
+// It is called both when a stack is created and before every clone/fetch.
+func ValidateRepoURL(url string) error {
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return ErrEmptyURL
+	}
+	i := strings.Index(url, "://")
+	if i < 0 {
+		return ErrUnsupportedScheme
+	}
+	switch strings.ToLower(url[:i]) {
+	case "http", "https":
+		return nil
+	default:
+		return ErrUnsupportedScheme
+	}
+}
+
 // BasicAuth carries optional HTTP basic credentials for a private repository.
 // Token is a git personal access token; Username is the account it belongs to
 // (many providers accept any non-empty username, but GitHub wants the login or
@@ -73,8 +100,8 @@ type SyncResult struct {
 // A corrupt or partially-cloned directory is removed and re-cloned rather than
 // failing permanently, so a crash mid-clone self-heals on the next sync.
 func SyncTo(ctx context.Context, dir, url, ref, composePath string, auth *BasicAuth) (*SyncResult, error) {
-	if strings.TrimSpace(url) == "" {
-		return nil, ErrEmptyURL
+	if err := ValidateRepoURL(url); err != nil {
+		return nil, err
 	}
 	ctx, cancel := withTimeout(ctx)
 	defer cancel()

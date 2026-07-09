@@ -238,6 +238,16 @@ func (s *Server) CreateStack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Enforce the repo-URL scheme allowlist at creation (http/https only) so a
+	// stack can never be persisted pointing at file://, ssh:// or git:// — this is
+	// re-checked before every clone in the git package as a defense in depth.
+	if gitURL != "" {
+		if err := git.ValidateRepoURL(gitURL); err != nil {
+			authz.WriteError(w, r, authz.Errorf(authz.ErrValidation, "The git repository URL must use http:// or https://."))
+			return
+		}
+	}
+
 	// Resolve the project name. When a compose document is present we plan it now
 	// (which validates it and derives the project); a git-only create derives the
 	// project from the stack name alone.
@@ -511,29 +521,16 @@ func (s *Server) DeleteStack(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := contextWithTimeout(r, 2*time.Minute)
 	defer cancel()
-	dp := s.manager.Docker()
 
-	conts, lerr := dp.ListProjectContainers(ctx, st.ProjectName)
-	if lerr != nil {
-		writeMapped(w, r, lerr)
-		return
-	}
-	for _, c := range conts {
-		if rmErr := dp.StopAndRemoveContainer(ctx, c.ID); rmErr != nil {
-			writeMapped(w, r, rmErr)
-			return
-		}
-	}
-
-	// Remove the project networks (default + any project-scoped extras). Best
-	// effort across the project's known network names; failures (e.g. still in
-	// use by an unrelated container) surface as a conflict.
-	_ = dp.RemoveNetworkByName(ctx, st.ProjectName+"_default")
-	// Re-derive explicit networks from the stored compose so extras are cleaned.
+	// Re-derive explicit networks from the stored compose so project-scoped extras
+	// are cleaned alongside the default network.
+	var extraNets []string
 	if _, plan, perr := s.parseAndPlan(st.ComposeYAML, st.Name); perr == nil {
-		for _, n := range plan.Networks {
-			_ = dp.RemoveNetworkByName(ctx, n)
-		}
+		extraNets = plan.Networks
+	}
+	if err := s.teardownProject(ctx, st.ProjectName, extraNets); err != nil {
+		writeMapped(w, r, err)
+		return
 	}
 
 	if delErr := s.store.DeleteStack(r.Context(), st.ID); delErr != nil {
@@ -541,6 +538,42 @@ func (s *Server) DeleteStack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok2(w)
+}
+
+// teardownProject stops and removes every container of a compose project (by the
+// compose project label) and removes the project's networks (default plus any
+// extra network names passed in). It does NOT remove named data volumes: it only
+// deletes containers and networks, so both a full delete and a re-sync preserve
+// the stack's persistent data. Container removal drops only anonymous volumes
+// (StopAndRemoveContainer), never named ones.
+//
+// It is shared by DeleteStack (a full teardown before dropping the row) and
+// syncAndDeploy (a teardown before re-deploying, so container recreation does not
+// collide on deterministic names). A container-removal failure is returned so the
+// caller can surface it; network removal is best-effort (an in-use network from an
+// unrelated container must not fail the operation).
+func (s *Server) teardownProject(ctx context.Context, project string, extraNetworks []string) error {
+	dp := s.manager.Docker()
+
+	conts, lerr := dp.ListProjectContainers(ctx, project)
+	if lerr != nil {
+		return lerr
+	}
+	for _, c := range conts {
+		if rmErr := dp.StopAndRemoveContainer(ctx, c.ID); rmErr != nil {
+			return rmErr
+		}
+	}
+
+	// Remove the project networks (default + any project-scoped extras). Best
+	// effort: a failure (e.g. still in use by an unrelated container) is ignored
+	// here so it cannot block a re-deploy; EnsureProjectNetwork re-adopts an
+	// existing network on the way back up.
+	_ = dp.RemoveNetworkByName(ctx, project+"_default")
+	for _, n := range extraNetworks {
+		_ = dp.RemoveNetworkByName(ctx, n)
+	}
+	return nil
 }
 
 // --- GitOps: sync / diff / redeploy webhook ---
@@ -691,6 +724,18 @@ func (s *Server) RedeployWebhook(w http.ResponseWriter, r *http.Request) {
 // the caller is the anonymous webhook, so host bind mounts are always rejected
 // (there is no admin to opt in). It returns the resulting status and commit.
 func (s *Server) syncAndDeploy(ctx context.Context, st *store.Stack, r *http.Request, public bool) (status, commit string, err error) {
+	// Per-stack lock: SyncStack, the webhook, and a double-click all target the
+	// same clone dir and recreate the same containers. Rather than block and pile
+	// up concurrent syncs, a sync already in flight for this stack fails fast with a
+	// 409 — for the webhook this avoids queueing redundant redeploys, and for the
+	// button it is a clear "already in progress" signal. TryLock keeps this
+	// non-blocking for both callers.
+	mu := s.stackMutex(st.ID)
+	if !mu.TryLock() {
+		return "", "", authz.Errorf(authz.ErrConflict, "A sync is already in progress for this stack.")
+	}
+	defer mu.Unlock()
+
 	auth, aerr := s.stackGitAuth(st)
 	if aerr != nil {
 		return "", "", authz.ErrInternal
@@ -724,11 +769,25 @@ func (s *Server) syncAndDeploy(ctx context.Context, st *store.Stack, r *http.Req
 	dctx, dcancel := context.WithTimeout(context.Background(), stackDeployTimeout)
 	defer dcancel()
 
+	// Tear down the project's existing containers before recreating them. deployPlan
+	// recreates containers at deterministic names (container_name or
+	// <project>-<service>); without a teardown ContainerCreate collides on the name
+	// at every re-sync. The teardown removes only containers + project networks, not
+	// named data volumes, so a sync preserves the stack's persistent data. On a
+	// teardown failure the row keeps its prior state and we report an error rather
+	// than deploying on top of a half-removed project.
+	if terr := s.teardownProject(dctx, plan.Project, plan.Networks); terr != nil {
+		return "error", res.Commit, terr
+	}
+
 	status, derr := s.deployPlan(dctx, plan)
 
 	// Persist the synced compose + commit + status regardless of deploy outcome so
-	// the row reflects what was applied and is teardownable by project label.
-	_ = s.store.UpdateStackSynced(ctx, st.ID, composeYAML, res.Commit, status, len(model.Services))
+	// the row reflects what was applied and is teardownable by project label. Use
+	// the detached deploy context (dctx), not the request context: the deploy ran on
+	// dctx, so a client disconnect mid-deploy must not cancel the write recording
+	// what was actually applied.
+	_ = s.store.UpdateStackSynced(dctx, st.ID, composeYAML, res.Commit, status, len(model.Services))
 	if derr != nil {
 		return status, res.Commit, derr
 	}
