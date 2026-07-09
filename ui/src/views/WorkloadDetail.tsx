@@ -9,8 +9,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useWorkload, useCapabilityLookup } from "../lib/hooks";
+import { useWorkload, useUpdates, useCapabilityLookup, qk } from "../lib/hooks";
 import { useWorkloadActions } from "./useWorkloadActions";
 import { PageHeader } from "../components/PageHeader";
 import { LoadingFill } from "../components/Spinner";
@@ -21,6 +23,8 @@ import { ProtectedTag } from "../components/ProtectedTag";
 import { WorkloadActionButtons } from "../components/WorkloadActionButtons";
 import { ActionButton } from "../components/ActionButton";
 import { HelpButton } from "../components/HelpButton";
+import { CapabilityGate } from "../components/CapabilityGate";
+import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
 import {
   IconRefresh,
   IconWorkloads,
@@ -31,6 +35,7 @@ import {
   IconDashboard,
 } from "../components/icons";
 import { gateExec, gateLogs, gateStats } from "../lib/rbac";
+import { toast, toastError } from "../lib/toast";
 import { cleanName, shortId } from "../lib/format";
 import { OverviewTab } from "./workload/OverviewTab";
 import { LogsTab } from "./workload/LogsTab";
@@ -55,7 +60,8 @@ function refKindFor(kind: OrchestratorKind): WsRefKind {
 export function WorkloadDetail() {
   const params = useParams<{ hostId: string; id: string }>();
   const navigate = useNavigate();
-  const { permissions } = useAuth();
+  const queryClient = useQueryClient();
+  const { permissions, can } = useAuth();
   const { capsForKind } = useCapabilityLookup();
 
   const hostId = decodeURIComponent(params.hostId ?? "local");
@@ -66,6 +72,10 @@ export function WorkloadDetail() {
   const caps = detail ? capsForKind(detail.kind) : undefined;
 
   const actions = useWorkloadActions(hostId);
+
+  // Image-update status for this workload (shared cached query with the list).
+  const updatesQuery = useUpdates(hostId);
+  const [updateOpen, setUpdateOpen] = useState(false);
 
   const [tab, setTab] = useState<TabKey>("overview");
 
@@ -130,6 +140,27 @@ export function WorkloadDetail() {
   // single-container pods, where the default container is used.
   const containers = refKind === "pod" ? podContainerNames(detail.raw) : [];
 
+  // Only standalone Docker containers can be updated in place.
+  const updateInfo =
+    detail.kind === "docker"
+      ? updatesQuery.data?.find((u) => u.containerId === detail.id && u.updateAvailable)
+      : undefined;
+
+  const confirmUpdate = async () => {
+    try {
+      await api.workloadUpdate(hostId, detail.id);
+      toast.success("Updated", `${cleanName(detail.name)} recreated on the newest image`);
+      queryClient.invalidateQueries({ queryKey: ["workloads", hostId] });
+      queryClient.invalidateQueries({ queryKey: qk.updates(hostId) });
+      // The recreate gives the container a NEW id, so this detail route is now
+      // stale — return to the list instead of refetching into a 404.
+      navigate("/workloads");
+    } catch (err) {
+      toastError("Update failed", err);
+      throw err;
+    }
+  };
+
   return (
     <div className="page">
       <PageHeader
@@ -158,6 +189,8 @@ export function WorkloadDetail() {
               busy={actions.busyId === detail.id}
               size="md"
               onStart={actions.runStart}
+              onPause={actions.runPause}
+              onUnpause={actions.runUnpause}
               onStop={actions.triggerStop}
               onRestart={actions.triggerRestart}
               onRemove={actions.triggerRemove}
@@ -169,6 +202,37 @@ export function WorkloadDetail() {
           </div>
         }
       />
+
+      {updateInfo ? (
+        <div
+          className="banner info row"
+          style={{ justifyContent: "space-between", gap: "var(--sp-3)", flexWrap: "wrap" }}
+        >
+          <span className="text-sm">
+            A newer image is available for <strong className="mono">{updateInfo.image}</strong>.
+          </span>
+          <CapabilityGate
+            allowed={can("docker.container.update") && !detail.protected}
+            reason={
+              detail.protected
+                ? "Protected — cannot be recreated"
+                : "You lack the docker.container.update permission"
+            }
+          >
+            {(allowed, reason) => (
+              <ActionButton
+                size="sm"
+                variant="primary"
+                disabled={!allowed}
+                tooltip={allowed ? undefined : reason}
+                onClick={() => setUpdateOpen(true)}
+              >
+                Update now
+              </ActionButton>
+            )}
+          </CapabilityGate>
+        </div>
+      ) : null}
 
       <div className="tabs">
         {tabs.map((t) => (
@@ -200,6 +264,22 @@ export function WorkloadDetail() {
         )}
         {tab === "inspect" && <InspectTab raw={detail.raw} />}
       </div>
+
+      <ConfirmDestructiveDialog
+        open={updateOpen}
+        title="Update container"
+        variant="primary"
+        confirmLabel="Update"
+        description={
+          <>
+            Pull the newest image for <strong className="mono">{detail.image}</strong> and recreate{" "}
+            <strong className="mono">{cleanName(detail.name)}</strong> with the same configuration.
+            The container restarts on the new image — expect a brief downtime.
+          </>
+        }
+        onConfirm={confirmUpdate}
+        onClose={() => setUpdateOpen(false)}
+      />
 
       {actions.dialogs}
     </div>

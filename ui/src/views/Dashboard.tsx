@@ -26,6 +26,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { useDashboardMetrics, useHosts, useProviders } from "../lib/hooks";
 import { useSelectedHost } from "../lib/hostStore";
+import { useResolvedTheme } from "../lib/themeStore";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { PageHeader } from "../components/PageHeader";
@@ -34,6 +35,7 @@ import { OrchestratorBadge } from "../components/OrchestratorBadge";
 import { StatusDot } from "../components/StatusDot";
 import { LoadingFill } from "../components/Spinner";
 import { EmptyState } from "../components/EmptyState";
+import { OnboardingChecklist } from "../components/OnboardingChecklist";
 import {
   IconWorkloads,
   IconHosts,
@@ -95,7 +97,10 @@ export function Dashboard() {
     refetchInterval: 15000,
   });
 
-  // Resolve the chart palette once per render from the design tokens.
+  // Resolve the chart palette from the design tokens. Recharts cannot consume
+  // var(--x) in SVG fills, so tokens are read via getComputedStyle; the
+  // resolved-theme dependency re-reads them when html.dark toggles.
+  const resolvedTheme = useResolvedTheme();
   const chart = useMemo(
     () => ({
       blue: cssVar("--chart-1", "#2496ED"),
@@ -110,7 +115,7 @@ export function Dashboard() {
       surface: cssVar("--bg-surface", "#FFFFFF"),
       accentSoft: cssVar("--accent-soft", "rgba(36,150,237,0.10)"),
     }),
-    [],
+    [resolvedTheme],
   );
 
   const m = metricsQ.data;
@@ -151,6 +156,9 @@ export function Dashboard() {
           </span>
         </div>
       ) : null}
+
+      {/* Getting-started checklist (self-hides when dismissed or complete). */}
+      <OnboardingChecklist />
 
       {/* ---- KPI row ---- */}
       <div className="dash-kpis">

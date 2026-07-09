@@ -24,6 +24,7 @@ export type Capability =
   | "start"
   | "stop"
   | "restart"
+  | "pause"
   | "remove"
   | "exec"
   | "events"
@@ -292,6 +293,30 @@ export interface DockerVolume {
   createdAt: string;
 }
 
+// Body for POST /hosts/{hostID}/networks.
+export interface CreateNetworkRequest {
+  name: string;
+  driver?: string;
+  internal?: boolean;
+  labels?: Record<string, string>;
+}
+
+// Body for POST /hosts/{hostID}/volumes.
+export interface CreateVolumeRequest {
+  name: string;
+  driver?: string;
+  labels?: Record<string, string>;
+}
+
+// Target resource class for POST /hosts/{hostID}/prune.
+export type PruneTarget = "images" | "containers" | "volumes" | "networks";
+
+// Response of POST /hosts/{hostID}/prune. spaceReclaimed is bytes.
+export interface PruneResult {
+  removed: string[];
+  spaceReclaimed: number;
+}
+
 /* ===================== Swarm (read-only) ===================== */
 
 // Configured per-task CPU/memory limits + reservations on a swarm service.
@@ -513,6 +538,57 @@ export interface K8sNode {
   internalIP: string;
 }
 
+/* ----- Kubernetes workload controllers (StatefulSet / DaemonSet / Job / CronJob) ----- */
+
+// StatefulSet summary. Mirrors kube.StatefulSetInfo.
+export interface K8sStatefulSet {
+  namespace: string;
+  name: string;
+  replicas: number;
+  ready: number;
+  available: number;
+  image: string;
+  createdAt: string; // RFC3339
+}
+
+// DaemonSet summary. Mirrors kube.DaemonSetInfo.
+export interface K8sDaemonSet {
+  namespace: string;
+  name: string;
+  desired: number;
+  ready: number;
+  available: number;
+  image: string;
+  createdAt: string; // RFC3339
+}
+
+// Job summary. completions is spec.completions (0 when unset); startedAt /
+// completedAt are absent until the controller stamps them. Mirrors kube.JobInfo.
+export interface K8sJob {
+  namespace: string;
+  name: string;
+  completions: number;
+  succeeded: number;
+  failed: number;
+  active: number;
+  startedAt?: string; // RFC3339
+  completedAt?: string; // RFC3339
+  createdAt: string; // RFC3339
+}
+
+// CronJob summary. activeCount is the number of currently running Jobs the
+// controller tracks; lastScheduleAt is absent until the first scheduled run.
+// Mirrors kube.CronJobInfo.
+export interface K8sCronJob {
+  namespace: string;
+  name: string;
+  schedule: string;
+  suspend: boolean;
+  activeCount: number;
+  lastScheduleAt?: string; // RFC3339
+  createdAt: string; // RFC3339
+}
+
 /* ----- Kubernetes autoscaling + core cluster objects (Wave 3) ----- */
 
 // HorizontalPodAutoscaler summary. target is the scale-target ref ("Deployment/
@@ -706,6 +782,20 @@ export interface K8sApplyRequest {
   yaml: string;
 }
 
+// Body for POST /hosts/{hostID}/k8s/cronjobs/{ns}/{name}/suspend. Mirrors
+// api.suspendRequest.
+export interface K8sSuspendRequest {
+  suspend: boolean;
+}
+
+// Response of POST /hosts/{hostID}/k8s/cronjobs/{ns}/{name}/trigger: the name of
+// the Job created from the CronJob's jobTemplate. Mirrors
+// api.triggerCronJobResponse.
+export interface K8sTriggerCronJobResponse {
+  ok: boolean;
+  job: string;
+}
+
 // One CPU+memory pair (a request OR a limit) for a Deployment container.
 // cpuMilli is millicores (1000 = 1 core); memoryBytes is bytes. A 0 entry is
 // "unset" and is left unchanged server-side. Mirrors kube.ResourceSpec.
@@ -748,6 +838,7 @@ export interface K8sApplyResponse {
 export type K8sScaleInput = K8sScaleRequest;
 export type K8sApplyInput = K8sApplyRequest;
 export type K8sSetResourcesInput = K8sSetResourcesRequest;
+export type K8sSuspendInput = K8sSuspendRequest;
 
 /* ===================== Helm (charts + releases) ===================== */
 
@@ -1058,6 +1149,78 @@ export interface BuilderRequest {
 // Response of POST /stacks/builder/generate: the generated compose YAML.
 export interface BuilderResponse {
   yaml: string;
+}
+
+/* ===================== Personal access tokens (PATs) ===================== */
+
+// APIToken mirrors api.tokenView (server/internal/api/tokens.go): metadata
+// only. The id is the hex SHA-256 of the raw token — it cannot be inverted and
+// doubles as the revocation handle. The raw token itself is returned exactly
+// once, at creation (CreateTokenResponse.token), and is never listed.
+export interface APIToken {
+  id: string;
+  name: string;
+  prefix: string; // display prefix of the raw token
+  createdAt: number; // unix epoch seconds
+  expiresAt?: number; // unix epoch seconds; absent => never expires
+  lastUsedAt?: number; // unix epoch seconds; absent => never used
+  revokedAt?: number; // unix epoch seconds; present => revoked
+}
+
+// Response of POST /auth/tokens: the ONE-TIME raw token alongside the metadata
+// (the server embeds tokenView, so its fields are flattened at the top level).
+export interface CreateTokenResponse extends APIToken {
+  token: string;
+}
+
+/* ===================== Notification channels ===================== */
+
+// Accepted channel transports (mirrors validChannelTypes server-side).
+export type NotificationChannelType = "discord" | "slack" | "ntfy" | "webhook";
+
+// Subscribable event kinds (mirrors validNotificationEvents server-side).
+export type NotificationEvent = "container.down" | "update.available";
+
+// NotificationChannel mirrors api.notificationChannelView — the SAFE projection.
+// The webhook URL embeds a secret token, so it is NEVER returned; reads carry
+// only urlSet (always true once stored).
+export interface NotificationChannel {
+  id: string;
+  name: string;
+  type: NotificationChannelType;
+  events: NotificationEvent[];
+  enabled: boolean;
+  urlSet: boolean;
+  createdAt: number; // unix epoch seconds
+  updatedAt: number; // unix epoch seconds
+}
+
+// Body for POST /notifications/channels and PUT /notifications/channels/{id}.
+// On create, url is required (an absolute http(s) URL). On update, omit url
+// (or send "") to KEEP the stored URL — it can never be cleared, only
+// replaced. enabled omitted => true.
+export interface NotificationChannelInput {
+  name: string;
+  type: NotificationChannelType;
+  url?: string;
+  events: NotificationEvent[];
+  enabled?: boolean;
+}
+
+/* ===================== Image updates ===================== */
+
+// UpdateStatus mirrors updates.UpdateStatus (server/internal/updates/checker.go):
+// the result of one container's image-update digest check. error is set when
+// the registry check failed for that container (e.g. auth, network).
+export interface UpdateStatus {
+  containerId: string;
+  containerName: string;
+  image: string;
+  localDigest?: string;
+  remoteDigest?: string;
+  updateAvailable: boolean;
+  checkedAt: number; // unix epoch seconds
+  error?: string;
 }
 
 /* ===================== Error envelope ===================== */

@@ -9,6 +9,7 @@
 import type {
   ActionResult,
   ApiErrorEnvelope,
+  APIToken,
   AuditPage,
   AuditQuery,
   AuthProvider,
@@ -19,8 +20,11 @@ import type {
   BuilderRequest,
   BuilderResponse,
   CreateGroupRoleMappingInput,
+  CreateNetworkRequest,
   CreateStackRequest,
   CreateBackupRequest,
+  CreateTokenResponse,
+  CreateVolumeRequest,
   DashboardMetrics,
   DeployRequest,
   DeployResponse,
@@ -33,10 +37,16 @@ import type {
   HostSummaryEntry,
   K8sApplyInput,
   K8sApplyResponse,
+  K8sCronJob,
+  K8sDaemonSet,
   K8sDeployment,
+  K8sJob,
   K8sNode,
   K8sScaleInput,
   K8sSetResourcesInput,
+  K8sStatefulSet,
+  K8sSuspendInput,
+  K8sTriggerCronJobResponse,
   HPAInfo,
   HPACreateRequest,
   NamespaceInfo,
@@ -62,8 +72,12 @@ import type {
   LoginResponse,
   MeResponse,
   CatalogInput,
+  NotificationChannel,
+  NotificationChannelInput,
   ProviderInfo,
   ProviderTestResult,
+  PruneResult,
+  PruneTarget,
   PublicAuthProvider,
   Registry,
   RegistryInput,
@@ -91,6 +105,7 @@ import type {
   TemplateWriteRequest,
   TotpConfirmResponse,
   TotpEnrollResponse,
+  UpdateStatus,
   UserRecord,
   ValidateStackRequest,
   Workload,
@@ -332,6 +347,15 @@ export const api = {
   changePassword: (currentPassword: string, newPassword: string) =>
     post<void>("/auth/password", { currentPassword, newPassword }),
 
+  /* ---- personal access tokens (self-service) ---- */
+  // The raw token appears ONLY in the create response (one-time); the list is
+  // metadata. PAT-authenticated callers get 403 on create/revoke — a stolen
+  // token cannot mint or revoke tokens.
+  apiTokens: () => get<APIToken[]>("/auth/tokens"),
+  apiTokenCreate: (body: { name: string; expiresInDays?: number }) =>
+    post<CreateTokenResponse>("/auth/tokens", body),
+  apiTokenRevoke: (id: string) => del<void>(`/auth/tokens/${encId(id)}`),
+
   /* ---- enterprise SSO: enabled providers for the login screen (PUBLIC) ---- */
   // Lists ENABLED external providers ({id,name,kind}) so the login page can
   // render "Sign in with <name>" / a directory form. Pre-auth, never errors on
@@ -356,6 +380,10 @@ export const api = {
     get<WorkloadDetail>(`/hosts/${encId(hostId)}/workloads/${encId(id)}`),
   workloadStart: (hostId: string, id: string) =>
     post<ActionResult | void>(`/hosts/${encId(hostId)}/workloads/${encId(id)}/start`),
+  workloadPause: (hostId: string, id: string) =>
+    post<ActionResult | void>(`/hosts/${encId(hostId)}/workloads/${encId(id)}/pause`),
+  workloadUnpause: (hostId: string, id: string) =>
+    post<ActionResult | void>(`/hosts/${encId(hostId)}/workloads/${encId(id)}/unpause`),
   workloadStop: (hostId: string, id: string, timeoutSeconds?: number) =>
     post<ActionResult | void>(`/hosts/${encId(hostId)}/workloads/${encId(id)}/stop`, { timeoutSeconds }),
   workloadRestart: (hostId: string, id: string, timeoutSeconds?: number) =>
@@ -393,11 +421,30 @@ export const api = {
   imageDelete: (hostId: string, id: string, force = false) =>
     del<void>(`/hosts/${encId(hostId)}/images/${encId(id)}${qs({ force })}`),
   networks: (hostId: string) => get<DockerNetwork[]>(`/hosts/${encId(hostId)}/networks`),
+  networkCreate: (hostId: string, body: CreateNetworkRequest) =>
+    post<DockerNetwork>(`/hosts/${encId(hostId)}/networks`, body),
   networkDelete: (hostId: string, id: string) =>
     del<void>(`/hosts/${encId(hostId)}/networks/${encId(id)}`),
   volumes: (hostId: string) => get<DockerVolume[]>(`/hosts/${encId(hostId)}/volumes`),
+  volumeCreate: (hostId: string, body: CreateVolumeRequest) =>
+    post<DockerVolume>(`/hosts/${encId(hostId)}/volumes`, body),
   volumeRemove: (hostId: string, name: string) =>
     del<void>(`/hosts/${encId(hostId)}/volumes/${encId(name)}`),
+  // System prune for one resource class on a host (docker.system.prune).
+  prune: (hostId: string, body: { target: PruneTarget; dangling?: boolean }) =>
+    post<PruneResult>(`/hosts/${encId(hostId)}/prune`, body),
+
+  /* ---- image updates (per host) ---- */
+  // List serves the manager's cached check results (the server re-checks
+  // periodically); check triggers an immediate registry sweep (perm
+  // docker.image.pull) and returns the fresh statuses.
+  updates: (hostId: string) => get<UpdateStatus[]>(`/hosts/${encId(hostId)}/updates`),
+  updatesCheck: (hostId: string) =>
+    post<UpdateStatus[]>(`/hosts/${encId(hostId)}/updates/check`),
+  // Recreates a standalone Docker container on the newest image for its
+  // original reference (perm docker.container.update; protected containers 403).
+  workloadUpdate: (hostId: string, id: string) =>
+    post<ActionResult>(`/hosts/${encId(hostId)}/workloads/${encId(id)}/update`),
 
   /* ---- backups (volume tar archives) ---- */
   backups: (hostId: string) => get<Backup[]>(`/hosts/${encId(hostId)}/backups`),
@@ -514,6 +561,43 @@ export const api = {
     del<ActionResult | void>(`/hosts/${encId(hostId)}/k8s/pods/${encId(ns)}/${encId(name)}`),
   k8sApply: (hostId: string, body: K8sApplyInput) =>
     post<K8sApplyResponse>(`/hosts/${encId(hostId)}/k8s/apply`, body),
+
+  /* ---- kubernetes workload controllers (STS / DS / Job / CronJob) ---- */
+  // Reads share the deployment read grant server-side; each list filters
+  // optionally by namespace like k8sDeployments.
+  k8sStatefulSets: (hostId: string, namespace?: string) =>
+    get<K8sStatefulSet[]>(`/hosts/${encId(hostId)}/k8s/statefulsets${qs({ namespace })}`),
+  k8sDaemonSets: (hostId: string, namespace?: string) =>
+    get<K8sDaemonSet[]>(`/hosts/${encId(hostId)}/k8s/daemonsets${qs({ namespace })}`),
+  k8sJobs: (hostId: string, namespace?: string) =>
+    get<K8sJob[]>(`/hosts/${encId(hostId)}/k8s/jobs${qs({ namespace })}`),
+  k8sCronJobs: (hostId: string, namespace?: string) =>
+    get<K8sCronJob[]>(`/hosts/${encId(hostId)}/k8s/cronjobs${qs({ namespace })}`),
+  // {ns}/{name} are distinct path segments (controller names are DNS labels).
+  k8sScaleStatefulSet: (hostId: string, ns: string, name: string, body: K8sScaleInput) =>
+    post<ActionResult | void>(
+      `/hosts/${encId(hostId)}/k8s/statefulsets/${encId(ns)}/${encId(name)}/scale`,
+      body,
+    ),
+  k8sRestartStatefulSet: (hostId: string, ns: string, name: string) =>
+    post<ActionResult | void>(`/hosts/${encId(hostId)}/k8s/statefulsets/${encId(ns)}/${encId(name)}/restart`),
+  k8sDeleteStatefulSet: (hostId: string, ns: string, name: string) =>
+    del<ActionResult | void>(`/hosts/${encId(hostId)}/k8s/statefulsets/${encId(ns)}/${encId(name)}`),
+  k8sRestartDaemonSet: (hostId: string, ns: string, name: string) =>
+    post<ActionResult | void>(`/hosts/${encId(hostId)}/k8s/daemonsets/${encId(ns)}/${encId(name)}/restart`),
+  k8sDeleteDaemonSet: (hostId: string, ns: string, name: string) =>
+    del<ActionResult | void>(`/hosts/${encId(hostId)}/k8s/daemonsets/${encId(ns)}/${encId(name)}`),
+  k8sDeleteJob: (hostId: string, ns: string, name: string) =>
+    del<ActionResult | void>(`/hosts/${encId(hostId)}/k8s/jobs/${encId(ns)}/${encId(name)}`),
+  k8sTriggerCronJob: (hostId: string, ns: string, name: string) =>
+    post<K8sTriggerCronJobResponse>(`/hosts/${encId(hostId)}/k8s/cronjobs/${encId(ns)}/${encId(name)}/trigger`),
+  k8sSuspendCronJob: (hostId: string, ns: string, name: string, body: K8sSuspendInput) =>
+    post<ActionResult | void>(
+      `/hosts/${encId(hostId)}/k8s/cronjobs/${encId(ns)}/${encId(name)}/suspend`,
+      body,
+    ),
+  k8sDeleteCronJob: (hostId: string, ns: string, name: string) =>
+    del<ActionResult | void>(`/hosts/${encId(hostId)}/k8s/cronjobs/${encId(ns)}/${encId(name)}`),
 
   /* ---- kubernetes autoscaling + core cluster objects (Wave 3) ---- */
   // HPAs (list optionally by namespace; create scopes the target ns via the
@@ -633,6 +717,20 @@ export const api = {
     del<void>(`/hosts/${encId(hostId)}/stacks/${encId(id)}`),
   stackBuilderGenerate: (body: BuilderRequest) =>
     post<BuilderResponse>("/stacks/builder/generate", body),
+  /* ---- notifications: channels (notifications.manage) ---- */
+  // Webhook URLs are write-only: reads carry urlSet, never the URL itself.
+  notificationChannels: () => get<NotificationChannel[]>("/notifications/channels"),
+  notificationChannelCreate: (body: NotificationChannelInput) =>
+    post<NotificationChannel>("/notifications/channels", body),
+  notificationChannelUpdate: (id: string, body: NotificationChannelInput) =>
+    put<NotificationChannel>(`/notifications/channels/${encId(id)}`, body),
+  notificationChannelDelete: (id: string) =>
+    del<void>(`/notifications/channels/${encId(id)}`),
+  // Sends a test event through the channel. A refused/unreachable endpoint
+  // surfaces as a 502 ApiError (code notification_failed), not ok:false.
+  notificationChannelTest: (id: string) =>
+    post<ActionResult>(`/notifications/channels/${encId(id)}/test`),
+
   /* ---- settings ---- */
   settings: () => get<SettingsResponse>("/settings"),
   settingsUpdate: (body: SettingsPatch) => put<SettingsResponse>("/settings", body),

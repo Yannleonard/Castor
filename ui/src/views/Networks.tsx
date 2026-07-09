@@ -1,6 +1,8 @@
 // ui/src/views/Networks.tsx
 //
-// Docker networks: read + admin-gated delete (docker.network.delete, CapNetworks).
+// Docker networks: read + gated writes. Create opens a modal (name validated
+// client-side; backend re-validates). Delete is admin-gated
+// (docker.network.delete, CapNetworks); prune is gated by docker.system.prune.
 
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -10,18 +12,24 @@ import { useNetworks, useCapabilityLookup } from "../lib/hooks";
 import { useSelectedHost } from "../lib/hostStore";
 import { PageHeader } from "../components/PageHeader";
 import { DataTable, type Column } from "../components/DataTable";
+import { EmptyState } from "../components/EmptyState";
 import { LoadingFill } from "../components/Spinner";
+import { Modal } from "../components/Modal";
 import { ActionButton } from "../components/ActionButton";
 import { CapabilityGate } from "../components/CapabilityGate";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
 import { HelpButton } from "../components/HelpButton";
-import { IconNetworks, IconTrash, IconRefresh, IconSearch } from "../components/icons";
+import { TextField, SelectField } from "../components/Field";
+import { IconNetworks, IconPlus, IconPrune, IconTrash, IconRefresh, IconSearch } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
-import { shortId } from "../lib/format";
+import { formatBytes, shortId } from "../lib/format";
 import type { DockerNetwork } from "../lib/types";
 
 const SYSTEM_NETWORKS = new Set(["bridge", "host", "none"]);
 const EMPTY_NETWORKS: DockerNetwork[] = [];
+
+const NETWORK_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
+const NETWORK_DRIVERS = ["bridge", "overlay", "macvlan", "ipvlan"];
 
 export function Networks() {
   const hostId = useSelectedHost();
@@ -33,8 +41,16 @@ export function Networks() {
   const query = useNetworks(hostId);
   const [search, setSearch] = useState("");
   const [removeTarget, setRemoveTarget] = useState<DockerNetwork | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createDriver, setCreateDriver] = useState("bridge");
+  const [createInternal, setCreateInternal] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [pruneOpen, setPruneOpen] = useState(false);
 
+  const canCreate = caps?.includes("networks") && can("docker.network.create");
   const canDelete = caps?.includes("networks") && can("docker.network.delete");
+  const canPrune = can("docker.system.prune");
   const networks = query.data ?? EMPTY_NETWORKS;
 
   const filtered = useMemo(() => {
@@ -42,6 +58,38 @@ export function Networks() {
     if (!s) return networks;
     return networks.filter((n) => `${n.name} ${n.driver} ${n.id}`.toLowerCase().includes(s));
   }, [networks, search]);
+
+  const nameOk = NETWORK_NAME_RE.test(createName.trim());
+
+  const doCreate = async () => {
+    if (!nameOk) return;
+    const name = createName.trim();
+    setCreating(true);
+    try {
+      await api.networkCreate(hostId, { name, driver: createDriver, internal: createInternal });
+      toast.success("Network created", name);
+      setCreateOpen(false);
+      setCreateName("");
+      setCreateDriver("bridge");
+      setCreateInternal(false);
+      queryClient.invalidateQueries({ queryKey: ["networks", hostId] });
+    } catch (err) {
+      toastError("Create failed", err);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const doPrune = async () => {
+    try {
+      const res = await api.prune(hostId, { target: "networks" });
+      toast.success(`${res.removed.length} networks removed`, `${formatBytes(res.spaceReclaimed)} reclaimed`);
+      queryClient.invalidateQueries({ queryKey: ["networks", hostId] });
+    } catch (err) {
+      toastError("Prune failed", err);
+      throw err;
+    }
+  };
 
   const doRemove = async () => {
     if (!removeTarget) return;
@@ -117,6 +165,25 @@ export function Networks() {
         subtitle="Docker networks on this host."
         actions={
           <div className="row">
+            <CapabilityGate
+              allowed={!!canCreate}
+              reason={!caps?.includes("networks") ? "Provider does not manage networks" : "Requires docker.network.create"}
+            >
+              {(allowed, reason) => (
+                <ActionButton variant="primary" disabled={!allowed} tooltip={allowed ? undefined : reason} onClick={() => setCreateOpen(true)}>
+                  <IconPlus size={15} />
+                  Create network
+                </ActionButton>
+              )}
+            </CapabilityGate>
+            <CapabilityGate allowed={!!canPrune} reason="Requires docker.system.prune (admin)">
+              {(allowed, reason) => (
+                <ActionButton variant="ghost" disabled={!allowed} tooltip={allowed ? "Prune unused networks" : reason} onClick={() => setPruneOpen(true)}>
+                  <IconPrune size={15} />
+                  Prune
+                </ActionButton>
+              )}
+            </CapabilityGate>
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
@@ -140,6 +207,24 @@ export function Networks() {
 
       {query.isLoading ? (
         <LoadingFill label="Loading networks…" />
+      ) : networks.length === 0 ? (
+        // No networks visible on the host: open the existing create modal
+        // directly (only when the caller may create).
+        <div className="card">
+          <EmptyState
+            icon={<IconNetworks size={40} />}
+            title="No networks"
+            message="Create a network to let containers talk to each other."
+            action={
+              canCreate ? (
+                <ActionButton variant="primary" onClick={() => setCreateOpen(true)}>
+                  <IconPlus size={15} />
+                  Create a network
+                </ActionButton>
+              ) : undefined
+            }
+          />
+        </div>
       ) : (
         <DataTable
           columns={columns}
@@ -150,6 +235,56 @@ export function Networks() {
           emptyTitle="No networks"
         />
       )}
+
+      <Modal
+        open={createOpen}
+        title="Create network"
+        busy={creating}
+        onClose={() => setCreateOpen(false)}
+        footer={
+          <>
+            <button className="btn" onClick={() => setCreateOpen(false)} disabled={creating}>
+              Cancel
+            </button>
+            <ActionButton variant="primary" loading={creating} disabled={!nameOk} onClick={doCreate}>
+              Create
+            </ActionButton>
+          </>
+        }
+      >
+        <div className="col" style={{ gap: "var(--sp-3)" }}>
+          <TextField
+            label="Name"
+            mono
+            autoFocus
+            placeholder="my-network"
+            value={createName}
+            onChange={(e) => setCreateName(e.target.value)}
+            error={createName && !nameOk ? "Start with a letter or digit; then letters, digits, '_', '.' or '-'." : undefined}
+          />
+          <SelectField label="Driver" value={createDriver} onChange={(e) => setCreateDriver(e.target.value)}>
+            {NETWORK_DRIVERS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </SelectField>
+          <label className="checkbox-row">
+            <input type="checkbox" checked={createInternal} onChange={(e) => setCreateInternal(e.target.checked)} />
+            <span>Internal network (no outbound access)</span>
+          </label>
+        </div>
+      </Modal>
+
+      <ConfirmDestructiveDialog
+        open={pruneOpen}
+        title="Prune unused networks"
+        variant="danger"
+        confirmLabel="Prune"
+        description={<>Remove all networks not used by at least one container. This cannot be undone.</>}
+        onConfirm={doPrune}
+        onClose={() => setPruneOpen(false)}
+      />
 
       <ConfirmDestructiveDialog
         open={!!removeTarget}

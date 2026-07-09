@@ -5,13 +5,18 @@
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { api } from "./api";
 import type {
+  APIToken,
   AuthProvider,
   Backup,
   Capability,
   DashboardMetrics,
   GroupRoleMapping,
+  K8sCronJob,
+  K8sDaemonSet,
   K8sDeployment,
+  K8sJob,
   K8sNode,
+  K8sStatefulSet,
   HPAInfo,
   NamespaceInfo,
   ServiceInfoK8s,
@@ -20,6 +25,7 @@ import type {
   EventInfo,
   IngressInfo,
   NodeMetricsResponse,
+  NotificationChannel,
   PodMetricsResponse,
   PVInfo,
   PVCInfo,
@@ -40,6 +46,7 @@ import type {
   Stack,
   StackDetail,
   Template,
+  UpdateStatus,
   UserRecord,
   Workload,
   WorkloadDetail,
@@ -66,6 +73,10 @@ export const qk = {
   k8sPods: (host: string, ns: string) => ["k8s", "pods", host, ns] as const,
   k8sDeployments: (host: string, ns: string) => ["k8s", "deployments", host, ns] as const,
   k8sNodes: (host: string) => ["k8s", "nodes", host] as const,
+  k8sStatefulSets: (host: string, ns: string) => ["k8s", "statefulsets", host, ns] as const,
+  k8sDaemonSets: (host: string, ns: string) => ["k8s", "daemonsets", host, ns] as const,
+  k8sJobs: (host: string, ns: string) => ["k8s", "jobs", host, ns] as const,
+  k8sCronJobs: (host: string, ns: string) => ["k8s", "cronjobs", host, ns] as const,
   k8sHPAs: (host: string, ns: string) => ["k8s", "hpas", host, ns] as const,
   k8sNamespaces: (host: string) => ["k8s", "namespaces", host] as const,
   k8sServices: (host: string, ns: string) => ["k8s", "services", host, ns] as const,
@@ -97,6 +108,9 @@ export const qk = {
   catalogs: ["catalogs"] as const,
   authProviders: ["authProviders"] as const,
   authProviderMappings: (id: string) => ["authProviderMappings", id] as const,
+  updates: (host: string) => ["updates", host] as const,
+  notificationChannels: ["notificationChannels"] as const,
+  apiTokens: ["apiTokens"] as const,
 };
 
 const POLL = 8000; // background refresh cadence for live-ish lists
@@ -252,6 +266,41 @@ export function useK8sNodes(hostId: string, enabled = true) {
   return useQuery<K8sNode[]>({
     queryKey: qk.k8sNodes(hostId),
     queryFn: () => api.k8sNodes(hostId),
+    enabled,
+    refetchInterval: POLL,
+  });
+}
+
+/* ----- Kubernetes workload controllers (STS / DS / Job / CronJob) ----- */
+
+export function useK8sStatefulSets(hostId: string, namespace: string, enabled = true) {
+  return useQuery<K8sStatefulSet[]>({
+    queryKey: qk.k8sStatefulSets(hostId, namespace),
+    queryFn: () => api.k8sStatefulSets(hostId, namespace || undefined),
+    enabled,
+    refetchInterval: POLL,
+  });
+}
+export function useK8sDaemonSets(hostId: string, namespace: string, enabled = true) {
+  return useQuery<K8sDaemonSet[]>({
+    queryKey: qk.k8sDaemonSets(hostId, namespace),
+    queryFn: () => api.k8sDaemonSets(hostId, namespace || undefined),
+    enabled,
+    refetchInterval: POLL,
+  });
+}
+export function useK8sJobs(hostId: string, namespace: string, enabled = true) {
+  return useQuery<K8sJob[]>({
+    queryKey: qk.k8sJobs(hostId, namespace),
+    queryFn: () => api.k8sJobs(hostId, namespace || undefined),
+    enabled,
+    refetchInterval: POLL,
+  });
+}
+export function useK8sCronJobs(hostId: string, namespace: string, enabled = true) {
+  return useQuery<K8sCronJob[]>({
+    queryKey: qk.k8sCronJobs(hostId, namespace),
+    queryFn: () => api.k8sCronJobs(hostId, namespace || undefined),
     enabled,
     refetchInterval: POLL,
   });
@@ -475,6 +524,38 @@ export function useProviderMappings(providerId: string, opts?: Partial<UseQueryO
   return useQuery<GroupRoleMapping[]>({
     queryKey: qk.authProviderMappings(providerId),
     queryFn: () => api.authProviderMappings(providerId),
+    ...opts,
+  });
+}
+
+/**
+ * Cached image-update statuses for a host. The server runs the registry checks
+ * periodically, so a slow 60s poll keeps the view fresh without extra I/O; an
+ * on-demand check (api.updatesCheck) should invalidate this key.
+ */
+export function useUpdates(hostId: string, opts?: Partial<UseQueryOptions<UpdateStatus[]>>) {
+  return useQuery<UpdateStatus[]>({
+    queryKey: qk.updates(hostId),
+    queryFn: () => api.updates(hostId),
+    refetchInterval: 60_000,
+    ...opts,
+  });
+}
+
+/** Notification channels (notifications.manage; webhook URLs never present). */
+export function useNotificationChannels(opts?: Partial<UseQueryOptions<NotificationChannel[]>>) {
+  return useQuery<NotificationChannel[]>({
+    queryKey: qk.notificationChannels,
+    queryFn: () => api.notificationChannels(),
+    ...opts,
+  });
+}
+
+/** The caller's personal access tokens (metadata only; raw tokens never listed). */
+export function useAPITokens(opts?: Partial<UseQueryOptions<APIToken[]>>) {
+  return useQuery<APIToken[]>({
+    queryKey: qk.apiTokens,
+    queryFn: () => api.apiTokens(),
     ...opts,
   });
 }

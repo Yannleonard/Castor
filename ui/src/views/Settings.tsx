@@ -4,18 +4,32 @@
 // security.totp_required_for_mutations and editing security.protected_labels,
 // plus a read-only view of instance metadata. Secret-like keys are never exposed
 // by the API.
+//
+// Also hosts the Notifications section (notifications.manage): CRUD over alert
+// channels (Discord/Slack/ntfy/webhook). Channel changes apply immediately —
+// they do NOT go through the global "Save changes" button. Webhook URLs are
+// write-only: reads carry urlSet, never the URL itself.
 
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useSettings } from "../lib/hooks";
+import { qk, useNotificationChannels, useSettings } from "../lib/hooks";
 import { PageHeader } from "../components/PageHeader";
 import { HelpButton } from "../components/HelpButton";
 import { LoadingFill } from "../components/Spinner";
 import { ActionButton } from "../components/ActionButton";
-import { IconPlus, IconClose, IconShield } from "../components/icons";
+import { Modal } from "../components/Modal";
+import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
+import { TextField, SelectField } from "../components/Field";
+import { IconPlus, IconClose, IconShield, IconTrash } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
+import type {
+  NotificationChannel,
+  NotificationChannelInput,
+  NotificationChannelType,
+  NotificationEvent,
+} from "../lib/types";
 
 export function Settings() {
   const queryClient = useQueryClient();
@@ -185,7 +199,328 @@ export function Settings() {
           </dl>
         </div>
       </div>
+
+      <NotificationsSection />
     </div>
+  );
+}
+
+/* ===================== Notifications ===================== */
+
+const CHANNEL_TYPE_OPTIONS: { value: NotificationChannelType; label: string }[] = [
+  { value: "discord", label: "Discord" },
+  { value: "slack", label: "Slack" },
+  { value: "ntfy", label: "ntfy" },
+  { value: "webhook", label: "Webhook" },
+];
+
+const CHANNEL_TYPE_LABEL: Record<string, string> = Object.fromEntries(
+  CHANNEL_TYPE_OPTIONS.map((t) => [t.value, t.label]),
+);
+
+const EVENT_OPTIONS: { value: NotificationEvent; label: string }[] = [
+  { value: "container.down", label: "Container went down" },
+  { value: "update.available", label: "Image update available" },
+];
+
+const EVENT_LABEL: Record<string, string> = Object.fromEntries(
+  EVENT_OPTIONS.map((e) => [e.value, e.label]),
+);
+
+// Alert channel management. Unlike the settings above, every change here is an
+// immediate API call (create/update/delete/test) — nothing is staged behind the
+// page-level "Save changes" button.
+function NotificationsSection() {
+  const queryClient = useQueryClient();
+  const { can } = useAuth();
+  const canManage = can("notifications.manage");
+  // Listing also requires notifications.manage server-side, so don't fetch
+  // (and 403) for viewers — render the greyed-out section instead.
+  const channelsQ = useNotificationChannels({ enabled: canManage });
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<NotificationChannel | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<NotificationChannel | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: qk.notificationChannels });
+
+  const runTest = async (ch: NotificationChannel) => {
+    setTestingId(ch.id);
+    try {
+      await api.notificationChannelTest(ch.id);
+      toast.success("Test notification sent", ch.name);
+    } catch (err) {
+      toastError("Test failed", err);
+    } finally {
+      setTestingId(null);
+    }
+  };
+
+  // Immediate PUT; url is omitted so the stored (sealed) URL is kept.
+  const toggleEnabled = async (ch: NotificationChannel, enabled: boolean) => {
+    setTogglingId(ch.id);
+    try {
+      await api.notificationChannelUpdate(ch.id, {
+        name: ch.name,
+        type: ch.type,
+        events: ch.events,
+        enabled,
+      });
+      toast.success(enabled ? "Channel enabled" : "Channel disabled", ch.name);
+      invalidate();
+    } catch (err) {
+      toastError("Update failed", err);
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const channels = channelsQ.data ?? [];
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <span className="card-title">Notifications</span>
+        <ActionButton
+          size="sm"
+          disabled={!canManage}
+          tooltip={canManage ? undefined : "Requires notifications.manage"}
+          onClick={() => setCreateOpen(true)}
+        >
+          <IconPlus size={14} />
+          Add channel
+        </ActionButton>
+      </div>
+      <div className="card-body col" style={{ gap: "var(--sp-4)" }}>
+        <span className="text-xs muted" style={{ maxWidth: 540 }}>
+          Alert channels for container and image-update events. Webhook URLs are stored encrypted
+          and never displayed again.
+        </span>
+
+        {!canManage ? (
+          <span className="text-sm muted">
+            Managing notification channels requires the notifications.manage permission.
+          </span>
+        ) : channelsQ.isLoading ? (
+          <span className="text-sm muted">Loading channels…</span>
+        ) : channelsQ.isError ? (
+          <span className="text-sm" style={{ color: "var(--danger)" }}>
+            Failed to load notification channels.
+          </span>
+        ) : channels.length === 0 ? (
+          <span className="text-sm muted">No notification channels configured.</span>
+        ) : (
+          <div className="col" style={{ gap: "var(--sp-4)" }}>
+            {channels.map((ch) => (
+              <div
+                key={ch.id}
+                className="row"
+                style={{ justifyContent: "space-between", alignItems: "center", gap: "var(--sp-3)" }}
+              >
+                <div className="col" style={{ gap: 4, minWidth: 0 }}>
+                  <div className="row" style={{ gap: 8 }}>
+                    <span className="text-sm truncate" style={{ fontWeight: 600 }}>
+                      {ch.name}
+                    </span>
+                    <span className="chip">{CHANNEL_TYPE_LABEL[ch.type] ?? ch.type}</span>
+                  </div>
+                  <div className="row-wrap" style={{ gap: 6 }}>
+                    {ch.events.length > 0 ? (
+                      ch.events.map((e) => (
+                        <span key={e} className="chip text-xs">
+                          {EVENT_LABEL[e] ?? e}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs muted">No events subscribed.</span>
+                    )}
+                  </div>
+                </div>
+                <div className="row" style={{ gap: "var(--sp-2)", flex: "0 0 auto" }}>
+                  <Toggle
+                    checked={ch.enabled}
+                    disabled={togglingId !== null}
+                    onChange={(v) => toggleEnabled(ch, v)}
+                  />
+                  <ActionButton
+                    size="sm"
+                    variant="ghost"
+                    loading={testingId === ch.id}
+                    disabled={testingId !== null}
+                    tooltip="Send a test notification"
+                    onClick={() => runTest(ch)}
+                  >
+                    Test
+                  </ActionButton>
+                  <ActionButton size="sm" variant="ghost" tooltip="Edit" onClick={() => setEditTarget(ch)}>
+                    Edit
+                  </ActionButton>
+                  <ActionButton
+                    size="sm"
+                    variant="ghost"
+                    iconOnly
+                    tooltip="Delete channel"
+                    aria-label={`Delete ${ch.name}`}
+                    style={{ color: "var(--danger)" }}
+                    onClick={() => setDeleteTarget(ch)}
+                  >
+                    <IconTrash size={15} />
+                  </ActionButton>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {createOpen ? <ChannelModal onClose={() => setCreateOpen(false)} onDone={invalidate} /> : null}
+      {editTarget ? (
+        <ChannelModal channel={editTarget} onClose={() => setEditTarget(null)} onDone={invalidate} />
+      ) : null}
+
+      <ConfirmDestructiveDialog
+        open={!!deleteTarget}
+        title="Delete channel"
+        variant="danger"
+        confirmLabel="Delete"
+        description={
+          <>
+            Delete notification channel <strong>{deleteTarget?.name}</strong>? Alerts routed to it
+            will stop immediately.
+          </>
+        }
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          try {
+            await api.notificationChannelDelete(deleteTarget.id);
+            toast.success("Channel deleted", deleteTarget.name);
+            invalidate();
+          } catch (err) {
+            toastError("Delete failed", err);
+            throw err;
+          }
+        }}
+        onClose={() => setDeleteTarget(null)}
+      />
+    </div>
+  );
+}
+
+function ChannelModal({
+  channel,
+  onClose,
+  onDone,
+}: {
+  channel?: NotificationChannel;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const editing = !!channel;
+  const [name, setName] = useState(channel?.name ?? "");
+  const [type, setType] = useState<NotificationChannelType>(channel?.type ?? "discord");
+  const [url, setUrl] = useState("");
+  const [events, setEvents] = useState<NotificationEvent[]>(channel?.events ?? []);
+  const [busy, setBusy] = useState(false);
+
+  // On create the URL is mandatory; on edit a blank field means "keep".
+  const valid = name.trim().length > 0 && (editing ? true : url.trim().length > 0);
+
+  const toggleEvent = (kind: NotificationEvent, checked: boolean) =>
+    setEvents((prev) => (checked ? [...prev, kind] : prev.filter((e) => e !== kind)));
+
+  const submit = async () => {
+    if (!valid) return;
+    setBusy(true);
+    try {
+      const body: NotificationChannelInput = {
+        name: name.trim(),
+        type,
+        events,
+        // The row toggle owns enabled; preserve it on edit (omitted => true).
+        enabled: editing ? channel!.enabled : true,
+      };
+      // Omitting url on update keeps the stored, sealed URL (see notifications.go).
+      if (url.trim()) body.url = url.trim();
+      if (editing) {
+        await api.notificationChannelUpdate(channel!.id, body);
+        toast.success("Channel updated", body.name);
+      } else {
+        await api.notificationChannelCreate(body);
+        toast.success("Channel added", body.name);
+      }
+      onDone();
+      onClose();
+    } catch (err) {
+      toastError(editing ? "Update failed" : "Create failed", err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      title={editing ? `Edit ${channel!.name}` : "Add channel"}
+      busy={busy}
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <ActionButton variant="primary" loading={busy} disabled={!valid} onClick={submit}>
+            {editing ? "Save" : "Add"}
+          </ActionButton>
+        </>
+      }
+    >
+      <div className="col" style={{ gap: "var(--sp-3)" }}>
+        <TextField
+          label="Name"
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          hint="A label for this channel."
+        />
+        <SelectField label="Type" value={type} onChange={(e) => setType(e.target.value as NotificationChannelType)}>
+          {CHANNEL_TYPE_OPTIONS.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </SelectField>
+        <TextField
+          label="Webhook URL"
+          type="password"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          autoComplete="new-password"
+          placeholder={editing && channel?.urlSet ? "•••••• (unchanged)" : "https://…"}
+          hint={
+            editing && channel?.urlSet
+              ? "A URL is already stored. Leave blank to keep it, or type a new one to replace it."
+              : "Absolute http(s) endpoint. Stored encrypted; never displayed again."
+          }
+        />
+        <div className="col" style={{ gap: "var(--sp-2)" }}>
+          <span className="text-sm" style={{ fontWeight: 600 }}>
+            Events
+          </span>
+          {EVENT_OPTIONS.map((ev) => (
+            <label key={ev.value} className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={events.includes(ev.value)}
+                onChange={(e) => toggleEvent(ev.value, e.target.checked)}
+              />
+              <span>{ev.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </Modal>
   );
 }
 

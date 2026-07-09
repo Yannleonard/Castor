@@ -3,6 +3,9 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "react-router-dom";
+// Side-effect import: applies the persisted theme (html.dark) at module load,
+// before the first render, so there is no light-to-dark flash.
+import "./lib/themeStore";
 import { router } from "./routes";
 import { AuthProvider } from "./lib/auth";
 import { Toasts } from "./components/Toasts";
