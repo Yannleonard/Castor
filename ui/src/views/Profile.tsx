@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { PageHeader } from "../components/PageHeader";
+import { HelpButton } from "../components/HelpButton";
 import { ActionButton } from "../components/ActionButton";
 import { Modal } from "../components/Modal";
 import { TextField } from "../components/Field";
@@ -23,7 +24,7 @@ export function Profile() {
 
   return (
     <div className="page">
-      <PageHeader title="Profile & security" subtitle="Manage your password and two-factor authentication." />
+      <PageHeader title="Profile & security" subtitle="Manage your password and two-factor authentication." actions={<HelpButton topic="profile" />} />
 
       <div className="card">
         <div className="card-header">

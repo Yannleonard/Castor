@@ -144,6 +144,34 @@ func (s *Server) StartWorkload(w http.ResponseWriter, r *http.Request) {
 	ok2(w)
 }
 
+// PauseWorkload pauses a container (perm docker.container.pause). Non-destructive
+// (freezes processes), so it mirrors StartWorkload: no GuardDestructive.
+func (s *Server) PauseWorkload(w http.ResponseWriter, r *http.Request) {
+	p, wl, ok := s.resolveForMutation(w, r)
+	if !ok {
+		return
+	}
+	if err := p.Pause(r.Context(), wl.ID); err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok2(w)
+}
+
+// UnpauseWorkload unpauses a container (perm docker.container.unpause).
+// Non-destructive, so it mirrors StartWorkload: no GuardDestructive.
+func (s *Server) UnpauseWorkload(w http.ResponseWriter, r *http.Request) {
+	p, wl, ok := s.resolveForMutation(w, r)
+	if !ok {
+		return
+	}
+	if err := p.Unpause(r.Context(), wl.ID); err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok2(w)
+}
+
 // StopWorkload stops a container (perm docker.container.stop). Guarded.
 func (s *Server) StopWorkload(w http.ResponseWriter, r *http.Request) {
 	p, wl, okv := s.resolveForMutation(w, r)

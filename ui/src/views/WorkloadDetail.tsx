@@ -20,6 +20,7 @@ import { OrchestratorBadge } from "../components/OrchestratorBadge";
 import { ProtectedTag } from "../components/ProtectedTag";
 import { WorkloadActionButtons } from "../components/WorkloadActionButtons";
 import { ActionButton } from "../components/ActionButton";
+import { HelpButton } from "../components/HelpButton";
 import {
   IconRefresh,
   IconWorkloads,
@@ -164,6 +165,7 @@ export function WorkloadDetail() {
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
+            <HelpButton topic="terminal" />
           </div>
         }
       />

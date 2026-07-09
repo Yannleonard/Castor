@@ -13,6 +13,7 @@ import { OrchestratorBadge } from "../components/OrchestratorBadge";
 import { LoadingFill } from "../components/Spinner";
 import { EmptyState } from "../components/EmptyState";
 import { ActionButton } from "../components/ActionButton";
+import { HelpButton } from "../components/HelpButton";
 import { IconHosts, IconRefresh, IconExternal } from "../components/icons";
 import type { Capability, HostSummaryEntry, ProviderInfo } from "../lib/types";
 
@@ -31,9 +32,12 @@ export function Hosts() {
         title="Hosts"
         subtitle="Connected engines and the orchestrators they expose."
         actions={
-          <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => hostsQ.refetch()}>
-            <IconRefresh size={16} />
-          </ActionButton>
+          <div className="row">
+            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => hostsQ.refetch()}>
+              <IconRefresh size={16} />
+            </ActionButton>
+            <HelpButton topic="dashboard" />
+          </div>
         }
       />
 

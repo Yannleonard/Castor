@@ -758,6 +758,79 @@ li { list-style: none; }
   color: var(--text-link);
 }
 
+/* one-line summary under the panel title */
+.help-summary {
+  font-size: var(--fs-md);
+  color: var(--text-secondary);
+  line-height: var(--lh-base);
+  margin: 0 0 var(--sp-2);
+}
+.help-summary strong { color: var(--text-primary); font-weight: var(--fw-semibold); }
+.help-summary code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.05em 0.35em;
+}
+
+/* read-only multi-line snippet (YAML / config) */
+.help-code {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--bg-inset);
+  color: #DCE6F2;
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  overflow-x: auto;
+}
+.help-code code { font-family: inherit; color: inherit; background: none; }
+
+/* attention callout inside a section */
+.help-callout {
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  border: 1px solid transparent;
+}
+.help-callout strong { font-weight: var(--fw-semibold); }
+.help-callout code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: rgba(0,0,0,0.05);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+}
+.help-callout--info {
+  background: var(--info-bg);
+  border-color: rgba(36,150,237,0.28);
+  color: var(--text-secondary);
+}
+.help-callout--warn {
+  background: var(--warning-bg);
+  border-color: var(--warning);
+  color: #7a4c00;
+}
+
+/* inline "Need help?" text button (for empty states) */
+.help-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-link);
+}
+.help-link-btn:hover { text-decoration: underline; }
+
 /* guided empty-state hint (shown above empty Swarm/K8s tables) */
 .help-guide {
   display: flex;

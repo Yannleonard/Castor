@@ -29,6 +29,7 @@ import { ActionButton } from "../components/ActionButton";
 import { CapabilityGate } from "../components/CapabilityGate";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
 import { Modal } from "../components/Modal";
+import { HelpButton } from "../components/HelpButton";
 import { IconVolumes, IconRefresh, IconPlus, IconTrash } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import type { PVInfo, PVCInfo, StorageClassInfo } from "../lib/types";
@@ -245,6 +246,7 @@ export function K8sStorage() {
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={refetch}>
               <IconRefresh size={16} />
             </ActionButton>
+            <HelpButton topic="kubernetes" />
           </div>
         }
       />

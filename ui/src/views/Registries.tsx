@@ -14,6 +14,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useRegistries } from "../lib/hooks";
 import { PageHeader } from "../components/PageHeader";
+import { HelpButton } from "../components/HelpButton";
 import { DataTable, type Column } from "../components/DataTable";
 import { LoadingFill } from "../components/Spinner";
 import { ActionButton } from "../components/ActionButton";
@@ -179,6 +180,7 @@ export function Registries() {
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => registriesQ.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
+            <HelpButton topic="registries" />
           </div>
         }
       />

@@ -19,6 +19,7 @@ import { ProtectedTag } from "../components/ProtectedTag";
 import { WorkloadActionButtons } from "../components/WorkloadActionButtons";
 import { LoadingFill } from "../components/Spinner";
 import { ActionButton } from "../components/ActionButton";
+import { HelpButton } from "../components/HelpButton";
 import { IconRefresh, IconSearch, IconWorkloads } from "../components/icons";
 import { cleanName, shortId, timeAgo } from "../lib/format";
 import type { OrchestratorKind, Workload, WorkloadState } from "../lib/types";
@@ -174,9 +175,12 @@ export function Workloads() {
         title="Workloads"
         subtitle="Every container, service-task and pod across your orchestrators."
         actions={
-          <ActionButton variant="ghost" iconOnly tooltip="Refresh" onClick={() => query.refetch()} aria-label="Refresh">
-            <IconRefresh size={16} />
-          </ActionButton>
+          <div className="row">
+            <ActionButton variant="ghost" iconOnly tooltip="Refresh" onClick={() => query.refetch()} aria-label="Refresh">
+              <IconRefresh size={16} />
+            </ActionButton>
+            <HelpButton topic="workloads" />
+          </div>
         }
       />
 

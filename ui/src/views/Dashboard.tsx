@@ -29,6 +29,7 @@ import { useSelectedHost } from "../lib/hostStore";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { PageHeader } from "../components/PageHeader";
+import { HelpButton } from "../components/HelpButton";
 import { OrchestratorBadge } from "../components/OrchestratorBadge";
 import { StatusDot } from "../components/StatusDot";
 import { LoadingFill } from "../components/Spinner";
@@ -135,6 +136,7 @@ export function Dashboard() {
       <PageHeader
         title={`Welcome back, ${user?.username ?? ""}`.trim()}
         subtitle={`Live analytics for ${hostId}${m?.engine.version ? ` · Docker ${m.engine.version}` : ""}`}
+        actions={<HelpButton topic="dashboard" />}
       />
 
       {anyDegraded ? (

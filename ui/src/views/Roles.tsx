@@ -11,6 +11,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useRoles, usePermissions } from "../lib/hooks";
 import { PageHeader } from "../components/PageHeader";
+import { HelpButton } from "../components/HelpButton";
 import { DataTable, type Column } from "../components/DataTable";
 import { LoadingFill } from "../components/Spinner";
 import { ActionButton } from "../components/ActionButton";
@@ -121,6 +122,7 @@ export function Roles() {
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => rolesQ.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
+            <HelpButton topic="rbac" />
           </div>
         }
       />

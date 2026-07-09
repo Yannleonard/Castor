@@ -25,6 +25,12 @@ func (ReadOnlyMutations) Restart(context.Context, string, *time.Duration) error 
 	return ErrUnsupported
 }
 
+// Pause always returns ErrUnsupported.
+func (ReadOnlyMutations) Pause(context.Context, string) error { return ErrUnsupported }
+
+// Unpause always returns ErrUnsupported.
+func (ReadOnlyMutations) Unpause(context.Context, string) error { return ErrUnsupported }
+
 // Remove always returns ErrUnsupported.
 func (ReadOnlyMutations) Remove(context.Context, string, RemoveOptions) error { return ErrUnsupported }
 

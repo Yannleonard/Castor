@@ -25,12 +25,16 @@ var permissionCatalog = []string{
 	"docker.image.delete",
 	// docker networks
 	"docker.network.read",
+	"docker.network.create",
 	"docker.network.delete",
 	// docker volumes
 	"docker.volume.read",
+	"docker.volume.create",
 	"docker.volume.remove",
 	"docker.volume.backup",
 	"docker.volume.restore",
+	// docker system (prune unused images/containers/volumes/networks)
+	"docker.system.prune",
 	// swarm (read + service/node lifecycle writes)
 	"swarm.service.read",
 	"swarm.task.read",

@@ -24,6 +24,30 @@ func (s *Server) Volumes(w http.ResponseWriter, r *http.Request) {
 	ok2json(w, vols)
 }
 
+// CreateVolume creates a Docker volume (perm docker.volume.create; operator).
+// Body: {name (required), driver? (default local), labels?}. Returns the created
+// volume summary.
+func (s *Server) CreateVolume(w http.ResponseWriter, r *http.Request) {
+	var spec docker.VolumeSpec
+	if err := decodeJSON(w, r, &spec); err != nil {
+		authz.WriteError(w, r, err)
+		return
+	}
+	spec.Name = strings.TrimSpace(spec.Name)
+	if !validVolumeName(spec.Name) {
+		authz.WriteError(w, r, authz.Errorf(authz.ErrValidation, "Invalid volume name."))
+		return
+	}
+	authz.SetAuditTarget(r, "volume", spec.Name, spec.Name)
+
+	info, err := s.manager.Docker().CreateVolume(r.Context(), spec)
+	if err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok(w, info)
+}
+
 // DeleteVolume removes a volume by name (perm docker.volume.remove; admin).
 // GuardDestructive runs: the volume backing Castor's /data is self-protected
 // (409). force removes a volume still referenced.

@@ -17,6 +17,7 @@ import { ActionButton } from "../components/ActionButton";
 import { CapabilityGate } from "../components/CapabilityGate";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
 import { ProtectedTag } from "../components/ProtectedTag";
+import { HelpButton } from "../components/HelpButton";
 import { IconVolumes, IconTrash, IconRefresh, IconSearch, IconDownload } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { timeAgo } from "../lib/format";
@@ -165,9 +166,12 @@ export function Volumes() {
         title="Volumes"
         subtitle="Docker volumes on this host."
         actions={
-          <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
-            <IconRefresh size={16} />
-          </ActionButton>
+          <div className="row">
+            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
+              <IconRefresh size={16} />
+            </ActionButton>
+            <HelpButton topic="volumes" />
+          </div>
         }
       />
 

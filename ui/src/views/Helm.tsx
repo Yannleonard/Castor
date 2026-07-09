@@ -29,6 +29,7 @@ import {
 import { useSelectedHost } from "../lib/hostStore";
 import { can } from "../lib/rbac";
 import { PageHeader } from "../components/PageHeader";
+import { HelpButton } from "../components/HelpButton";
 import { DataTable, type Column } from "../components/DataTable";
 import { LoadingFill } from "../components/Spinner";
 import { ActionButton } from "../components/ActionButton";
@@ -429,6 +430,7 @@ export function Helm() {
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={refetch}>
               <IconRefresh size={16} />
             </ActionButton>
+            <HelpButton topic="helm" />
           </div>
         }
       />

@@ -11,6 +11,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useSettings } from "../lib/hooks";
 import { PageHeader } from "../components/PageHeader";
+import { HelpButton } from "../components/HelpButton";
 import { LoadingFill } from "../components/Spinner";
 import { ActionButton } from "../components/ActionButton";
 import { IconPlus, IconClose, IconShield } from "../components/icons";
@@ -77,9 +78,12 @@ export function Settings() {
         title="Settings"
         subtitle="Instance security and behavior."
         actions={
-          <ActionButton variant="primary" disabled={!canUpdate || !dirty} loading={busy} tooltip={canUpdate ? undefined : "Requires settings.update"} onClick={save}>
-            Save changes
-          </ActionButton>
+          <div className="row">
+            <ActionButton variant="primary" disabled={!canUpdate || !dirty} loading={busy} tooltip={canUpdate ? undefined : "Requires settings.update"} onClick={save}>
+              Save changes
+            </ActionButton>
+            <HelpButton topic="settings" />
+          </div>
         }
       />
 

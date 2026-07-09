@@ -16,6 +16,7 @@ import { useAuth } from "../lib/auth";
 import { useBackups, useVolumes, useCapabilityLookup } from "../lib/hooks";
 import { useSelectedHost } from "../lib/hostStore";
 import { PageHeader } from "../components/PageHeader";
+import { HelpButton } from "../components/HelpButton";
 import { DataTable, type Column } from "../components/DataTable";
 import { LoadingFill } from "../components/Spinner";
 import { Modal } from "../components/Modal";
@@ -239,9 +240,12 @@ export function Backups() {
         title="Backups"
         subtitle="Volume tar archives. Create a backup from the Volumes page; restore or download here."
         actions={
-          <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
-            <IconRefresh size={16} />
-          </ActionButton>
+          <div className="row">
+            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
+              <IconRefresh size={16} />
+            </ActionButton>
+            <HelpButton topic="volumes" />
+          </div>
         }
       />
 
