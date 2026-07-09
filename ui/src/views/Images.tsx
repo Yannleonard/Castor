@@ -15,6 +15,7 @@ import { DataTable, type Column } from "../components/DataTable";
 import { LoadingFill } from "../components/Spinner";
 import { Modal } from "../components/Modal";
 import { ActionButton } from "../components/ActionButton";
+import { HelpButton } from "../components/HelpButton";
 import { CapabilityGate } from "../components/CapabilityGate";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
 import { TextField } from "../components/Field";
@@ -158,6 +159,7 @@ export function Images() {
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
+            <HelpButton topic="images" />
           </div>
         }
       />

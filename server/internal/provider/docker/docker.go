@@ -121,9 +121,9 @@ func (p *DockerProvider) ID() string { return p.id }
 // Capabilities returns the full Docker capability set (read + write).
 func (p *DockerProvider) Capabilities() provider.Capability {
 	return provider.CapList | provider.CapInspect | provider.CapLogs | provider.CapStats |
-		provider.CapStart | provider.CapStop | provider.CapRestart | provider.CapRemove |
-		provider.CapExec | provider.CapEvents | provider.CapImages | provider.CapNetworks |
-		provider.CapVolumes
+		provider.CapStart | provider.CapStop | provider.CapRestart | provider.CapPause |
+		provider.CapRemove | provider.CapExec | provider.CapEvents | provider.CapImages |
+		provider.CapNetworks | provider.CapVolumes
 }
 
 // Ping verifies daemon connectivity.
@@ -174,6 +174,23 @@ func (p *DockerProvider) InspectWorkload(ctx context.Context, id string) (*provi
 // Start starts a stopped container.
 func (p *DockerProvider) Start(ctx context.Context, id string) error {
 	if err := p.cli.ContainerStart(ctx, id, container.StartOptions{}); err != nil {
+		return mapNotFound(err)
+	}
+	return nil
+}
+
+// Pause suspends all processes in a running container (SIGSTOP via the freezer
+// cgroup). Not-found is mapped like Start.
+func (p *DockerProvider) Pause(ctx context.Context, id string) error {
+	if err := p.cli.ContainerPause(ctx, id); err != nil {
+		return mapNotFound(err)
+	}
+	return nil
+}
+
+// Unpause resumes a paused container's processes. Not-found is mapped like Start.
+func (p *DockerProvider) Unpause(ctx context.Context, id string) error {
+	if err := p.cli.ContainerUnpause(ctx, id); err != nil {
 		return mapNotFound(err)
 	}
 	return nil

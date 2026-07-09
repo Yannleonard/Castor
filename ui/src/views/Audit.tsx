@@ -13,6 +13,7 @@ import { LoadingFill } from "../components/Spinner";
 import { ActionButton } from "../components/ActionButton";
 import { Modal } from "../components/Modal";
 import { StatusDot } from "../components/StatusDot";
+import { HelpButton } from "../components/HelpButton";
 import { IconAudit, IconRefresh, IconSearch, IconInspect } from "../components/icons";
 import { formatDateTime, prettyJson, timeAgo } from "../lib/format";
 import type { AuditEntry, AuditResult } from "../lib/types";
@@ -147,9 +148,12 @@ export function Audit() {
         title="Audit log"
         subtitle="Append-only record of every mutating action and access decision."
         actions={
-          <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
-            <IconRefresh size={16} />
-          </ActionButton>
+          <div className="row">
+            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
+              <IconRefresh size={16} />
+            </ActionButton>
+            <HelpButton topic="audit" />
+          </div>
         }
       />
 

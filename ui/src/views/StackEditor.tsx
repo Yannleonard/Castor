@@ -25,6 +25,7 @@ import { useStackDetail, qk } from "../lib/hooks";
 import { useSelectedHost } from "../lib/hostStore";
 import { isHostBindSource, isAlwaysBlockedHostPath } from "../lib/mounts";
 import { PageHeader } from "../components/PageHeader";
+import { HelpButton } from "../components/HelpButton";
 import { LoadingFill } from "../components/Spinner";
 import { ActionButton } from "../components/ActionButton";
 import { TextField, SelectField } from "../components/Field";
@@ -265,9 +266,12 @@ export function StackEditor() {
           )
         }
         actions={
-          <ActionButton variant="ghost" onClick={() => navigate("/stacks")}>
-            Back to stacks
-          </ActionButton>
+          <div className="row">
+            <ActionButton variant="ghost" onClick={() => navigate("/stacks")}>
+              Back to stacks
+            </ActionButton>
+            <HelpButton topic="stacks" />
+          </div>
         }
       />
 

@@ -19,6 +19,7 @@ import { LoadingFill } from "../components/Spinner";
 import { ActionButton } from "../components/ActionButton";
 import { CapabilityGate } from "../components/CapabilityGate";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
+import { HelpButton } from "../components/HelpButton";
 import { StatusDot } from "../components/StatusDot";
 import { IconStacks, IconPlus, IconTrash, IconRefresh, IconSearch } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
@@ -172,6 +173,7 @@ export function Stacks() {
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
+            <HelpButton topic="stacks" />
           </div>
         }
       />

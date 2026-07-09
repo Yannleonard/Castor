@@ -129,6 +129,10 @@ func (s *Server) mountWorkloadRoutes(pr chi.Router) {
 		Post("/hosts/{hostID}/workloads/{id}/stop", s.StopWorkload)
 	pr.With(az.AuditWrap("docker.container.restart"), az.RequireAAL, az.RequirePermission("docker.container.restart", scopeFromHost)).
 		Post("/hosts/{hostID}/workloads/{id}/restart", s.RestartWorkload)
+	pr.With(az.AuditWrap("docker.container.pause"), az.RequireAAL, az.RequirePermission("docker.container.pause", scopeFromHost)).
+		Post("/hosts/{hostID}/workloads/{id}/pause", s.PauseWorkload)
+	pr.With(az.AuditWrap("docker.container.unpause"), az.RequireAAL, az.RequirePermission("docker.container.unpause", scopeFromHost)).
+		Post("/hosts/{hostID}/workloads/{id}/unpause", s.UnpauseWorkload)
 	pr.With(az.AuditWrap("docker.container.remove"), az.RequireAAL, az.RequirePermission("docker.container.remove", scopeFromHost)).
 		Delete("/hosts/{hostID}/workloads/{id}", s.RemoveWorkload)
 
@@ -152,13 +156,22 @@ func (s *Server) mountResourceRoutes(pr chi.Router) {
 
 	pr.With(az.RequirePermission("docker.network.read", scopeFromHost)).
 		Get("/hosts/{hostID}/networks", s.Networks)
+	pr.With(az.AuditWrap("docker.network.create"), az.RequireAAL, az.RequirePermission("docker.network.create", scopeFromHost)).
+		Post("/hosts/{hostID}/networks", s.CreateNetwork)
 	pr.With(az.AuditWrap("docker.network.delete"), az.RequireAAL, az.RequirePermission("docker.network.delete", scopeFromHost)).
 		Delete("/hosts/{hostID}/networks/{id}", s.DeleteNetwork)
 
 	pr.With(az.RequirePermission("docker.volume.read", scopeFromHost)).
 		Get("/hosts/{hostID}/volumes", s.Volumes)
+	pr.With(az.AuditWrap("docker.volume.create"), az.RequireAAL, az.RequirePermission("docker.volume.create", scopeFromHost)).
+		Post("/hosts/{hostID}/volumes", s.CreateVolume)
 	pr.With(az.AuditWrap("docker.volume.remove"), az.RequireAAL, az.RequirePermission("docker.volume.remove", scopeFromHost)).
 		Delete("/hosts/{hostID}/volumes/{name}", s.DeleteVolume)
+
+	// System prune: reclaim unused images/containers/volumes/networks. Host-scoped,
+	// gated by docker.system.prune, audited like the other resource mutations.
+	pr.With(az.AuditWrap("docker.system.prune"), az.RequireAAL, az.RequirePermission("docker.system.prune", scopeFromHost)).
+		Post("/hosts/{hostID}/prune", s.Prune)
 }
 
 // mountBackupRoutes wires Docker volume backup/restore (read list + gated

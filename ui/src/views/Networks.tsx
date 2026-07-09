@@ -14,6 +14,7 @@ import { LoadingFill } from "../components/Spinner";
 import { ActionButton } from "../components/ActionButton";
 import { CapabilityGate } from "../components/CapabilityGate";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
+import { HelpButton } from "../components/HelpButton";
 import { IconNetworks, IconTrash, IconRefresh, IconSearch } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { shortId } from "../lib/format";
@@ -115,9 +116,12 @@ export function Networks() {
         title="Networks"
         subtitle="Docker networks on this host."
         actions={
-          <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
-            <IconRefresh size={16} />
-          </ActionButton>
+          <div className="row">
+            <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
+              <IconRefresh size={16} />
+            </ActionButton>
+            <HelpButton topic="networks" />
+          </div>
         }
       />
 

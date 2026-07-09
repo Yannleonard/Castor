@@ -39,6 +39,7 @@ import { OrchestratorBadge } from "../components/OrchestratorBadge";
 import { ActionButton } from "../components/ActionButton";
 import { CapabilityGate } from "../components/CapabilityGate";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
+import { HelpButton } from "../components/HelpButton";
 import { Modal } from "../components/Modal";
 import { IconKube, IconRefresh, IconPlus, IconTrash } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
@@ -489,6 +490,7 @@ export function K8sCluster() {
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={refetch}>
               <IconRefresh size={16} />
             </ActionButton>
+            <HelpButton topic="kubernetes" />
           </div>
         }
       />

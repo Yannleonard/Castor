@@ -65,6 +65,16 @@ var operatorExtraPermissions = []string{
 	// remove operate on EXISTING containers and stay with operator.
 	"docker.image.pull",
 	"docker.volume.backup",
+	// Creating networks/volumes is normal day-to-day exploitation (unlike
+	// container.create, which is the host-mount / privilege-escalation vector and
+	// stays admin-only). Deleting them (network.delete / volume.remove) is
+	// destructive and stays admin-only.
+	"docker.network.create",
+	"docker.volume.create",
+	// Prune reclaims unused images/containers/volumes/networks — a routine
+	// housekeeping op granted to operators (it only touches dangling/unused
+	// resources, never in-use ones).
+	"docker.system.prune",
 	// Swarm service day-to-day ops: scale + update (rolling restart reuses the
 	// update permission). Create/remove and node availability are destructive/
 	// infra-level and stay admin-only (like container.remove).

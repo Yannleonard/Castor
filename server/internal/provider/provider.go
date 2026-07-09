@@ -112,6 +112,10 @@ type Provider interface {
 	Stop(ctx context.Context, id string, timeout *time.Duration) error
 	// Restart restarts a workload, with an optional graceful timeout.
 	Restart(ctx context.Context, id string, timeout *time.Duration) error
+	// Pause suspends a running workload's processes.
+	Pause(ctx context.Context, id string) error
+	// Unpause resumes a paused workload's processes.
+	Unpause(ctx context.Context, id string) error
 	// Remove deletes a workload.
 	Remove(ctx context.Context, id string, opts RemoveOptions) error
 

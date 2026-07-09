@@ -20,6 +20,8 @@ const (
 	CapStop
 	// CapRestart — Restart.
 	CapRestart
+	// CapPause — Pause + Unpause.
+	CapPause
 	// CapRemove — Remove.
 	CapRemove
 	// CapExec — Exec.
@@ -52,6 +54,7 @@ var capTokens = []struct {
 	{CapStart, "start"},
 	{CapStop, "stop"},
 	{CapRestart, "restart"},
+	{CapPause, "pause"},
 	{CapRemove, "remove"},
 	{CapExec, "exec"},
 	{CapEvents, "events"},

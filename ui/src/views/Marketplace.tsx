@@ -22,6 +22,7 @@ import { EmptyState } from "../components/EmptyState";
 import { ActionButton } from "../components/ActionButton";
 import { CapabilityGate } from "../components/CapabilityGate";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
+import { HelpButton } from "../components/HelpButton";
 import {
   IconMarketplace,
   IconSearch,
@@ -113,6 +114,7 @@ export function Marketplace() {
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => query.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
+            <HelpButton topic="marketplace" />
           </div>
         }
       />

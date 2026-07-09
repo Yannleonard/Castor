@@ -24,6 +24,7 @@ import { Modal } from "../components/Modal";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
 import { TextField, SelectField } from "../components/Field";
 import { StatusDot } from "../components/StatusDot";
+import { HelpButton } from "../components/HelpButton";
 import { IconShield, IconPlus, IconTrash, IconRefresh, IconRoles } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { timeAgo } from "../lib/format";
@@ -244,6 +245,7 @@ export function Authentication() {
             <ActionButton variant="ghost" iconOnly tooltip="Refresh" aria-label="Refresh" onClick={() => providersQ.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
+            <HelpButton topic="authentication" />
           </div>
         }
       />
