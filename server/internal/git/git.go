@@ -290,7 +290,8 @@ func looksLikeHash(ref string) bool {
 		return false
 	}
 	for _, c := range ref {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+		isHex := (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+		if !isHex {
 			return false
 		}
 	}

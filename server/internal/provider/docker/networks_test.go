@@ -191,8 +191,8 @@ func TestNetworkSentinelsWrap(t *testing.T) {
 		if !errors.Is(e, provider.ErrConflict) {
 			t.Errorf("%v must wrap ErrConflict", e)
 		}
-		if errors.Is(provider.ErrConflict, e) {
-			t.Errorf("generic ErrConflict must not match %v", e)
+		if e == provider.ErrConflict {
+			t.Errorf("specific sentinel %v must not be the bare ErrConflict", e)
 		}
 	}
 	if !errors.Is(provider.ErrNotConnected, provider.ErrNotFound) {
