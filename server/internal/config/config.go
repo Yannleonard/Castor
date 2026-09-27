@@ -6,6 +6,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -49,6 +51,37 @@ type Config struct {
 	// database (the same volume operators already mount).
 	DataDir string
 
+	// --- TLS (see the tlsmgr package) ---
+	//
+	// The environment only sets the DEFAULT mode and the listen addresses. The
+	// mode and the ACME settings are editable in the UI and persisted in the
+	// settings table ("tls.mode", "tls.acme.*"); when present they take
+	// precedence over the env values (resolved at startup in main.go).
+
+	// TLSMode is the default TLS mode: "self-signed" (default), "custom", "acme"
+	// or "off". Env CASTOR_TLS_MODE. "off" is the pre-TLS behavior (plain HTTP on
+	// HTTPAddr, no redirect) for deployments behind a TLS-terminating proxy.
+	TLSMode string
+
+	// HTTPSAddr is the HTTPS listen address when TLS is active. Default ":8443".
+	// Env CASTOR_HTTPS_ADDR. Ignored when the effective mode is "off".
+	HTTPSAddr string
+
+	// TLSDir holds the self-signed key pair and the ACME cache. Env CASTOR_TLS_DIR;
+	// default <DataDir>/tls. Created 0700 by the TLS manager.
+	TLSDir string
+
+	// HTTPRedirect, when TLS is active, makes the plain-HTTP listener answer
+	// everything except /api/v1/healthz and ACME HTTP-01 challenges with a 308 to
+	// the HTTPS origin. Env CASTOR_HTTP_REDIRECT; default true. When false the
+	// HTTP listener serves the full application as well (dual HTTP + HTTPS).
+	HTTPRedirect bool
+
+	// TLSSelfSignedHosts are extra SANs (DNS names or IPs) added to the generated
+	// self-signed certificate on top of localhost, 127.0.0.1, ::1 and the
+	// container hostname. Env CASTOR_TLS_SELF_SIGNED_HOSTS (comma-separated).
+	TLSSelfSignedHosts []string
+
 	// Kubeconfig is the path to a kubeconfig file for read-only K8s. Empty means
 	// the kube provider is disabled.
 	Kubeconfig string
@@ -77,6 +110,28 @@ type Config struct {
 	SessionTTL time.Duration
 	// SessionAbsoluteTTL is the hard cap on session lifetime. Default 24h.
 	SessionAbsoluteTTL time.Duration
+}
+
+// TLS modes accepted by CASTOR_TLS_MODE and the persisted "tls.mode" setting.
+const (
+	// TLSModeSelfSigned serves a locally generated, persisted self-signed cert.
+	TLSModeSelfSigned = "self-signed"
+	// TLSModeCustom serves an operator-imported certificate (DigiCert, Thawte,
+	// an internal CA, ...) stored sealed in the database.
+	TLSModeCustom = "custom"
+	// TLSModeACME obtains and renews a certificate from Let's Encrypt (ACME).
+	TLSModeACME = "acme"
+	// TLSModeOff disables the HTTPS listener entirely (plain HTTP only).
+	TLSModeOff = "off"
+)
+
+// IsValidTLSMode reports whether mode is one of the supported TLS modes.
+func IsValidTLSMode(mode string) bool {
+	switch mode {
+	case TLSModeSelfSigned, TLSModeCustom, TLSModeACME, TLSModeOff:
+		return true
+	}
+	return false
 }
 
 // errSecretKey is returned by Validate when CASTOR_SECRET_KEY is unset or does
@@ -123,6 +178,11 @@ func Load() *Config {
 		PublicURL:              strings.TrimRight(strings.TrimSpace(os.Getenv("CASTOR_PUBLIC_URL")), "/"),
 		DBPath:                 envStr("CASTOR_DB_PATH", "/data/castor.db"),
 		DataDir:                strings.TrimSpace(os.Getenv("CASTOR_DATA_DIR")),
+		TLSMode:                strings.ToLower(strings.TrimSpace(envStr("CASTOR_TLS_MODE", TLSModeSelfSigned))),
+		HTTPSAddr:              envStr("CASTOR_HTTPS_ADDR", ":8443"),
+		TLSDir:                 strings.TrimSpace(os.Getenv("CASTOR_TLS_DIR")),
+		HTTPRedirect:           envBool("CASTOR_HTTP_REDIRECT", true),
+		TLSSelfSignedHosts:     envList("CASTOR_TLS_SELF_SIGNED_HOSTS"),
 		Kubeconfig:             os.Getenv("CASTOR_KUBECONFIG"),
 		SelfContainerID:        os.Getenv("CASTOR_SELF_CONTAINER_ID"),
 		AllowedOrigins:         envList("CASTOR_ALLOWED_ORIGINS"),
@@ -141,6 +201,11 @@ func Load() *Config {
 	if c.DataDir == "" {
 		c.DataDir = filepath.Dir(c.DBPath)
 	}
+	// The TLS material (self-signed pair, ACME cache) lives next to the database
+	// by default, on the volume operators already mount.
+	if c.TLSDir == "" {
+		c.TLSDir = filepath.Join(c.DataDir, "tls")
+	}
 	// If DOCKER_HOST is explicitly provided via CASTOR_DOCKER_HOST, export it so
 	// the Docker SDK's FromEnv picks it up.
 	if c.DockerHost != "" {
@@ -149,13 +214,58 @@ func Load() *Config {
 	return c
 }
 
-// Validate refuses to start if the secret key is missing or wrong length.
+// Validate refuses to start if the secret key is missing or wrong length, if
+// the TLS mode is unknown, or if a listen address is malformed. When TLS is on
+// by default, the HTTP and HTTPS listeners must not share a port.
 func (c *Config) Validate() error {
 	if len(c.SecretKey) != 32 {
 		return errSecretKey
 	}
+	if !IsValidTLSMode(c.TLSMode) {
+		return fmt.Errorf("config: CASTOR_TLS_MODE %q is not one of self-signed, custom, acme, off", c.TLSMode)
+	}
+	if err := validateListenAddr("CASTOR_HTTP_ADDR", c.HTTPAddr); err != nil {
+		return err
+	}
+	if err := validateListenAddr("CASTOR_HTTPS_ADDR", c.HTTPSAddr); err != nil {
+		return err
+	}
+	if c.TLSMode != TLSModeOff {
+		return c.ValidateTLSListeners()
+	}
 	return nil
 }
+
+// ValidateTLSListeners checks that the HTTP and HTTPS listeners use distinct
+// ports. Validate applies it when the env default enables TLS; main.go applies
+// it again once the persisted tls.mode setting (which may enable TLS despite an
+// env default of "off") is known.
+func (c *Config) ValidateTLSListeners() error {
+	_, hp, _ := net.SplitHostPort(c.HTTPAddr)
+	_, sp, _ := net.SplitHostPort(c.HTTPSAddr)
+	if hp == sp {
+		return fmt.Errorf("config: CASTOR_HTTP_ADDR and CASTOR_HTTPS_ADDR both use port %s; TLS needs two distinct ports (or CASTOR_TLS_MODE=off)", hp)
+	}
+	return nil
+}
+
+// validateListenAddr checks that addr is a "host:port" (host may be empty)
+// with a numeric port in range, as net.Listen expects.
+func validateListenAddr(name, addr string) error {
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("config: %s %q must be host:port (e.g. \":8080\"): %w", name, addr, err)
+	}
+	n, err := strconv.Atoi(port)
+	if err != nil || n < 1 || n > 65535 {
+		return fmt.Errorf("config: %s %q has an invalid port", name, addr)
+	}
+	return nil
+}
+
+// TLSEnabled reports whether the configured default mode starts the HTTPS
+// listener. The persisted setting may override the mode; main.go resolves that.
+func (c *Config) TLSEnabled() bool { return c.TLSMode != TLSModeOff }
 
 // KubeEnabled reports whether a kubeconfig path was provided.
 func (c *Config) KubeEnabled() bool { return strings.TrimSpace(c.Kubeconfig) != "" }

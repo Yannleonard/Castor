@@ -29,6 +29,13 @@ export const errorsDict = defineDict({
     invalid_network_config: "The network configuration is invalid. Check the subnet (CIDR notation, e.g. 10.10.0.0/24), that the gateway and IP range fall inside it, and any static address.",
     alias_unsupported: "Network aliases are not supported on the default bridge network. Connect the container to a user-defined network to give it aliases, or leave the aliases empty.",
     ip_pool_exhausted: "This network has no free address left in its subnet. Disconnect containers that no longer need it, or create a network with a larger subnet.",
+    // HTTPS / TLS settings (authz/errors.go tls_* + acme_error codes).
+    tls_invalid_certificate: "The certificate could not be imported. Check that the certificate and key are PEM, that the key is unencrypted (RSA 2048 bits or more, or EC), that the certificate is already valid, and that each part is under 64 KiB.",
+    tls_key_mismatch: "The private key does not belong to this certificate. Import the key that was generated with the certificate signing request (CSR) for this certificate.",
+    tls_certificate_expired: "This certificate has expired. Request a renewed certificate from your authority and import that one instead.",
+    tls_no_custom_certificate: "No custom certificate is installed. Import a certificate first (Import a certificate), then select the custom mode.",
+    tls_managed_by_env: "HTTPS is managed by the environment (CASTOR_TLS_MODE=off): the certificate settings cannot be changed from here. Change the environment and restart Castor to enable HTTPS.",
+    acme_error: "Let's Encrypt could not issue the certificate. Check that every domain resolves publicly to this host, that ports 80 and 443 reach Castor, then retry — the CA's answer is shown under Last error.",
   },
   fr: {
     name_conflict: "Un conteneur portant ce nom existe déjà. Choisissez un autre nom, ou supprimez d'abord l'existant.",
@@ -51,5 +58,12 @@ export const errorsDict = defineDict({
     invalid_network_config: "La configuration réseau est invalide. Vérifiez le sous-réseau (notation CIDR, ex. 10.10.0.0/24), que la passerelle et la plage d'IP s'y trouvent bien, ainsi que toute adresse statique.",
     alias_unsupported: "Les alias réseau ne sont pas pris en charge sur le réseau bridge par défaut. Connectez le conteneur à un réseau défini par l'utilisateur pour lui donner des alias, ou laissez les alias vides.",
     ip_pool_exhausted: "Ce réseau n'a plus aucune adresse libre dans son sous-réseau. Déconnectez les conteneurs qui n'en ont plus besoin, ou créez un réseau avec un sous-réseau plus grand.",
+    // Paramètres HTTPS / TLS (codes tls_* + acme_error de authz/errors.go).
+    tls_invalid_certificate: "Le certificat n'a pas pu être importé. Vérifiez que le certificat et la clé sont au format PEM, que la clé est non chiffrée (RSA 2048 bits ou plus, ou EC), que le certificat est déjà valide, et que chaque partie fait moins de 64 Kio.",
+    tls_key_mismatch: "La clé privée ne correspond pas à ce certificat. Importez la clé générée avec la demande de signature (CSR) de ce certificat.",
+    tls_certificate_expired: "Ce certificat a expiré. Demandez un certificat renouvelé à votre autorité et importez celui-ci à la place.",
+    tls_no_custom_certificate: "Aucun certificat personnalisé n'est installé. Importez d'abord un certificat (Importer un certificat), puis sélectionnez le mode personnalisé.",
+    tls_managed_by_env: "Le HTTPS est géré par l'environnement (CASTOR_TLS_MODE=off) : les réglages de certificat ne peuvent pas être modifiés ici. Modifiez l'environnement et redémarrez Castor pour activer le HTTPS.",
+    acme_error: "Let's Encrypt n'a pas pu émettre le certificat. Vérifiez que chaque domaine résout publiquement vers cet hôte, que les ports 80 et 443 atteignent Castor, puis réessayez — la réponse de l'AC est affichée sous Dernière erreur.",
   },
 });

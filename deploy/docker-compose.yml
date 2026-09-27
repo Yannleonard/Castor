@@ -1,38 +1,15 @@
-# =============================================================================
-# Castor — one-command deployment (the "< 2 minutes" path).
+# Castor — one-command deployment.
 #
-#   cd <repo>
-#   export CASTOR_SECRET_KEY=$(openssl rand -hex 32)        # 64 hex chars = 32 bytes
+#   export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
 #   docker compose -f deploy/docker-compose.yml up -d
-#   # open http://localhost:8080  -> first-run "create admin" (bootstrap) screen
 #
-# No DOCKER_GID / group_add is needed: Castor's entrypoint starts as root only to
-# read the mounted socket's group, then drops to the non-root uid 65532 WITH that
-# group and re-execs the server.
-#
-# A copy of this file is mirrored at the repo root (docker-compose.yml) so that a
-# bare `docker compose up -d` from the repo root also works.
-#
-# SECURITY — read before deploying:
-#   * The Docker socket is mounted read-only (:ro) by default. With :ro, Castor can
-#     list/inspect/logs/stats/events but CANNOT start/stop/restart/remove/exec —
-#     those need write access to the socket. For FULL Docker lifecycle (the V1
-#     promise), change the mount to :rw (see the commented line below) OR put a
-#     scoped docker-socket-proxy in front and point CASTOR_DOCKER_HOST at it.
-#   * Whoever can write to /var/run/docker.sock is effectively root on the host
-#     (ADR-003 §7, T1). Castor's server runs as non-root (uid 65532); the entrypoint
-#     reads the socket's group at startup and drops to that user with the group,
-#     rather than running the server as uid 0.
-#   * The rootfs is read-only; only /data (named volume) and /tmp (tmpfs) are
-#     writable. Castor's own container and the castor-data volume are
-#     self-protected from removal via the UI (ADR-003 §7.4).
-# =============================================================================
+# Then open https://localhost:8443 and create the admin account.
+# A copy of this file lives at the repo root, so `docker compose up -d` works from there too.
 
 services:
   castor:
-    # Pull the published multi-arch image…
     image: ghcr.io/yannleonard/castor:latest
-    # …or build locally instead (uncomment, and comment out `image:` above):
+    # To build locally instead, replace `image:` with:
     # build:
     #   context: ..
     #   dockerfile: Dockerfile
@@ -44,50 +21,58 @@ services:
     restart: unless-stopped
 
     ports:
+      # https://localhost:8443 (UI + API); http://localhost:8080 redirects to HTTPS.
       - "8080:8080"
+      - "8443:8443"
+      # Let's Encrypt: publish the standard ports instead and enable it in
+      # Settings → HTTPS & certificates. Castor is then reached at https://<domain>.
+      # - "80:8080"
+      # - "443:8443"
 
     environment:
-      # REQUIRED. 32-byte key for AES-256-GCM (TOTP secrets) + derived crypto.
-      # Generate exactly: openssl rand -hex 32  (-> 64 hex chars = 32 bytes).
-      # The backend refuses to start if this is unset or not 32 bytes.
+      # Required. Generate with: openssl rand -hex 32
       CASTOR_SECRET_KEY: "${CASTOR_SECRET_KEY:?set CASTOR_SECRET_KEY (openssl rand -hex 32) before compose up}"
       CASTOR_HTTP_ADDR: ":8080"
+      CASTOR_HTTPS_ADDR: ":8443"
+      # Default TLS mode; the mode chosen in Settings takes precedence, except `off`,
+      # which is managed by the environment and cannot be changed from the UI.
+      #   self-signed  generated certificate (default)
+      #   custom       certificate imported in Settings
+      #   acme         Let's Encrypt (public DNS name + ports 80/443)
+      #   off          plain HTTP, for a reverse proxy that terminates TLS
+      CASTOR_TLS_MODE: ${CASTOR_TLS_MODE:-self-signed}
+      # Extra names / IPs (comma-separated) covered by the self-signed certificate.
+      CASTOR_TLS_SELF_SIGNED_HOSTS: ${CASTOR_TLS_SELF_SIGNED_HOSTS:-}
       CASTOR_DB_PATH: "/data/castor.db"
-      # Honor X-Forwarded-Proto / X-Forwarded-For ONLY behind a trusted reverse
-      # proxy that terminates TLS. Leave false when exposed directly.
+      # Set to true only behind a reverse proxy that terminates TLS (with CASTOR_TLS_MODE=off).
       CASTOR_TRUST_PROXY: ${CASTOR_TRUST_PROXY:-false}
-      # Self-protection seed: Castor refuses to stop/remove its OWN container via
-      # the UI. The compose service `container_name` is "castor"; the backend also
-      # resolves its real container id at runtime from /proc/self/cgroup.
+      # Name of this container; Castor never stops or removes itself from the UI.
       CASTOR_SELF_CONTAINER_ID: ${CASTOR_SELF_CONTAINER_ID:-castor}
-      # Optional one-time token to gate the bootstrap endpoint for unattended
-      # installs (leave unset for the interactive first-run screen).
+      # Optional token for unattended first-run setup; leave unset for the interactive screen.
       CASTOR_BOOTSTRAP_TOKEN: ${CASTOR_BOOTSTRAP_TOKEN:-}
 
     volumes:
-      # Docker engine socket. READ-ONLY by default (see SECURITY note above).
-      # For full container lifecycle, switch to the :rw line instead.
+      # Docker socket, read-only by default (list, inspect, logs, stats).
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      # - /var/run/docker.sock:/var/run/docker.sock:rw   # <- full read+write lifecycle
-      # SQLite database + app state. Persists across container recreation.
+      # Full read+write Docker control: use this line instead.
+      # - /var/run/docker.sock:/var/run/docker.sock:rw
+      # Database, settings and TLS material. Back up this volume.
       - castor-data:/data
 
-    # --- T7 container hardening (ADR-003 §7.4) -------------------------------
-    # No group_add: the entrypoint detects the docker socket's group itself.
-    read_only: true                       # read-only root filesystem
+    # Container hardening: read-only root filesystem, no privilege escalation, minimal capabilities.
+    read_only: true
     tmpfs:
-      - /tmp                              # only writable scratch space the binary needs
+      - /tmp
     security_opt:
-      - "no-new-privileges:true"          # no privilege escalation beyond the entrypoint's drop
+      - "no-new-privileges:true"
     cap_drop:
-      - ALL                               # drop everything…
-    cap_add:                              # …except the caps the entrypoint needs to drop
-      - SETUID                            #   root -> uid 65532
-      - SETGID                            #   set the non-root gid + the socket's group
-      - DAC_OVERRIDE                      #   read the root:docker socket during startup
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
 
-    # Mirror the image HEALTHCHECK so compose-aware UIs show health. Distroless
-    # has no shell/curl, so the binary's own subcommand is used.
+    # Same check as the image HEALTHCHECK.
     healthcheck:
       test: ["CMD", "/usr/local/bin/castor", "healthcheck"]
       interval: 15s
@@ -102,6 +87,6 @@ services:
         max-file: "3"
 
 volumes:
-  # Self-protected from UI removal; back this up by copying /data/castor.db.
+  # Persistent data. Back it up by copying /data.
   castor-data:
     name: castor-data

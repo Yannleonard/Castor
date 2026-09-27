@@ -1126,6 +1126,115 @@ export type SettingsPatch = Partial<
   >
 >;
 
+/* ===================== HTTPS / TLS (Settings > HTTPS & certificates) ===================== */
+
+// TlsMode mirrors config.TLSMode*: "self-signed" serves the locally generated
+// certificate (the default), "custom" an operator-imported one, "acme" a Let's
+// Encrypt certificate, "off" no HTTPS listener at all (plain HTTP, e.g. behind
+// a reverse proxy — configured by environment, not from the UI).
+export type TlsMode = "self-signed" | "custom" | "acme" | "off";
+
+// TlsCertificateInfo mirrors tlsmgr.CertInfo: the public description of a
+// certificate — never any key material. source is the TlsMode that produced
+// it; notBefore/notAfter are unix epoch seconds; daysLeft is floored at 0;
+// expired is the server's own verdict (its clock is authoritative over the
+// browser's); fingerprintSha256 is upper-case colon-separated hex (the
+// openssl/browser form); sans lists the DNS names then the IP addresses.
+export interface TlsCertificateInfo {
+  source: TlsMode;
+  subject: string;
+  issuer: string;
+  notBefore: number;
+  notAfter: number;
+  expired: boolean;
+  sans: string[];
+  fingerprintSha256: string;
+  daysLeft: number;
+  selfSigned: boolean;
+}
+
+// TlsAcmeConfig mirrors api.tlsACMEView: the persisted ACME settings plus the
+// outcome of the last issuance. ready is true once a certificate was obtained
+// for this configuration; lastError is "" when none; lastErrorAt/lastIssued
+// are unix epoch seconds, absent until the first attempt.
+export interface TlsAcmeConfig {
+  domains: string[];
+  email: string;
+  staging: boolean;
+  ready: boolean;
+  lastError: string;
+  lastErrorAt?: number;
+  lastIssued?: number;
+}
+
+// TlsStatus mirrors api.tlsSettingsView: the body of GET /settings/tls and of
+// every TLS mutation. mode is the configured mode; effectiveMode is what
+// handshakes actually use ("self-signed" while the configured source has no
+// usable certificate yet, e.g. an ACME issuance still pending). certificate is
+// what visitors currently get (null when TLS is off); custom is the imported
+// certificate whatever the active mode (null when none is installed).
+// restartRequired flips when the configured mode toggles the HTTPS listener
+// relative to what was bound at startup (off <-> on).
+//
+// Mode precedence: CASTOR_TLS_MODE=off forces "off" and the persisted mode is
+// ignored — managedByEnv is then true and every mutation answers 409
+// tls_managed_by_env. Otherwise the persisted mode wins over the environment
+// default; "off" can never be set through the API (422).
+//
+// serving is whether the HTTPS listener is bound; hsts whether the
+// Strict-Transport-Security header (max-age one day) is currently sent, i.e.
+// the request is HTTPS, the effective mode is custom or acme and the served
+// certificate is not expired; publicHttpsUrl is the HTTPS URL to hand out,
+// built with the same rule as the HTTP->HTTPS redirect (request host without
+// a port / on port 80 => https://host, otherwise https://host:<https port>).
+export interface TlsStatus {
+  mode: TlsMode;
+  effectiveMode: TlsMode;
+  managedByEnv: boolean;
+  serving: boolean;
+  hsts: boolean;
+  publicHttpsUrl: string;
+  httpsAddr: string;
+  httpAddr: string;
+  redirect: boolean;
+  restartRequired: boolean;
+  certificate: TlsCertificateInfo | null;
+  custom: TlsCertificateInfo | null;
+  hasCustomCertificate: boolean;
+  acme: TlsAcmeConfig;
+}
+
+// TlsAcmeRequest is the acme block of PUT /settings/tls: fully-qualified
+// hostnames only (no wildcard, no IP), an optional contact e-mail and the
+// staging flag (Let's Encrypt staging CA — untrusted certificates, no rate
+// limit — for a dry run).
+export interface TlsAcmeRequest {
+  domains: string[];
+  email: string;
+  staging: boolean;
+}
+
+// UpdateTlsRequest is the PUT /settings/tls body. acme is applied only when
+// mode is "acme"; omitted there, the persisted ACME settings are reused.
+// "custom" requires an imported certificate (409 tls_no_custom_certificate);
+// "off" is refused (422) — it is set by environment only; any mode is refused
+// with 409 tls_managed_by_env while CASTOR_TLS_MODE=off.
+export interface UpdateTlsRequest {
+  mode: TlsMode;
+  acme?: TlsAcmeRequest;
+}
+
+// ImportCertificateRequest is the POST /settings/tls/certificate body: PEM
+// leaf, the unencrypted PEM private key and an optional PEM chain (the
+// intermediate CA certificates). keyPem is the only place the private key is
+// ever transmitted — it is sealed server-side and never returned, logged or
+// audited. Each part is capped at 64 KiB.
+export interface ImportCertificateRequest {
+  certPem: string;
+  keyPem: string;
+  chainPem?: string;
+}
+
 /* ===================== Backups (volume tar) ===================== */
 
 export type BackupStatus = "pending" | "completed" | "failed";

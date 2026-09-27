@@ -78,6 +78,11 @@ type Deps struct {
 	// (CASTOR_SESSION_ABSOLUTE_TTL, default 24h), measured from created_at. The
 	// sliding TTL is never extended past this cap.
 	SessionAbsoluteTTL time.Duration
+	// TLSEffectiveMode reports the TLS mode in effect on the HTTPS listener
+	// ("off", "self-signed", "custom" or "acme"; see the tlsmgr package). It
+	// gates Strict-Transport-Security in SecurityHeaders. nil is treated as
+	// "off" (Castor does not terminate TLS itself).
+	TLSEffectiveMode func() string
 }
 
 // RequirePermission is the single RBAC choke point. It rejects the request with

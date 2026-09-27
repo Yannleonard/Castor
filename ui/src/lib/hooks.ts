@@ -48,6 +48,7 @@ import type {
   StackDetail,
   StackDiff,
   Template,
+  TlsStatus,
   UpdateStatus,
   UserRecord,
   Workload,
@@ -117,6 +118,7 @@ export const qk = {
   updates: (host: string) => ["updates", host] as const,
   notificationChannels: ["notificationChannels"] as const,
   apiTokens: ["apiTokens"] as const,
+  tls: ["tls"] as const,
 };
 
 const POLL = 8000; // background refresh cadence for live-ish lists
@@ -589,6 +591,21 @@ export function useAPITokens(opts?: Partial<UseQueryOptions<APIToken[]>>) {
   return useQuery<APIToken[]>({
     queryKey: qk.apiTokens,
     queryFn: () => api.apiTokens(),
+    ...opts,
+  });
+}
+
+/**
+ * HTTPS mode + the certificate Castor serves (settings.read; public material
+ * only). A slow 60s poll picks up what changes without a user action: an ACME
+ * issuance finishing in the background, a certificate creeping toward expiry.
+ * TLS mutations return the fresh status — callers set it on qk.tls directly.
+ */
+export function useTlsStatus(opts?: Partial<UseQueryOptions<TlsStatus>>) {
+  return useQuery<TlsStatus>({
+    queryKey: qk.tls,
+    queryFn: () => api.tlsStatus(),
+    refetchInterval: 60_000,
     ...opts,
   });
 }

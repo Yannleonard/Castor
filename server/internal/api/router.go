@@ -513,6 +513,18 @@ func (s *Server) mountAdminRoutes(pr chi.Router) {
 
 	pr.With(az.RequirePermission("settings.read", g)).Get("/settings", s.GetSettings)
 	pr.With(az.AuditWrap("settings.update"), az.RequireAAL, az.RequirePermission("settings.update", g)).Put("/settings", s.UpdateSettings)
+
+	// TLS / HTTPS (tls.go). Reads (status, public certificate download) reuse
+	// settings.read; every change (mode switch, certificate import/removal, ACME
+	// renewal) reuses settings.update and follows the fixed chain AuditWrap
+	// (OUTERMOST) -> RequireAAL -> RequirePermission -> handler. Private keys are
+	// write-only: sealed at rest, never returned by any of these routes.
+	pr.With(az.RequirePermission("settings.read", g)).Get("/settings/tls", s.GetTLSSettings)
+	pr.With(az.AuditWrap("tls.update"), az.RequireAAL, az.RequirePermission("settings.update", g)).Put("/settings/tls", s.UpdateTLSSettings)
+	pr.With(az.RequirePermission("settings.read", g)).Get("/settings/tls/certificate.pem", s.DownloadTLSCertificate)
+	pr.With(az.AuditWrap("tls.certificate.import"), az.RequireAAL, az.RequirePermission("settings.update", g)).Post("/settings/tls/certificate", s.ImportTLSCertificate)
+	pr.With(az.AuditWrap("tls.certificate.remove"), az.RequireAAL, az.RequirePermission("settings.update", g)).Delete("/settings/tls/certificate", s.RemoveTLSCertificate)
+	pr.With(az.AuditWrap("tls.acme.renew"), az.RequireAAL, az.RequirePermission("settings.update", g)).Post("/settings/tls/acme/renew", s.RenewACME)
 }
 
 // mountAuthAdminRoutes wires the admin-only SSO configuration surface: auth

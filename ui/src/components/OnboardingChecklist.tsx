@@ -3,15 +3,16 @@
 // "Getting started" card shown at the top of the Dashboard until every step
 // is complete (then it hides itself for good) or the user dismisses it.
 // Completion is derived from data the Dashboard already keeps warm (metrics,
-// providers) plus light one-shot lookups (stacks, users — the latter fetched
-// only when the caller may list users). Dismissal persists in localStorage.
+// providers) plus light one-shot lookups (stacks, users, TLS status — the
+// last two fetched only when the caller may read them). Dismissal persists in
+// localStorage.
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useDashboardMetrics, useProviders, useStacks, qk } from "../lib/hooks";
+import { useDashboardMetrics, useProviders, useStacks, useTlsStatus, qk } from "../lib/hooks";
 import { useSelectedHost } from "../lib/hostStore";
 import { IconCheck } from "./icons";
 import { useT } from "../i18n";
@@ -38,6 +39,7 @@ export function OnboardingChecklist() {
 
   const canReadUsers = can("rbac.user.read");
   const canReadStacks = can("docker.container.read");
+  const canReadSettings = can("settings.read");
 
   // Metrics/providers share their cache with the Dashboard queries; stacks and
   // users are fetched once (no polling) and only while the card is visible.
@@ -54,6 +56,12 @@ export function OnboardingChecklist() {
     enabled: !dismissed && canReadUsers,
     staleTime: 60_000,
   });
+  // Shares its cache with the Settings card; one-shot here (no poll).
+  const tlsQ = useTlsStatus({
+    enabled: !dismissed && canReadSettings,
+    refetchInterval: false,
+    staleTime: 60_000,
+  });
 
   const steps: Step[] = [
     {
@@ -61,6 +69,20 @@ export function OnboardingChecklist() {
       labelKey: "step.totp",
       to: "/profile",
       done: !!user?.totpEnabled,
+    },
+    {
+      // Done once visitors get a browser-trusted certificate: an imported one
+      // or Let's Encrypt actually serving (effectiveMode, not the configured
+      // mode — a pending ACME issuance still serves the self-signed default).
+      // "off" counts too: HTTPS is then terminated by a reverse proxy that
+      // carries its own certificate, and there is nothing to do in Castor.
+      key: "tls",
+      labelKey: "step.tls",
+      to: "/settings",
+      done:
+        tlsQ.data?.effectiveMode === "custom" ||
+        tlsQ.data?.effectiveMode === "acme" ||
+        tlsQ.data?.effectiveMode === "off",
     },
     {
       key: "deploy",

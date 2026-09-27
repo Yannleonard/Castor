@@ -4,7 +4,9 @@
 // healthz and is surfaced in the topbar/footer.
 import pkg from "../../package.json";
 
-// Display version shown in the sidebar footer ("Castor by Leonard v1.0.2").
+// Display version shown next to the brand mark in the sidebar footer
+// ("Castor by IT Leonard  v1.0.2", see components/BrandLock.tsx; the
+// attribution text itself comes from lib/brand.ts).
 const DISPLAY_VERSION = "1.0.2";
 
 export const version = {

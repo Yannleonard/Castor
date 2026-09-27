@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gtek-it/castor/server/internal/authz"
+	"github.com/gtek-it/castor/server/internal/brand"
 	"github.com/gtek-it/castor/server/internal/store"
 	"github.com/gtek-it/castor/server/internal/version"
 )
@@ -72,13 +73,17 @@ func toUserView(u *store.User) userView {
 
 // --- healthz / bootstrap status ---
 
-// Healthz reports liveness and whether bootstrap is still required.
+// Healthz reports liveness and whether bootstrap is still required. It also
+// carries the brand identity (name, vendor, attribution) so a running instance
+// can be identified without the UI; the values come from the brand package,
+// which the startup integrity check verifies against the embedded bundle.
 func (s *Server) Healthz(w http.ResponseWriter, r *http.Request) {
 	completed, _ := s.store.BootstrapCompleted(r.Context())
 	authz.WriteJSON(w, http.StatusOK, map[string]any{
 		"status":    "ok",
 		"version":   version.Version,
 		"bootstrap": !completed,
+		"brand":     brand.Info(),
 	})
 }
 

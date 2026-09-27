@@ -30,6 +30,7 @@ import {
   IconSettings,
 } from "./icons";
 import { BrandLock } from "./BrandLock";
+import { BRAND } from "../lib/brand";
 
 // Exported so the command palette can derive its navigation entries from the
 // same single source of truth as the sidebar (permission filtering included).
@@ -142,7 +143,7 @@ export function Sidebar({ open = false, onNavigate }: SidebarProps) {
         {/* Logo art already includes the Castor wordmark + tagline. Use the
             natural aspect ratio (sized by .sidebar-brand img in shell.css) so it
             is shown in full, never clipped. */}
-        <img src="/brand/castor-logo.jpg" alt="Castor" />
+        <img src={BRAND.logoSrc} alt={BRAND.name} />
       </div>
 
       <nav className="sidebar-nav">
@@ -171,6 +172,9 @@ export function Sidebar({ open = false, onNavigate }: SidebarProps) {
         })}
       </nav>
 
+      {/* Required attribution: logo + "Castor by IT Leonard" + version, kept
+          visible at every breakpoint and guarded at runtime (BrandLock.tsx,
+          NOTICE). */}
       <BrandLock />
     </aside>
   );

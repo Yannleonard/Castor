@@ -1,12 +1,14 @@
 package config
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
 func TestValidateRejectsMissingSecret(t *testing.T) {
-	c := &Config{}
+	c := &Config{TLSMode: TLSModeSelfSigned, HTTPAddr: ":8080", HTTPSAddr: ":8443"}
 	if err := c.Validate(); err == nil {
 		t.Fatalf("Validate must reject an empty secret key")
 	}
@@ -61,5 +63,98 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if len(c.AllowedOrigins) != 2 || c.AllowedOrigins[0] != "https://a.example" {
 		t.Errorf("AllowedOrigins parse failed: %v", c.AllowedOrigins)
+	}
+}
+
+func TestLoadTLSDefaults(t *testing.T) {
+	for _, k := range []string{"CASTOR_TLS_MODE", "CASTOR_HTTPS_ADDR", "CASTOR_TLS_DIR", "CASTOR_HTTP_REDIRECT", "CASTOR_TLS_SELF_SIGNED_HOSTS", "CASTOR_DATA_DIR", "CASTOR_DB_PATH"} {
+		t.Setenv(k, "")
+	}
+	c := Load()
+	if c.TLSMode != TLSModeSelfSigned {
+		t.Errorf("default TLSMode = %q want self-signed", c.TLSMode)
+	}
+	if c.HTTPSAddr != ":8443" {
+		t.Errorf("default HTTPSAddr = %q want :8443", c.HTTPSAddr)
+	}
+	if want := filepath.Join(c.DataDir, "tls"); c.TLSDir != want {
+		t.Errorf("default TLSDir = %q want %q", c.TLSDir, want)
+	}
+	if !c.HTTPRedirect {
+		t.Errorf("default HTTPRedirect must be true")
+	}
+	if len(c.TLSSelfSignedHosts) != 0 {
+		t.Errorf("default TLSSelfSignedHosts = %v want none", c.TLSSelfSignedHosts)
+	}
+	if !c.TLSEnabled() {
+		t.Errorf("TLSEnabled must be true by default")
+	}
+}
+
+func TestLoadTLSOverrides(t *testing.T) {
+	t.Setenv("CASTOR_TLS_MODE", " OFF ")
+	t.Setenv("CASTOR_HTTPS_ADDR", "0.0.0.0:9443")
+	t.Setenv("CASTOR_TLS_DIR", "/srv/castor-tls")
+	t.Setenv("CASTOR_HTTP_REDIRECT", "false")
+	t.Setenv("CASTOR_TLS_SELF_SIGNED_HOSTS", "castor.lan, 10.0.0.5")
+	c := Load()
+	if c.TLSMode != TLSModeOff || c.TLSEnabled() {
+		t.Errorf("TLSMode = %q (enabled=%v) want off", c.TLSMode, c.TLSEnabled())
+	}
+	if c.HTTPSAddr != "0.0.0.0:9443" || c.TLSDir != "/srv/castor-tls" || c.HTTPRedirect {
+		t.Errorf("TLS overrides failed: %+v", c)
+	}
+	if len(c.TLSSelfSignedHosts) != 2 || c.TLSSelfSignedHosts[1] != "10.0.0.5" {
+		t.Errorf("TLSSelfSignedHosts = %v", c.TLSSelfSignedHosts)
+	}
+}
+
+func TestValidateTLS(t *testing.T) {
+	base := func() *Config {
+		return &Config{SecretKey: make([]byte, 32), TLSMode: TLSModeSelfSigned, HTTPAddr: ":8080", HTTPSAddr: ":8443"}
+	}
+	if err := base().Validate(); err != nil {
+		t.Fatalf("valid defaults rejected: %v", err)
+	}
+	for _, mode := range []string{TLSModeSelfSigned, TLSModeCustom, TLSModeACME, TLSModeOff} {
+		if !IsValidTLSMode(mode) {
+			t.Errorf("IsValidTLSMode(%q) = false", mode)
+		}
+	}
+	c := base()
+	c.TLSMode = "letsencrypt"
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "CASTOR_TLS_MODE") {
+		t.Errorf("unknown mode err = %v", err)
+	}
+	c = base()
+	c.HTTPSAddr = ":8080"
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "distinct ports") {
+		t.Errorf("same port with TLS on err = %v", err)
+	}
+	// Same port is tolerated when TLS is off (HTTPS addr unused)...
+	c.TLSMode = TLSModeOff
+	if err := c.Validate(); err != nil {
+		t.Errorf("same port with TLS off must pass: %v", err)
+	}
+	// ...but ValidateTLSListeners still flags it for the persisted-mode path.
+	if err := c.ValidateTLSListeners(); err == nil {
+		t.Errorf("ValidateTLSListeners must reject a shared port")
+	}
+	for _, bad := range []string{"8080", "localhost", ":0", ":70000", ":abc"} {
+		c = base()
+		c.HTTPAddr = bad
+		if err := c.Validate(); err == nil {
+			t.Errorf("HTTPAddr %q must be rejected", bad)
+		}
+		c = base()
+		c.HTTPSAddr = bad
+		if err := c.Validate(); err == nil {
+			t.Errorf("HTTPSAddr %q must be rejected", bad)
+		}
+	}
+	c = base()
+	c.HTTPAddr, c.HTTPSAddr = "127.0.0.1:80", "[::]:443"
+	if err := c.Validate(); err != nil {
+		t.Errorf("explicit hosts rejected: %v", err)
 	}
 }

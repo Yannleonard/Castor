@@ -118,6 +118,12 @@
   align-items: center;
   justify-content: space-between;
 }
+/* Brand attribution footer (BrandLock.tsx): [logo] "Castor by IT Leonard" … vX.
+   The visibility-critical declarations are locked inline by the component;
+   only layout lives here. */
+.sidebar-footer.brandlock { justify-content: flex-start; gap: var(--sp-2); }
+.brandlock img { border-radius: 4px; }
+.brandlock .brand-version { margin-left: auto; }
 
 /* ---- main column ---- */
 .app-main {
@@ -291,6 +297,10 @@
 }
 .auth-brand .name { font-size: var(--fs-2xl); font-weight: var(--fw-bold); letter-spacing: -0.02em; }
 .auth-brand .tag { font-size: var(--fs-sm); color: var(--text-secondary); }
+/* Attribution line under the auth logo (BrandMark in AuthBrand.tsx): small and
+   muted, guarded at runtime exactly like the sidebar footer. */
+.auth-attribution { justify-content: center; gap: var(--sp-2); font-size: var(--fs-xs); }
+.auth-attribution img { border-radius: 3px; }
 .auth-form { display: flex; flex-direction: column; gap: var(--sp-4); }
 .auth-footnote { margin-top: var(--sp-5); text-align: center; font-size: var(--fs-xs); color: var(--text-muted); }
 
@@ -321,9 +331,10 @@
   .nav-item { justify-content: center; padding: var(--sp-3); }
   .nav-item .nav-label, .nav-badge { display: none; }
   /* The brand attribution footer (.brandlock) stays VISIBLE even when collapsed
-     — it is the required, non-removable "Castor by Leonard" mark. We only shrink
-     it to fit the 64px rail (icon-less, stacked, smaller); we never hide it. A
-     plain .sidebar-footer without .brandlock (if any) may still collapse. */
+     — it is the required, non-removable "Castor by IT Leonard" mark (logo +
+     text + version). We only reflow it to fit the 64px rail (stacked, smaller);
+     we never hide it, and BrandLock.tsx would undo any rule that tried. A plain
+     .sidebar-footer without .brandlock (if any) may still collapse. */
   .sidebar-footer:not(.brandlock) { display: none; }
   .sidebar-footer.brandlock {
     flex-direction: column;
@@ -334,6 +345,7 @@
     line-height: 1.2;
     word-break: break-word;
   }
+  .sidebar-footer.brandlock .brand-version { margin-left: 0; }
   .app-content { padding: var(--sp-4); }
 }
 
@@ -367,6 +379,8 @@
   .nav-group-label { display: block; }
   .nav-item { justify-content: flex-start; padding: var(--sp-2) var(--sp-3); }
   .nav-item .nav-label, .nav-badge { display: inline; }
+  /* The drawer is full width again, so the attribution goes back to one row:
+     [logo] "Castor by IT Leonard" … version. Still never hidden. */
   .sidebar-footer:not(.brandlock) { display: flex; }
   .sidebar-footer.brandlock {
     flex-direction: row;
@@ -376,6 +390,7 @@
     font-size: var(--fs-xs);
     line-height: var(--lh-base);
   }
+  .sidebar-footer.brandlock .brand-version { margin-left: auto; }
 
   /* Semi-opaque scrim behind the open drawer; a tap on it closes the drawer
      (click handler lives in AppShell). Only rendered while open. */

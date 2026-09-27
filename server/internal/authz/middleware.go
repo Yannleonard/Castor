@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gtek-it/castor/server/internal/config"
 	"github.com/gtek-it/castor/server/internal/store"
 )
 
@@ -111,14 +112,33 @@ func (d *Deps) SecurityHeaders(next http.Handler) http.Handler {
 		h.Set("Content-Security-Policy",
 			"default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "+
 				"connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
-		if IsHTTPS(r, d.TrustProxy) {
-			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		if IsHTTPS(r, d.TrustProxy) && d.hstsAllowed() {
+			h.Set("Strict-Transport-Security", "max-age=86400")
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			h.Set("Cache-Control", "no-store")
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// hstsAllowed reports whether Strict-Transport-Security may be emitted. HSTS
+// pins browsers to HTTPS (one day, no includeSubDomains), so it is only sent
+// while the certificate Castor serves is one browsers can trust: an imported
+// ("custom") or ACME certificate that has not expired. The TLS manager's
+// effective mode already falls back to "self-signed" when the configured
+// certificate is missing or expired, so those two cases (and "off": Castor
+// does not terminate TLS itself, or no manager is wired) never emit it — a
+// pinned browser could otherwise not click through the certificate warning.
+func (d *Deps) hstsAllowed() bool {
+	if d.TLSEffectiveMode == nil {
+		return false
+	}
+	switch d.TLSEffectiveMode() {
+	case config.TLSModeCustom, config.TLSModeACME:
+		return true
+	}
+	return false
 }
 
 // SessionAuth resolves the caller to a *User and stashes it in context. A

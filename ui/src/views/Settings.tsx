@@ -5,10 +5,12 @@
 // plus a read-only view of instance metadata. Secret-like keys are never exposed
 // by the API.
 //
-// Also hosts the Notifications section (notifications.manage): CRUD over alert
-// channels (Discord/Slack/ntfy/webhook). Channel changes apply immediately —
-// they do NOT go through the global "Save changes" button. Webhook URLs are
-// write-only: reads carry urlSet, never the URL itself.
+// Also hosts the HTTPS & certificates card (./settings/TlsCard.tsx — mode,
+// served certificate, import, Let's Encrypt; settings.read / settings.update)
+// and the Notifications section (notifications.manage): CRUD over alert
+// channels (Discord/Slack/ntfy/webhook). Both apply their changes immediately —
+// they do NOT go through the global "Save changes" button. Webhook URLs and
+// private keys are write-only: reads never carry them.
 
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -26,6 +28,7 @@ import { IconPlus, IconClose, IconShield, IconTrash } from "../components/icons"
 import { toast, toastError } from "../lib/toast";
 import { useT } from "../i18n";
 import { settingsDict } from "../i18n/locales/settings";
+import { TlsCard } from "./settings/TlsCard";
 import type {
   NotificationChannel,
   NotificationChannelInput,
@@ -200,6 +203,8 @@ export function Settings() {
           </dl>
         </div>
       </div>
+
+      <TlsCard />
 
       <NotificationsSection />
     </div>

@@ -5,7 +5,8 @@
 // until every step is done or the user dismisses it.
 //
 // Namespaces: header.* (card title/progress/dismiss), step.* (checklist items).
-// Product names (Marketplace, Swarm, Kubernetes, Castor) are not translated.
+// Product names (Marketplace, Swarm, Kubernetes, Let's Encrypt, Castor) are not
+// translated.
 
 import { defineDict } from "../core";
 
@@ -18,6 +19,7 @@ export const onboardingDict = defineDict({
 
     // Checklist steps
     "step.totp": "Secure your account with 2FA",
+    "step.tls": "Install a trusted certificate (or enable Let's Encrypt)",
     "step.deploy": "Deploy your first app from the Marketplace",
     "step.stack": "Create a stack (compose)",
     "step.team": "Invite your team & assign roles",
@@ -31,6 +33,7 @@ export const onboardingDict = defineDict({
 
     // Étapes de la checklist
     "step.totp": "Sécurisez votre compte avec la 2FA",
+    "step.tls": "Installez un certificat de confiance (ou activez Let's Encrypt)",
     "step.deploy": "Déployez votre première application depuis le Marketplace",
     "step.stack": "Créez un stack (compose)",
     "step.team": "Invitez votre équipe et attribuez les rôles",

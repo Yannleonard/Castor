@@ -26,6 +26,13 @@ func sub() fs.FS {
 	return f
 }
 
+// FS exposes the embedded dist/ subtree read-only, for callers that need to
+// inspect the built UI without serving it (e.g. the brand integrity check at
+// startup).
+func FS() fs.FS {
+	return sub()
+}
+
 // Handler returns an http.Handler that serves the embedded SPA. Unknown,
 // non-asset routes fall back to index.html so client-side routing works. The
 // caller mounts this on the non-/api path space; /api is handled by the router.

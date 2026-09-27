@@ -1,32 +1,16 @@
-# =============================================================================
-# Castor — root-level one-command deployment.
+# Castor — one-command deployment.
 #
-# This is the repo-root mirror of deploy/docker-compose.yml so that a bare
+#   export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
 #   docker compose up -d
-# from the repository root just works. The only difference from the deploy/ copy
-# is the local `build.context` (here it is "." — the repo root).
 #
-#   export CASTOR_SECRET_KEY=$(openssl rand -hex 32)        # 64 hex chars = 32 bytes
-#   docker compose up -d
-#   # open http://localhost:8080  -> first-run "create admin" (bootstrap) screen
-#
-# No DOCKER_GID / group_add is needed: Castor's entrypoint reads the socket's group
-# at startup and drops to the non-root uid 65532 with it.
-#
-# SECURITY (see deploy/docker-compose.yml for the full notes):
-#   * Docker socket mounted :ro by default (list/inspect/logs/stats only). Switch
-#     to :rw for full start/stop/restart/remove/exec lifecycle, or front it with a
-#     scoped docker-socket-proxy and set CASTOR_DOCKER_HOST.
-#   * The server runs as non-root (uid 65532); the entrypoint reaches the socket via
-#     the socket's group, not by running as uid 0.
-#   * Read-only rootfs; only /data (volume) and /tmp (tmpfs) are writable.
-# =============================================================================
+# Then open https://localhost:8443 and create the admin account.
+# Same file as deploy/docker-compose.yml, kept at the repo root so `docker compose up -d`
+# works from a clone; only the local build context differs.
 
 services:
   castor:
-    # Pull the published multi-arch image…
     image: ghcr.io/yannleonard/castor:latest
-    # …or build from this repo instead (uncomment, and comment out `image:`):
+    # To build locally instead, replace `image:` with:
     # build:
     #   context: .
     #   dockerfile: Dockerfile
@@ -38,23 +22,45 @@ services:
     restart: unless-stopped
 
     ports:
+      # https://localhost:8443 (UI + API); http://localhost:8080 redirects to HTTPS.
       - "8080:8080"
+      - "8443:8443"
+      # Let's Encrypt: publish the standard ports instead and enable it in
+      # Settings → HTTPS & certificates. Castor is then reached at https://<domain>.
+      # - "80:8080"
+      # - "443:8443"
 
     environment:
-      # REQUIRED. 32-byte key (64 hex chars). Generate with: openssl rand -hex 32
+      # Required. Generate with: openssl rand -hex 32
       CASTOR_SECRET_KEY: "${CASTOR_SECRET_KEY:?set CASTOR_SECRET_KEY (openssl rand -hex 32) before compose up}"
       CASTOR_HTTP_ADDR: ":8080"
+      CASTOR_HTTPS_ADDR: ":8443"
+      # Default TLS mode; the mode chosen in Settings takes precedence, except `off`,
+      # which is managed by the environment and cannot be changed from the UI.
+      #   self-signed  generated certificate (default)
+      #   custom       certificate imported in Settings
+      #   acme         Let's Encrypt (public DNS name + ports 80/443)
+      #   off          plain HTTP, for a reverse proxy that terminates TLS
+      CASTOR_TLS_MODE: ${CASTOR_TLS_MODE:-self-signed}
+      # Extra names / IPs (comma-separated) covered by the self-signed certificate.
+      CASTOR_TLS_SELF_SIGNED_HOSTS: ${CASTOR_TLS_SELF_SIGNED_HOSTS:-}
       CASTOR_DB_PATH: "/data/castor.db"
+      # Set to true only behind a reverse proxy that terminates TLS (with CASTOR_TLS_MODE=off).
       CASTOR_TRUST_PROXY: ${CASTOR_TRUST_PROXY:-false}
+      # Name of this container; Castor never stops or removes itself from the UI.
       CASTOR_SELF_CONTAINER_ID: ${CASTOR_SELF_CONTAINER_ID:-castor}
+      # Optional token for unattended first-run setup; leave unset for the interactive screen.
       CASTOR_BOOTSTRAP_TOKEN: ${CASTOR_BOOTSTRAP_TOKEN:-}
 
     volumes:
+      # Docker socket, read-only by default (list, inspect, logs, stats).
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      # - /var/run/docker.sock:/var/run/docker.sock:rw   # <- full read+write lifecycle
+      # Full read+write Docker control: use this line instead.
+      # - /var/run/docker.sock:/var/run/docker.sock:rw
+      # Database, settings and TLS material. Back up this volume.
       - castor-data:/data
 
-    # No group_add: the entrypoint detects the docker socket's group itself.
+    # Container hardening: read-only root filesystem, no privilege escalation, minimal capabilities.
     read_only: true
     tmpfs:
       - /tmp
@@ -62,11 +68,12 @@ services:
       - "no-new-privileges:true"
     cap_drop:
       - ALL
-    cap_add:                  # caps the entrypoint needs to drop root -> 65532
+    cap_add:
       - SETUID
       - SETGID
       - DAC_OVERRIDE
 
+    # Same check as the image HEALTHCHECK.
     healthcheck:
       test: ["CMD", "/usr/local/bin/castor", "healthcheck"]
       interval: 15s
@@ -81,5 +88,6 @@ services:
         max-file: "3"
 
 volumes:
+  # Persistent data. Back it up by copying /data.
   castor-data:
     name: castor-data

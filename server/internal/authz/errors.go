@@ -60,6 +60,21 @@ var (
 	ErrAliasUnsupported     = newErr(http.StatusConflict, "alias_unsupported", "Network aliases are only supported on user-defined networks.")
 	ErrIPPoolExhausted      = newErr(http.StatusConflict, "ip_pool_exhausted", "This network has no free IP address left.")
 	ErrInvalidNetworkConfig = newErr(http.StatusUnprocessableEntity, "invalid_network_config", "Invalid network configuration.")
+
+	// TLS settings outcomes (Settings > HTTPS). Import failures carry a distinct
+	// code per cause so the UI can point at the right field; the messages never
+	// contain key material.
+	ErrTLSInvalidCertificate  = newErr(http.StatusUnprocessableEntity, "tls_invalid_certificate", "The certificate could not be imported.")
+	ErrTLSKeyMismatch         = newErr(http.StatusUnprocessableEntity, "tls_key_mismatch", "The private key does not match the certificate.")
+	ErrTLSCertificateExpired  = newErr(http.StatusUnprocessableEntity, "tls_certificate_expired", "The certificate has expired.")
+	ErrTLSNoCustomCertificate = newErr(http.StatusConflict, "tls_no_custom_certificate", "No custom certificate has been imported; import one before selecting the custom mode.")
+	// ErrTLSManagedByEnv: CASTOR_TLS_MODE=off forces TLS off and the persisted
+	// settings are ignored, so no TLS change is accepted until it is unset.
+	ErrTLSManagedByEnv = newErr(http.StatusConflict, "tls_managed_by_env", "TLS is managed by the environment (CASTOR_TLS_MODE=off); unset it and restart before changing these settings.")
+	// ErrTLSHTTPSOff: ACME needs the HTTPS listener (TLS-ALPN-01, and a
+	// certificate to serve), which is only bound at startup.
+	ErrTLSHTTPSOff = newErr(http.StatusConflict, "tls_https_off", "HTTPS listener is off — set CASTOR_TLS_MODE and restart.")
+	ErrACME        = newErr(http.StatusBadGateway, "acme_error", "The ACME certificate request failed.")
 )
 
 // Errorf returns a copy of a canonical error with a custom message.

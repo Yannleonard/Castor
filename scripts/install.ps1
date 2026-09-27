@@ -1,35 +1,13 @@
-# =============================================================================
 # Castor — one-command installer for Windows (Docker Desktop) / PowerShell.
 #
-# It is intentionally small and auditable. Read it before running:
-#   https://github.com/Yannleonard/Castor/blob/main/scripts/install.ps1
-#
-# Usage — convenient one-liner (PowerShell):
 #   irm https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.ps1 | iex
 #
-# Usage — audit first (recommended):
-#   irm https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.ps1 -OutFile install.ps1
-#   notepad install.ps1        # read it
-#   ./install.ps1
-#
-# What it does:
-#   1. checks Docker Desktop is installed and reachable,
-#   2. generates a 32-byte CASTOR_SECRET_KEY (if you don't pass one) and saves it,
-#   3. picks a free host port (8080, else the next free one),
-#   4. pulls ghcr.io/yannleonard/castor:latest and runs it (non-root; the
-#      entrypoint handles the docker socket group automatically),
-#   5. waits for health and prints the URL.
-#
-# Overrides (set before running, e.g.  $env:CASTOR_PORT = '9090'):
-#   CASTOR_PORT, CASTOR_SECRET_KEY, CASTOR_IMAGE, CASTOR_NAME, CASTOR_DATA,
-#   CASTOR_SOCKET_MODE (ro | rw)
-# =============================================================================
+# Pulls ghcr.io/yannleonard/castor:latest, generates a secret key, picks free ports and starts Castor.
+# Optional overrides (e.g. $env:CASTOR_HTTPS_PORT = '9443'): CASTOR_HTTPS_PORT (8443), CASTOR_PORT (8080),
+#   CASTOR_SECRET_KEY, CASTOR_IMAGE, CASTOR_NAME, CASTOR_DATA, CASTOR_SOCKET_MODE (ro | rw).
 #Requires -Version 5.1
 $ErrorActionPreference = 'Stop'
-# Native commands (docker) may write WARNINGs to stderr (e.g.
-# "DOCKER_INSECURE_NO_IPTABLES_RAW is set"). On PowerShell 7.4+ stderr from a
-# native command can otherwise be promoted to a terminating error and abort the
-# script; we judge success by the exit code instead. Harmless on 5.1 / older 7.x.
+# Native commands (docker) are judged by exit code, not by stderr output.
 $PSNativeCommandUseErrorActionPreference = $false
 
 $Image      = if ($env:CASTOR_IMAGE)       { $env:CASTOR_IMAGE }       else { 'ghcr.io/yannleonard/castor:latest' }
@@ -43,11 +21,7 @@ function Ok($m)   { Write-Host " OK  $m" -ForegroundColor Green }
 function Warn($m) { Write-Host "  !  $m" -ForegroundColor Yellow }
 function Die($m)  { Write-Host " X  $m" -ForegroundColor Red; exit 1 }
 
-# Run `docker <args>` swallowing ALL output (incl. stderr WARNINGs like
-# "DOCKER_INSECURE_NO_IPTABLES_RAW is set"). Locally forcing ErrorActionPreference
-# to Continue is the one approach that works across PowerShell 5.1 → 7.5 and inside
-# `iex`, regardless of $PSNativeCommandUseErrorActionPreference. Returns the exit
-# code; never throws on stderr.
+# Runs `docker <args>` silently and returns its exit code (PowerShell 5.1 -> 7.x, works inside iex).
 function Invoke-Docker {
   $eap = $ErrorActionPreference
   $ErrorActionPreference = 'Continue'
@@ -62,7 +36,7 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 if ((Invoke-Docker info) -ne 0) { Die "Cannot reach the Docker daemon. Is Docker Desktop running?" }
 Ok "Docker is available."
 
-# --- secret key: reuse > saved file > generate -------------------------------
+# --- secret key: environment > saved file > generate -------------------------
 if ($env:CASTOR_SECRET_KEY) {
   $Key = $env:CASTOR_SECRET_KEY
   Info "Using CASTOR_SECRET_KEY from the environment."
@@ -74,11 +48,11 @@ if ($env:CASTOR_SECRET_KEY) {
   [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
   $Key = -join ($bytes | ForEach-Object { $_.ToString('x2') })
   Set-Content -NoNewline -Path $KeyFile -Value $Key
-  Ok "Generated a 32-byte secret key and saved it to $KeyFile (keep it safe)."
+  Ok "Generated a secret key and saved it to $KeyFile."
 }
 if ($Key -notmatch '^[0-9a-fA-F]{64}$') { Die "CASTOR_SECRET_KEY must be 64 hex characters (32 bytes)." }
 
-# --- pick a free host port (default 8080) ------------------------------------
+# --- free host ports (HTTP 8080, HTTPS 8443) ---------------------------------
 function Test-PortBusy($p) {
   try { $c = New-Object Net.Sockets.TcpClient; $c.Connect('127.0.0.1', $p); $c.Close(); return $true }
   catch { return $false }
@@ -88,25 +62,33 @@ if (Test-PortBusy $Port) {
   Warn "Port $Port is busy - searching for a free one..."
   foreach ($p in 8081,8082,8090,9000,9090) { if (-not (Test-PortBusy $p)) { $Port = $p; break } }
 }
-Ok "Will expose Castor on host port $Port."
+$HttpsPort = if ($env:CASTOR_HTTPS_PORT) { [int]$env:CASTOR_HTTPS_PORT } else { 8443 }
+if ((Test-PortBusy $HttpsPort) -or ($HttpsPort -eq $Port)) {
+  Warn "Port $HttpsPort is busy - searching for a free one..."
+  foreach ($p in 8444,8445,8543,9443,9444) { if (($p -ne $Port) -and -not (Test-PortBusy $p)) { $HttpsPort = $p; break } }
+}
+Ok "Using host ports $HttpsPort (HTTPS) and $Port (HTTP)."
 
 # --- pull + (re)create -------------------------------------------------------
 Info "Pulling $Image ..."
-if ((Invoke-Docker pull $Image) -ne 0) { Die "Failed to pull $Image (is it public / are you online?)." }
+if ((Invoke-Docker pull $Image) -ne 0) { Die "Failed to pull $Image. Check your network connection." }
 Ok "Image pulled."
 
 $ErrorActionPreference = 'Continue'
 $exists = (& docker ps -a --format '{{.Names}}' 2>$null) | Where-Object { $_ -eq $Name }
 $ErrorActionPreference = 'Stop'
 if ($exists) {
-  Warn "A container named '$Name' already exists - replacing it (the '$Data' volume is kept)."
+  Warn "Replacing the existing '$Name' container (the '$Data' volume is kept)."
   Invoke-Docker rm -f $Name | Out-Null
 }
 
 Info "Starting Castor..."
+# The container listens on the published HTTPS port so the HTTP redirect lands on it.
 $code = Invoke-Docker run -d --name $Name `
   -p "${Port}:8080" `
+  -p "${HttpsPort}:${HttpsPort}" `
   -e "CASTOR_SECRET_KEY=$Key" `
+  -e "CASTOR_HTTPS_ADDR=:${HttpsPort}" `
   -v "/var/run/docker.sock:/var/run/docker.sock:$SocketMode" `
   -v "${Data}:/data" `
   --restart unless-stopped `
@@ -115,11 +97,11 @@ if ($code -ne 0) { Die "docker run failed." }
 
 # --- wait for health ---------------------------------------------------------
 Info "Waiting for Castor to become healthy..."
-$ErrorActionPreference = 'Continue'   # docker may still emit stderr WARNINGs here
+$ErrorActionPreference = 'Continue'   # docker may write warnings to stderr here
 for ($i = 0; $i -lt 30; $i++) {
   $status = (& docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $Name 2>$null | Select-Object -Last 1)
   if ($status -eq 'healthy') { Ok "Castor is healthy."; break }
-  if ($status -eq 'exited' -or $status -eq 'dead') { & docker logs --tail 20 $Name 2>&1; Die "Castor exited unexpectedly (see logs above)." }
+  if ($status -eq 'exited' -or $status -eq 'dead') { & docker logs --tail 20 $Name 2>&1; Die "Castor exited. See the logs above." }
   Start-Sleep -Seconds 2
 }
 $ErrorActionPreference = 'Stop'
@@ -128,16 +110,6 @@ $ErrorActionPreference = 'Stop'
 Write-Host ""
 Write-Host "Castor is up!" -ForegroundColor Green
 Write-Host ""
-Write-Host "   Open:        http://localhost:$Port   (create your admin account)"
-Write-Host "   Secret key:  $KeyFile"
-Write-Host "   Logs:        docker logs -f $Name"
-Write-Host "   Stop:        docker rm -f $Name   (data persists in the $Data volume)"
-Write-Host ""
-if ($SocketMode -eq 'ro') {
-  Write-Host "   Tip: the Docker socket is mounted read-only (list/inspect/logs/stats)." -ForegroundColor Yellow
-  Write-Host "        For full lifecycle (start/stop/exec), set `$env:CASTOR_SOCKET_MODE='rw' and re-run." -ForegroundColor Yellow
-  Write-Host ""
-}
-Write-Host "   Security: enable TOTP 2FA right after creating your admin (Profile -> 2FA)," -ForegroundColor Yellow
-Write-Host "             especially if this host is reachable from the internet." -ForegroundColor Yellow
+Write-Host "   Open https://localhost:$HttpsPort and create your admin account."
+Write-Host "   Your browser warns about the self-signed certificate: accept it once, or replace it in Settings -> HTTPS." -ForegroundColor Yellow
 Write-Host ""

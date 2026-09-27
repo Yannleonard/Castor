@@ -72,6 +72,7 @@ import type {
   HelmUpgradeRequest,
   HelmUpgradePreview,
   HelmRollbackRequest,
+  ImportCertificateRequest,
   LoginResponse,
   MeResponse,
   CatalogInput,
@@ -110,9 +111,11 @@ import type {
   SwarmConfigCreateInput,
   Template,
   TemplateWriteRequest,
+  TlsStatus,
   TotpConfirmResponse,
   TotpEnrollResponse,
   UpdateStatus,
+  UpdateTlsRequest,
   UserRecord,
   ValidateStackRequest,
   Workload,
@@ -768,6 +771,28 @@ export const api = {
   /* ---- settings ---- */
   settings: () => get<SettingsResponse>("/settings"),
   settingsUpdate: (body: SettingsPatch) => put<SettingsResponse>("/settings", body),
+
+  /* ---- settings: HTTPS / TLS (settings.read / settings.update) ---- */
+  // Every call answers the full TlsStatus (public certificate metadata only).
+  // The private key sent by tlsImportCertificate is sealed server-side and
+  // never comes back; changes apply to the running listener without a restart
+  // (except off <-> on, reported by restartRequired).
+  tlsStatus: () => get<TlsStatus>("/settings/tls"),
+  tlsUpdate: (body: UpdateTlsRequest) => put<TlsStatus>("/settings/tls", body),
+  tlsImportCertificate: (body: ImportCertificateRequest) =>
+    post<TlsStatus>("/settings/tls/certificate", body),
+  // Removes the imported certificate; falls back to self-signed when it was
+  // being served (404 not_found when there is nothing to remove).
+  tlsRemoveCertificate: () => del<TlsStatus>("/settings/tls/certificate"),
+  // Re-runs the ACME issuance for the persisted domains and waits up to ~20s:
+  // 200 once a certificate is ready, 202 (resolved the same way, with the
+  // still-pending status) when the CA has not answered yet, 502 acme_error
+  // when it failed.
+  tlsRenewAcme: () => post<TlsStatus>("/settings/tls/acme/renew"),
+  // Same-origin URL of the PEM chain currently served (settings.read), for a
+  // plain <a download> link — the session cookie authenticates it. Lets the
+  // self-signed certificate be added to a trust store.
+  tlsCertificateDownloadUrl: () => `${API_BASE}/settings/tls/certificate.pem`,
 };
 
 export type Api = typeof api;

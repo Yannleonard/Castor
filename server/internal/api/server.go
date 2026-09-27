@@ -17,6 +17,7 @@ import (
 	"github.com/gtek-it/castor/server/internal/config"
 	"github.com/gtek-it/castor/server/internal/provider"
 	"github.com/gtek-it/castor/server/internal/store"
+	"github.com/gtek-it/castor/server/internal/tlsmgr"
 	"github.com/gtek-it/castor/server/internal/updates"
 )
 
@@ -28,6 +29,10 @@ type Server struct {
 	guard   *authz.Guard
 	manager *cache.Manager
 	reg     *provider.Registry
+
+	// tls is the runtime TLS manager (mode, certificates, ACME status). nil when
+	// not wired (tests): Castor then behaves as if TLS were off.
+	tls *tlsmgr.Manager
 
 	// stackLocks serializes sync+deploy per stack id. SyncStack, the redeploy
 	// webhook, and a double-click all target the same clone dir and recreate the
@@ -62,6 +67,13 @@ func NewServer(cfg *config.Config, st *store.Store, az *authz.Deps, guard *authz
 		stackLocks: make(map[string]*sync.Mutex),
 	}
 }
+
+// SetTLSManager attaches the TLS manager so settings handlers can report the
+// certificate status and switch modes at runtime. Optional; see Server.tls.
+func (s *Server) SetTLSManager(m *tlsmgr.Manager) { s.tls = m }
+
+// TLSManager returns the attached TLS manager, or nil when none is wired.
+func (s *Server) TLSManager() *tlsmgr.Manager { return s.tls }
 
 // stackMutex returns the per-stack mutex for id, creating it on first use. The
 // registry itself is guarded by stackLocksMu; the returned mutex serializes
