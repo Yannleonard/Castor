@@ -26,7 +26,9 @@
 # ============================================================================
 # STAGE 1 — UI build (React + Vite + TypeScript -> static dist)
 # ============================================================================
-FROM node:24-alpine AS ui
+# Build-platform stage: the UI bundle is architecture-independent, so run node
+# natively instead of under QEMU (emulation is slow and not always registered).
+FROM --platform=$BUILDPLATFORM node:24-alpine AS ui
 WORKDIR /ui
 
 # Install deps first (cached layer keyed on the lockfile only).
@@ -47,7 +49,9 @@ RUN npm run build \
 # ============================================================================
 # STAGE 2 — Go build (embeds UI dist, fully static, CGO-free, trimmed)
 # ============================================================================
-FROM golang:1.25.11-alpine AS build
+# Build-platform stage: Go cross-compiles via TARGETOS/TARGETARCH below, so the
+# toolchain itself never needs emulation.
+FROM --platform=$BUILDPLATFORM golang:1.25.11-alpine AS build
 WORKDIR /src
 
 # git: VCS stamping fallback; ca-certificates/tzdata: vendored for completeness
