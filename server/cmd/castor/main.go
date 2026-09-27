@@ -2,8 +2,8 @@
 // the embedded React UI, talking to the local Docker engine over the mounted
 // socket and (optionally) Swarm and a mounted kubeconfig.
 //
-// Wiring order: brand integrity check -> config -> DB (migrate + seed) ->
-// secret-key check -> providers -> registry -> cache (poller + watcher) -> TLS
+// Wiring order: brand integrity check -> config + secret key -> DB (migrate +
+// seed) -> providers -> registry -> cache (poller + watcher) -> TLS
 // manager -> authz -> router -> http.Server(s), then a graceful shutdown on
 // SIGINT/SIGTERM.
 //
@@ -140,8 +140,23 @@ func runHealthcheck() int {
 }
 
 func run() error {
-	// 1. Config + validation (refuse to start without a 32-byte secret key).
+	// 1. Config + secret key + validation. CASTOR_SECRET_KEY wins when set;
+	// otherwise <DataDir>/secret.key is used, generated on first start. The key
+	// value itself is never logged.
 	cfg := config.Load()
+	keyInfo, err := cfg.ResolveSecretKey()
+	if err != nil {
+		return err
+	}
+	switch keyInfo.Source {
+	case config.SecretKeySourceGenerated:
+		log.Printf("castor: generated CASTOR_SECRET_KEY into %s — keep this file (or the volume) with your backups", keyInfo.Path)
+	case config.SecretKeySourceFile:
+		log.Printf("castor: using CASTOR_SECRET_KEY from %s", keyInfo.Path)
+	}
+	if keyInfo.EnvDiffersFromFile {
+		log.Printf("castor: WARNING CASTOR_SECRET_KEY is set and differs from the key in %s; the environment value is used, so anything sealed with the file key (TOTP secrets, imported certificate key) is unreadable", keyInfo.Path)
+	}
 	if err := cfg.Validate(); err != nil {
 		return err
 	}

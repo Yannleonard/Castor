@@ -1,7 +1,11 @@
 package config
 
 import (
+	"bytes"
+	"encoding/hex"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -156,5 +160,131 @@ func TestValidateTLS(t *testing.T) {
 	c.HTTPAddr, c.HTTPSAddr = "127.0.0.1:80", "[::]:443"
 	if err := c.Validate(); err != nil {
 		t.Errorf("explicit hosts rejected: %v", err)
+	}
+}
+
+func TestLoadSecretKeyEnvWins(t *testing.T) {
+	dir := t.TempDir()
+	envHex := strings.Repeat("ab", 32)
+	key, info, err := LoadSecretKey(envHex, dir)
+	if err != nil {
+		t.Fatalf("LoadSecretKey: %v", err)
+	}
+	if len(key) != 32 || info.Source != SecretKeySourceEnv || info.EnvDiffersFromFile {
+		t.Fatalf("env key: len=%d source=%q differs=%v", len(key), info.Source, info.EnvDiffersFromFile)
+	}
+	if _, err := os.Stat(filepath.Join(dir, SecretKeyFile)); !os.IsNotExist(err) {
+		t.Fatalf("env path must not create the key file, stat err = %v", err)
+	}
+	if _, _, err := LoadSecretKey("too-short", dir); err == nil {
+		t.Fatalf("an invalid env value must be an error, not replaced by a file")
+	}
+}
+
+func TestLoadSecretKeyGeneratesThenReuses(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "data")
+	key1, info1, err := LoadSecretKey("", dir)
+	if err != nil {
+		t.Fatalf("first LoadSecretKey: %v", err)
+	}
+	if info1.Source != SecretKeySourceGenerated || len(key1) != 32 {
+		t.Fatalf("first call: source=%q len=%d", info1.Source, len(key1))
+	}
+	path := filepath.Join(dir, SecretKeyFile)
+	if info1.Path != path {
+		t.Errorf("Path = %q want %q", info1.Path, path)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read generated file: %v", err)
+	}
+	content := strings.TrimSuffix(string(raw), "\n")
+	if len(content) != 64 {
+		t.Fatalf("file must hold 64 hex chars + newline, got %q", string(raw))
+	}
+	if b, err := hex.DecodeString(content); err != nil || !bytes.Equal(b, key1) {
+		t.Fatalf("file content does not decode to the returned key (err=%v)", err)
+	}
+	if runtime.GOOS != "windows" {
+		st, _ := os.Stat(path)
+		if st.Mode().Perm() != 0o600 {
+			t.Errorf("file mode = %o want 0600", st.Mode().Perm())
+		}
+		dst, _ := os.Stat(dir)
+		if dst.Mode().Perm() != 0o700 {
+			t.Errorf("dir mode = %o want 0700", dst.Mode().Perm())
+		}
+	}
+
+	key2, info2, err := LoadSecretKey("", dir)
+	if err != nil {
+		t.Fatalf("second LoadSecretKey: %v", err)
+	}
+	if info2.Source != SecretKeySourceFile || !bytes.Equal(key1, key2) {
+		t.Fatalf("second call must reuse the file: source=%q same=%v", info2.Source, bytes.Equal(key1, key2))
+	}
+}
+
+func TestLoadSecretKeyCorruptedFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, SecretKeyFile)
+	if err := os.WriteFile(path, []byte("deadbeef\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := LoadSecretKey("", dir)
+	if err == nil {
+		t.Fatalf("a corrupted key file must be a fatal error")
+	}
+	if !strings.Contains(err.Error(), path) {
+		t.Errorf("error must name the file path, got %v", err)
+	}
+	raw, _ := os.ReadFile(path)
+	if string(raw) != "deadbeef\n" {
+		t.Errorf("corrupted file must never be overwritten, now %q", raw)
+	}
+}
+
+func TestLoadSecretKeyEnvDiffersFromFile(t *testing.T) {
+	dir := t.TempDir()
+	fileHex := strings.Repeat("11", 32)
+	if err := os.WriteFile(filepath.Join(dir, SecretKeyFile), []byte(fileHex+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	envHex := strings.Repeat("22", 32)
+	key, info, err := LoadSecretKey(envHex, dir)
+	if err != nil {
+		t.Fatalf("LoadSecretKey: %v", err)
+	}
+	want, _ := hex.DecodeString(envHex)
+	if !bytes.Equal(key, want) || info.Source != SecretKeySourceEnv {
+		t.Fatalf("env must win: source=%q", info.Source)
+	}
+	if !info.EnvDiffersFromFile {
+		t.Fatalf("EnvDiffersFromFile must be set when the file holds another key")
+	}
+	// Same key in both: no warning.
+	_, info, err = LoadSecretKey(fileHex, dir)
+	if err != nil || info.EnvDiffersFromFile {
+		t.Fatalf("identical env and file must not flag a difference (err=%v)", err)
+	}
+}
+
+func TestResolveSecretKeyFromDataDir(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CASTOR_SECRET_KEY", "")
+	t.Setenv("CASTOR_DATA_DIR", dir)
+	c := Load()
+	if c.SecretKey != nil {
+		t.Fatalf("Load must not resolve a key without env")
+	}
+	info, err := c.ResolveSecretKey()
+	if err != nil {
+		t.Fatalf("ResolveSecretKey: %v", err)
+	}
+	if info.Source != SecretKeySourceGenerated || len(c.SecretKey) != 32 {
+		t.Fatalf("source=%q len=%d", info.Source, len(c.SecretKey))
+	}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("Validate after ResolveSecretKey: %v", err)
 	}
 }

@@ -51,7 +51,7 @@ Requires **Docker** (Docker Desktop on Windows/macOS). The Compose path also req
 
 ### One-line installer
 
-The installer checks Docker, generates and saves your secret key, picks free ports (HTTPS `8443`, HTTP `8080`), pulls the image and starts Castor.
+The installer checks Docker, picks free ports (HTTPS `8443`, HTTP `8080`), pulls the image and starts Castor.
 
 **Linux / macOS**
 
@@ -67,15 +67,22 @@ irm https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.ps
 
 The scripts live in [`scripts/`](scripts/) if you prefer to read them first.
 
+### Docker run
+
+```bash
+docker run -d --name castor -p 8080:8080 -p 8443:8443 -v /var/run/docker.sock:/var/run/docker.sock:rw -v castor-data:/data --restart unless-stopped ghcr.io/yannleonard/castor:latest
+```
+
+The encryption key is generated on first start and stored in the volume (`/data/secret.key`); back up the volume. To supply your own key instead, add `-e CASTOR_SECRET_KEY=<64 hex>` (`openssl rand -hex 32`). On a public server, use `-p 80:8080 -p 443:8443` and enable Let's Encrypt in Settings to reach Castor at `https://your-domain`.
+
 ### Docker Compose
 
 ```bash
 git clone https://github.com/Yannleonard/Castor.git && cd Castor
-export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
 docker compose up -d
 ```
 
-`CASTOR_SECRET_KEY` is a 32-byte key encoded as 64 hex characters. Keep it with your backups and reuse the same value whenever you recreate the container: it protects the 2FA secrets and any imported certificate. A `.env` template is available in [`deploy/env.example`](deploy/env.example).
+`CASTOR_SECRET_KEY` is optional here too; a `.env` template is available in [`deploy/env.example`](deploy/env.example).
 
 The compose file mounts the Docker socket read-only. To start, stop, restart, remove or exec into containers, switch the mount to `:rw` in [`deploy/docker-compose.yml`](deploy/docker-compose.yml). To manage Kubernetes too, add the overlay that mounts your kubeconfig:
 
@@ -122,7 +129,7 @@ With `CASTOR_TLS_MODE=off` set in the environment, the HTTPS mode is managed by 
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CASTOR_SECRET_KEY` | — | **Required.** 32-byte key as 64 hex characters (`openssl rand -hex 32`). |
+| `CASTOR_SECRET_KEY` | — | Optional. 32-byte key as 64 hex characters (`openssl rand -hex 32`); generated in `/data/secret.key` when unset. |
 | `CASTOR_HTTPS_ADDR` | `:8443` | HTTPS listen address (main access). |
 | `CASTOR_HTTP_ADDR` | `:8080` | HTTP listen address: healthcheck, ACME challenges, redirect to HTTPS; the only listener when `CASTOR_TLS_MODE=off`. |
 | `CASTOR_HTTP_REDIRECT` | `true` | Redirect HTTP to HTTPS (`308`) when TLS is on. |
@@ -149,7 +156,7 @@ With `CASTOR_TLS_MODE=off` set in the environment, the HTTPS mode is managed by 
 - **Hardened image** — distroless, runs as a non-root user, read-only root filesystem, all capabilities dropped, `no-new-privileges`.
 - **CI gates** — `golangci-lint`, `go test -race`, vitest and `govulncheck` on every push.
 
-Threat model and operational guidance: [`docs/runbooks/security.md`](docs/runbooks/security.md).
+Security overview: [`docs/runbooks/security.md`](docs/runbooks/security.md).
 
 ---
 
@@ -159,10 +166,10 @@ Threat model and operational guidance: [`docs/runbooks/security.md`](docs/runboo
 - **Metrics** — `GET /metrics` in Prometheus format, authenticated with a Personal Access Token.
 - **Logs** — `docker logs castor` (structured JSON, secrets redacted).
 - **Update** — `docker compose pull && docker compose up -d`. Data on `/data` persists and schema migrations run automatically.
-- **Backup** — everything persistent lives in `/data` (`castor-data` volume). Copy the database:
+- **Backup** — everything lives in the `castor-data` volume (database, certificates, secret key). Copy it:
   ```bash
   docker run --rm -v castor-data:/data -v "$PWD:/backup" busybox \
-    sh -c 'cp /data/castor.db /backup/castor-$(date +%Y%m%d).db'
+    sh -c 'cd /data && tar czf /backup/castor-$(date +%Y%m%d).tgz .'
   ```
 
 ---
@@ -184,7 +191,7 @@ With a local Go + Node toolchain, `make build`, `make docker-build` and `make ve
 ## 📚 Documentation
 
 - Install & operations — [`docs/runbooks/install.md`](docs/runbooks/install.md)
-- Security & threat model — [`docs/runbooks/security.md`](docs/runbooks/security.md)
+- Security overview — [`docs/runbooks/security.md`](docs/runbooks/security.md)
 - Deployment files — [`deploy/`](deploy/)
 - Architecture decisions — [`docs/adr/`](docs/adr/)
 - Contributing — [`CONTRIBUTING.md`](CONTRIBUTING.md)

@@ -1,6 +1,5 @@
 # Castor — one-command deployment.
 #
-#   export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
 #   docker compose -f deploy/docker-compose.yml up -d
 #
 # Then open https://localhost:8443 and create the admin account.
@@ -30,8 +29,8 @@ services:
       # - "443:8443"
 
     environment:
-      # Required. Generate with: openssl rand -hex 32
-      CASTOR_SECRET_KEY: "${CASTOR_SECRET_KEY:?set CASTOR_SECRET_KEY (openssl rand -hex 32) before compose up}"
+      # Optional; generated in /data/secret.key when unset (openssl rand -hex 32 to supply your own).
+      CASTOR_SECRET_KEY: ${CASTOR_SECRET_KEY:-}
       CASTOR_HTTP_ADDR: ":8080"
       CASTOR_HTTPS_ADDR: ":8443"
       # Default TLS mode; the mode chosen in Settings takes precedence, except `off`,
@@ -56,7 +55,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # Full read+write Docker control: use this line instead.
       # - /var/run/docker.sock:/var/run/docker.sock:rw
-      # Database, settings and TLS material. Back up this volume.
+      # Database, settings, TLS material and secret key. Back up this volume.
       - castor-data:/data
 
     # Container hardening: read-only root filesystem, no privilege escalation, minimal capabilities.

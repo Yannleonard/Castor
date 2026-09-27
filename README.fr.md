@@ -52,7 +52,7 @@ Requiert **Docker** (Docker Desktop sous Windows/macOS). Le chemin Compose requi
 
 ### Installeur en une ligne
 
-L'installeur vérifie Docker, génère et sauvegarde votre clé secrète, choisit des ports libres (HTTPS `8443`, HTTP `8080`), récupère l'image et démarre Castor.
+L'installeur vérifie Docker, choisit des ports libres (HTTPS `8443`, HTTP `8080`), récupère l'image et démarre Castor.
 
 **Linux / macOS**
 
@@ -68,15 +68,22 @@ irm https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.ps
 
 Les scripts sont dans [`scripts/`](scripts/) si vous préférez les lire d'abord.
 
+### Docker run
+
+```bash
+docker run -d --name castor -p 8080:8080 -p 8443:8443 -v /var/run/docker.sock:/var/run/docker.sock:rw -v castor-data:/data --restart unless-stopped ghcr.io/yannleonard/castor:latest
+```
+
+La clé de chiffrement est générée au premier démarrage et stockée dans le volume (`/data/secret.key`) ; sauvegardez le volume. Pour fournir votre propre clé, ajoutez `-e CASTOR_SECRET_KEY=<64 hex>` (`openssl rand -hex 32`). Sur un serveur public, utilisez `-p 80:8080 -p 443:8443` et activez Let's Encrypt dans les Paramètres pour joindre Castor sur `https://votre-domaine`.
+
 ### Docker Compose
 
 ```bash
 git clone https://github.com/Yannleonard/Castor.git && cd Castor
-export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
 docker compose up -d
 ```
 
-`CASTOR_SECRET_KEY` est une clé de 32 octets encodée en 64 caractères hexadécimaux. Conservez-la avec vos sauvegardes et réutilisez la même valeur à chaque recréation du conteneur : elle protège les secrets 2FA et tout certificat importé. Un modèle `.env` est disponible dans [`deploy/env.example`](deploy/env.example).
+`CASTOR_SECRET_KEY` est optionnelle ici aussi ; un modèle `.env` est disponible dans [`deploy/env.example`](deploy/env.example).
 
 Le fichier compose monte le socket Docker en lecture seule. Pour démarrer, arrêter, redémarrer, supprimer ou exécuter des commandes dans les conteneurs, passez le montage en `:rw` dans [`deploy/docker-compose.yml`](deploy/docker-compose.yml). Pour gérer aussi Kubernetes, ajoutez l'overlay qui monte votre kubeconfig :
 
@@ -123,7 +130,7 @@ Avec `CASTOR_TLS_MODE=off` défini dans l'environnement, le mode HTTPS est gér�
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `CASTOR_SECRET_KEY` | — | **Requise.** Clé de 32 octets en 64 caractères hex (`openssl rand -hex 32`). |
+| `CASTOR_SECRET_KEY` | — | Optionnelle. Clé de 32 octets en 64 caractères hex (`openssl rand -hex 32`) ; générée dans `/data/secret.key` si absente. |
 | `CASTOR_HTTPS_ADDR` | `:8443` | Adresse d'écoute HTTPS (accès principal). |
 | `CASTOR_HTTP_ADDR` | `:8080` | Adresse d'écoute HTTP : healthcheck, challenges ACME, redirection vers HTTPS ; seule écoute quand `CASTOR_TLS_MODE=off`. |
 | `CASTOR_HTTP_REDIRECT` | `true` | Rediriger HTTP vers HTTPS (`308`) quand TLS est actif. |
@@ -150,7 +157,7 @@ Avec `CASTOR_TLS_MODE=off` défini dans l'environnement, le mode HTTPS est gér�
 - **Image durcie** — distroless, exécutée en utilisateur non-root, système de fichiers racine en lecture seule, toutes les capabilities retirées, `no-new-privileges`.
 - **Garde-fous CI** — `golangci-lint`, `go test -race`, vitest et `govulncheck` à chaque push.
 
-Modèle de menaces et guide opérationnel : [`docs/runbooks/security.md`](docs/runbooks/security.md).
+Vue d'ensemble sécurité : [`docs/runbooks/security.md`](docs/runbooks/security.md).
 
 ---
 
@@ -160,10 +167,10 @@ Modèle de menaces et guide opérationnel : [`docs/runbooks/security.md`](docs/r
 - **Métriques** — `GET /metrics` au format Prometheus, authentifié avec un Personal Access Token.
 - **Logs** — `docker logs castor` (JSON structuré, secrets caviardés).
 - **Mise à jour** — `docker compose pull && docker compose up -d`. Les données sur `/data` persistent et les migrations de schéma s'exécutent automatiquement.
-- **Sauvegarde** — tout ce qui est persistant vit dans `/data` (volume `castor-data`). Copiez la base de données :
+- **Sauvegarde** — tout vit dans le volume `castor-data` (base de données, certificats, clé secrète). Copiez-le :
   ```bash
   docker run --rm -v castor-data:/data -v "$PWD:/backup" busybox \
-    sh -c 'cp /data/castor.db /backup/castor-$(date +%Y%m%d).db'
+    sh -c 'cd /data && tar czf /backup/castor-$(date +%Y%m%d).tgz .'
   ```
 
 ---
@@ -185,7 +192,7 @@ Avec un toolchain Go + Node local, `make build`, `make docker-build` et `make ve
 ## 📚 Documentation
 
 - Installation & exploitation — [`docs/runbooks/install.md`](docs/runbooks/install.md)
-- Sécurité & modèle de menaces — [`docs/runbooks/security.md`](docs/runbooks/security.md)
+- Vue d'ensemble sécurité — [`docs/runbooks/security.md`](docs/runbooks/security.md)
 - Fichiers de déploiement — [`deploy/`](deploy/)
 - Décisions d'architecture — [`docs/adr/`](docs/adr/)
 - Contribuer — [`CONTRIBUTING.md`](CONTRIBUTING.md)

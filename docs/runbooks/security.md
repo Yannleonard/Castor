@@ -1,166 +1,63 @@
 > 🇬🇧 **English** · [🇫🇷 Français](security.fr.md)
 
-# Castor — Security & Threat Model (summary)
+# Security overview
 
-This runbook summarizes Castor's security posture for operators. The authoritative design is
-**ADR-CASTOR-003 §5–§7** ([`../adr/ADR-CASTOR-003-stack-storage-auth-security.md`](../adr/ADR-CASTOR-003-stack-storage-auth-security.md)).
+This page describes what Castor does to protect your deployment and what you should do on your side.
+Deployment commands are in [`install.md`](install.md).
 
-> **Core premise.** Access to `/var/run/docker.sock` is **root-equivalent on the host**: a container
-> that bind-mounts the socket (or the host filesystem) can escape to root. Castor therefore does
-> **not** let a non-admin create such a container — the **host-mount guard** (T2 below) rejects host
-> bind mounts (incl. the socket) by default; only named volumes are allowed, and the socket / host-root
-> paths are denied even for admins through the API. A user who holds raw OS/socket access outside
-> Castor can still bypass Castor entirely. Everything below keeps the blast radius small and every
-> action attributable; the protected-containers guard defends against *accidental* destruction, not a
-> determined host-root adversary (who can drive the socket directly).
+## What Castor provides
 
----
+**HTTPS by default.** Castor serves the UI and the API over HTTPS with a self-signed certificate
+out of the box. You can import your own certificate (PEM certificate, key and chain) or enable
+Let's Encrypt from **Settings → HTTPS & certificates**; certificates are applied without a restart
+and HSTS is sent with CA-issued certificates.
 
-## 1. Authentication
+**Accounts and 2FA.** Local accounts use argon2id password hashing; TOTP 2FA is available for every
+user, with one-time recovery codes. TOTP secrets and imported private keys are encrypted at rest
+with AES-256-GCM under `CASTOR_SECRET_KEY`. SSO through LDAP and OIDC is supported. Login is
+throttled, and sessions are server-side, cookie-bound and revoked on logout and password change.
 
-- **Passwords:** hashed with **argon2id** (`golang.org/x/crypto/argon2`, `IDKey`), parameters encoded
-  in a self-describing PHC string; verified in constant time.
-- **Sessions:** server-side, cookie-bound. The cookie `castor_session` holds an opaque 256-bit random
-  id; only `SHA-256(id)` is stored at rest (a DB leak yields no live cookies). Cookie flags:
-  `HttpOnly`, `SameSite=Strict`, `Path=/`, and `Secure` when the request is HTTPS (behind a proxy,
-  only when `CASTOR_TRUST_PROXY=true`). Sliding 12h TTL, 24h absolute cap; logout & password change
-  revoke sessions.
-- **TOTP 2FA:** `github.com/pquerna/otp`. The TOTP secret is **AES-256-GCM-sealed** under
-  `CASTOR_SECRET_KEY`. Confirming enrollment mints **10 one-time recovery codes** (shown once,
-  stored argon2id-hashed). Login is two-step: password → `amr=pwd`; a valid TOTP/recovery code
-  upgrades the session to `amr=pwd+totp` (AAL2).
-- **Step-up for mutations is OPT-IN and OFF by default.** The setting
-  `security.totp_required_for_mutations` (`SettingTOTPRequiredForMut`) **defaults to `false`** — out
-  of the box a password-only session can perform mutations. When an operator turns it **on** (Settings
-  UI, or the persisted setting), every mutating REST route (`RequireAAL` middleware) **and** the
-  interactive **exec WebSocket** require `amr=pwd+totp` for any user who has TOTP enabled; such a user
-  with only `amr=pwd` is rejected (`aal_required`, 403) until they complete TOTP. Users without TOTP
-  enrolled are unaffected by this flag (there is nothing to step up to) — enforce enrollment
-  operationally if you require AAL2 fleet-wide.
-- **Bootstrap:** first run (empty users + `bootstrap.completed != true`) opens a single-shot
-  create-admin endpoint; all other routes return `409 bootstrap_required`. Optionally gated by
-  `CASTOR_BOOTSTRAP_TOKEN` for unattended installs.
+**Role-based access control.** Every action goes through a server-side permission check.
 
----
-
-## 2. Authorization (resource-scoped RBAC)
-
-- Permissions are dotted `domain.resource.verb` (e.g. `docker.container.start`,
-  `docker.container.remove`, `docker.image.delete`, `swarm.service.read`, `k8s.pod.read`,
-  `audit.read`); `*` = superuser.
-- Enforced at **one server-side choke point** — a fixed chi middleware chain
-  (`RequestID → RealIP → Recoverer → SecurityHeaders → SessionAuth → CSRF → RequireAAL →
-  RequirePermission → AuditWrap → handler`). **No handler performs a Docker mutation without passing
-  this gate.** Denials return `403` and are audited.
-- **Built-in roles:** `admin` (`*`), `operator` (Docker read + lifecycle [start/stop/restart/
-  pause/unpause] / exec / logs / image pull, **no** container **create**, remove / image-delete /
-  volume-remove / user-mgmt / protected-container actions), `viewer` (read-only; no exec, no logs by
-  default). Checks are scope-aware so V2 multi-host needs no rewrite.
-- **`docker.container.create` is admin / explicit-grant only.** It is the single privilege-escalation
-  vector (the only verb that can request a host bind mount), so it is **not** in the operator default
-  grant — only `admin`'s `*` satisfies it. It remains a real, assignable permission: an admin can add
-  it to a custom role (and the host-mount guard below still applies to whoever holds it).
-- **Grant-only-what-you-hold.** Creating/updating a role or creating a role-binding rejects (403,
-  audited) any permission the **acting** user does not themselves hold at the target scope — including
-  `*` and domain wildcards (`docker.*`). For a binding, the actor must hold every permission the bound
-  role carries at the binding's scope. This closes RBAC self-escalation (e.g. a user with
-  `rbac.binding.create` but only narrow perms cannot bind themselves the `*` admin role).
-
----
-
-## 3. Threats & default mitigations
-
-| Threat | Default mitigation |
+| Role | What it allows |
 |---|---|
-| **T1 — Socket exposure / SSRF to the socket** | Socket touched **only** via the typed `DockerProvider`; no user string is interpolated into socket calls; **no server-side outbound-URL features** in V1; non-root container + socket-proxy recommended (`CASTOR_DOCKER_HOST`). |
-| **T2 — Priv-esc via container create / host-mount escape** | `docker.container.create` is **admin / explicit-grant only** (not an operator default). Image refs are validated server-side. The **host-mount guard** runs server-side before `ContainerCreate` (one-click deploy **and** compose stacks): a **host bind mount is rejected by default (403, audited)** for non-admins — only **named volumes** are allowed. A global superuser may opt in (`allowHostMounts`) to mount an *ordinary* host path, but a fixed set of host-takeover paths — `/var/run/docker.sock`, `/`, `/etc`, `/root`, `/home`, `/boot`, `/var/lib/docker`, `/run`, `/proc`, `/sys`, `/dev` (and nested paths) — is **hard-rejected for everyone through the API**. The guard is enforced again inside the provider as defense-in-depth, so no code path can create a container with a forbidden host bind. |
-| **T3 — Exec / log abuse** | `docker.container.exec` and `docker.container.logs` are **distinct, gated, always-audited** permissions; the exec/logs WebSocket **re-validates the session + permission at connect time** and closes if the session is revoked. The **exec** subscription additionally enforces the same **TOTP step-up (AAL)** check as REST mutations — opening a root-capable shell cannot bypass step-up (see §1 note on `security.totp_required_for_mutations`). |
-| **T4 — CSRF** | `SameSite=Strict` cookie + a **per-session CSRF token** required in `X-Castor-CSRF` on every mutating request + an **Origin/Referer allowlist** on mutations and the WS upgrade. |
-| **T5 — Secret leakage** | A deny-list redactor strips `password`/`token`/`secret`/`authorization`/`*_key`/env values before anything is logged or written to `audit_log.detail`; `password_hash`, `totp_secret_enc`, recovery-code hashes, and raw session ids carry `json:"-"`; container inspect masks secret-like env values unless an admin holds an explicit permission. |
-| **T6 — Session / brute-force** | New random session id on login (no fixation); hashed at rest; login throttling/lockout (`failed_logins` + `locked_until`); constant-time password compare; uniform error messages (no user enumeration); one-time recovery codes; ±1-step TOTP window. |
-| **T7 — Castor supply-chain / container hardening** | Distroless `static:nonroot` (uid 65532), no shell/libc, read-only rootfs + `cap_drop: ALL` + `no-new-privileges` in compose; pinned, small dependency set; CI runs `govulncheck` + an image build; strict **security headers** (CSP `default-src 'self'`, `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, HSTS (`max-age=86400`) on HTTPS when a CA-issued certificate — `custom` or Let's Encrypt — is served and not expired, `Cache-Control: no-store` on `/api`). |
-| **T8 — Accidental destruction of critical infra** | The **protected-containers guard** (below). |
+| `admin` | Everything, including container creation, removals, users, roles and the audit log. |
+| `operator` | Docker read access plus start, stop, restart, pause, exec, logs and image pull. |
+| `viewer` | Read-only access to containers, images, networks, volumes and stats. |
 
----
+Custom roles can be created; a user can only grant permissions they hold themselves.
 
-## 4. Protected-containers guard (anti-foot-gun)
+**Audit log.** Every state-changing action writes one append-only record: actor, IP, action, target,
+result and request id, with secrets redacted. Reading the log requires `audit.read`.
 
-Evaluated **before** any destructive Docker verb (`stop`/`kill`/`restart`/`remove`/`rename`/
-`recreate`/`prune`), via `GuardDestructive(ctx, target, actor)`:
+**API tokens.** Personal Access Tokens authenticate API calls and the Prometheus `/metrics`
+endpoint with `Authorization: Bearer`; they carry the permissions of their owner.
 
-1. **Self-protection (always on, cannot be disabled).** Castor identifies its **own** container id at
-   startup (`/proc/self/cgroup` + `CASTOR_SELF_CONTAINER_ID`, cross-checked via inspect). Destructive
-   actions targeting Castor's own container **or the volume holding `/data`** are **hard-denied
-   (`409 protected_resource`)** for **everyone, including admins**, through the UI/API.
-2. **Label-based protection.** Containers labelled **`io.castor.protected="true"`** (or matching the
-   configurable `security.protected_labels` setting) are denied for non-admins and require an
-   **explicit confirm + reason** (written to the audit log) for admins. Label your DB, reverse proxy,
-   and other infra containers accordingly.
-3. **Default-deny on ambiguity.** If Castor cannot positively confirm the target is *not* itself
-   (e.g. inspect fails), the destructive action is **denied**, not allowed.
+**Protected containers.** Castor's own container and its `/data` volume cannot be removed from the
+UI or the API, by anyone. Containers labelled `io.castor.protected="true"` require an admin and an
+explicit confirmation with a reason, recorded in the audit log.
 
-> This guard prevents *accidental* self-destruction from the UI. It is **not** a boundary against a
-> host-root operator, who can always bypass Castor via the Docker CLI/socket.
+**Hardened image.** Distroless, non-root user (uid 65532), read-only root filesystem, all
+capabilities dropped and `no-new-privileges`. Dependencies are checked with `govulncheck` on every
+push.
 
----
+## The Docker socket
 
-## 5. The secret key
+The Docker socket gives complete access to the Docker engine and therefore to the host. Mount it
+`:rw` only on a host you trust Castor with, or point `CASTOR_DOCKER_HOST` at a docker-socket-proxy
+that exposes only the endpoints you need.
 
-`CASTOR_SECRET_KEY` (32 bytes, 64 hex chars from `openssl rand -hex 32`) seals TOTP secrets and the
-private key of an imported TLS certificate at rest. Operator responsibilities:
+## Deployment recommendations
 
-- Store it in a **secret manager**; never commit it; never log it.
-- **Losing it makes enrolled 2FA unrecoverable** — affected users must have 2FA reset out-of-band —
-  and an imported certificate must be imported again.
-- Rotating it invalidates existing sealed TOTP secrets and the imported certificate (plan a
-  re-enrollment and a re-import).
+- Enable 2FA for every account, starting with the admin; enable
+  `security.totp_required_for_mutations` in Settings to require it for state-changing actions.
+- Serve a trusted certificate: imported, Let's Encrypt, or TLS terminated by your reverse proxy.
+- Keep `CASTOR_SECRET_KEY` in a secret manager and back up `/data` regularly.
+- Update Castor as new releases are published (`docker compose pull && docker compose up -d`).
+- When Castor is reachable from the internet, put it behind a reverse proxy and restrict who can
+  reach ports 8443 and 8080.
 
----
+## Reporting a vulnerability
 
-## 6. Audit log
-
-- Every **mutating** action writes exactly **one append-only row** (`audit_log`): actor, IP, action,
-  target, scope, result (`success`/`denied`/`error`), HTTP status, sanitized detail, request id.
-- Rows are **never** updated or deleted by the application (`id` is a monotonic autoincrement for
-  tamper-evident ordering). `detail` is redaction-filtered — **no secrets**.
-- Reading the audit log requires `audit.read` (admin by default).
-
----
-
-## 7. Network exposure recommendations
-
-- Castor serves **HTTPS itself** on `8443` (self-signed by default). In production, serve a CA-issued
-  certificate (`custom` or Let's Encrypt, from **Settings → HTTPS & certificates**); HSTS is sent only
-  with those. Port `8080` only redirects to HTTPS, answers the healthcheck and the ACME challenges.
-- Behind a reverse proxy that terminates TLS, set `CASTOR_TLS_MODE=off` (the mode is then managed by
-  the environment and cannot be changed from the UI) and restrict port `8080` to that proxy.
-- Set `CASTOR_TRUST_PROXY=true` only behind a proxy you control (governs the `Secure` cookie flag,
-  the client IP recorded in the audit log and the HTTP→HTTPS redirect for `X-Forwarded-Proto: https`;
-  otherwise a client could spoof `X-Forwarded-*`).
-- Keep the WS/Origin allowlist aligned with your public origin.
-
----
-
-## 8. Defense in depth — protect your servers & containers with CyberGuard Manager
-
-Castor secures **its own surface** (RBAC, audit, sealed secrets, the host-mount and
-protected-containers guards) and keeps the blast radius small — but it is a management plane, not a
-runtime security platform. To protect the **hosts and containers themselves** (threat detection,
-SIEM, intrusion detection, hardening and compliance monitoring), Castor users can **subscribe for
-free to CyberGuard Manager**.
-
-CyberGuard Manager complements Castor with runtime/host-level protection for your servers and
-workloads, and the **free tier is available at no cost** to Castor users. It is an optional,
-independent product — Castor works fully without it — but pairing the two gives you both a clean
-management plane (Castor) and active server/container protection (CyberGuard Manager).
-
-> Get started for free: **<https://cyberguard-manager.fr>**. See the CyberGuard Manager site for the
-> current free-tier scope and onboarding.
-
----
-
-## 9. Reporting a vulnerability
-
-**Do not open a public GitHub issue for security problems.** Email the LEONARD-IT/GTEK-IT security contact (see
-the org `SECURITY.md` / profile) with a description and reproduction. We coordinate a fix and
-responsible disclosure.
+Report security issues privately through **Security → Report a vulnerability** on the GitHub
+repository (see [`SECURITY.md`](../../SECURITY.md)), not in a public issue.

@@ -1,56 +1,28 @@
 > [🇬🇧 English](install.md) · 🇫🇷 **Français**
 
-# Castor — Runbook d'installation et d'exploitation
+# Installation et exploitation
 
-Castor s'exécute dans **un seul conteneur** : un unique binaire Go statique qui sert à la fois l'API et
-l'interface React embarquée sur un seul port (par défaut `:8080`), s'appuyant sur un fichier SQLite situé à `/data/castor.db`. Il
-dialogue avec le **moteur Docker local** via le socket monté en bind-mount et, en option, avec **Kubernetes**
-via un kubeconfig monté.
+Castor s'exécute dans un seul conteneur à côté de votre moteur Docker. Ce runbook complète le [README](../../README.fr.md) avec les commandes exactes et les opérations du quotidien.
 
----
+## Prérequis
 
-## 1. Prérequis
+- **Docker Engine** (ou Docker Desktop) et, pour la voie compose, **Docker Compose v2** (`docker compose version`).
+- Les ports hôte **8443** (HTTPS) et **8080** (HTTP) libres, ou d'autres ports de votre choix.
 
-- **Docker Engine** avec le plugin **Compose v2** (`docker compose version`).
-- **`openssl`** (pour générer la clé secrète).
-- Un utilisateur capable d'accéder au socket Docker (généralement un membre du groupe `docker`).
-- Architectures supportées : **linux/amd64** et **linux/arm64** (l'image publiée est multi-arch).
-
----
-
-## 2. Installation la plus rapide (compose, < 2 minutes)
+## Déployer avec `docker run`
 
 ```bash
-git clone https://github.com/Yannleonard/Castor.git
-cd Castor
-
-export CASTOR_SECRET_KEY=$(openssl rand -hex 32)        # 64 caractères hex = 32 octets (REQUIS)
-
-docker compose up -d
+docker run -d --name castor -p 8080:8080 -p 8443:8443 -v /var/run/docker.sock:/var/run/docker.sock:rw -v castor-data:/data --restart unless-stopped ghcr.io/yannleonard/castor:latest
 ```
 
-> Aucun `DOCKER_GID` / `--group-add` n'est nécessaire : l'entrypoint de Castor démarre en root
-> uniquement pour lire le groupe du socket monté, puis se rabaisse à l'uid non-root 65532 avec ce
-> groupe et ré-exécute le serveur.
+La clé de chiffrement est générée au premier démarrage et stockée dans le volume (`/data/secret.key`) ; sauvegardez le volume. Pour fournir votre propre clé, ajoutez `-e CASTOR_SECRET_KEY=<64 hex>` (`openssl rand -hex 32`) ; la variable prime sur la clé stockée.
 
-Ouvrez **<http://localhost:8080>** et terminez le **bootstrap** (création du premier administrateur). Activez
-la **2FA TOTP** immédiatement après.
-
-### Utiliser un fichier `.env` plutôt que des exports
-
-```bash
-cp deploy/env.example .env
-# éditez .env : définissez CASTOR_SECRET_KEY (l'entrypoint gère le groupe du socket docker)
-docker compose --env-file .env up -d
-```
-
-### `docker run` (sans compose)
+Variante durcie (système de fichiers racine en lecture seule, capabilities minimales), identique au fichier compose :
 
 ```bash
 docker run -d --name castor \
-  -p 8080:8080 \
-  -e CASTOR_SECRET_KEY=$(openssl rand -hex 32) \
-  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -p 8080:8080 -p 8443:8443 \
+  -v /var/run/docker.sock:/var/run/docker.sock:rw \
   -v castor-data:/data \
   --read-only --tmpfs /tmp \
   --security-opt no-new-privileges:true \
@@ -59,184 +31,87 @@ docker run -d --name castor \
   ghcr.io/yannleonard/castor:latest
 ```
 
-> Pas de `--group-add` : l'entrypoint détecte le groupe du socket. Les capabilities conservées
-> (`SETUID`/`SETGID`/`DAC_OVERRIDE`) sont exactement celles dont le rabaissement root→65532 a besoin —
-> tout retirer (`cap_drop ALL` seul) ferait échouer le démarrage du conteneur.
+## Déployer avec Docker Compose
 
----
+```bash
+git clone https://github.com/Yannleonard/Castor.git && cd Castor
+docker compose up -d
+```
 
-## 3. La clé secrète (`CASTOR_SECRET_KEY`)
+Pour modifier les valeurs par défaut (ports, mode TLS, votre propre `CASTOR_SECRET_KEY`), copiez `deploy/env.example` vers `.env` et lancez `docker compose --env-file .env up -d`.
 
-- **Quoi :** une clé de **32 octets** utilisée pour AES-256-GCM (chiffrement au repos des secrets TOTP) et la cryptographie dérivée.
-- **Comment :** encodez 32 octets sous forme de **64 caractères hexadécimaux**. Choisissez l'extrait adapté à votre plateforme :
+## Premier accès
 
-  **Linux / macOS / Git Bash** (`openssl` disponible) :
-  ```bash
-  export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
-  ```
+1. Ouvrez **<https://localhost:8443>**. Castor sert un certificat auto-signé, le navigateur affiche donc un avertissement : acceptez-le une fois (ou installez un certificat de confiance, voir ci-dessous).
+2. Créez le premier compte administrateur.
+3. Activez la **2FA TOTP** depuis votre profil et conservez les codes de récupération.
 
-  **Windows — PowerShell** (pas besoin d'`openssl` ; RNG sécurisé .NET) :
-  ```powershell
-  $bytes = New-Object byte[] 32
-  [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-  $env:CASTOR_SECRET_KEY = -join ($bytes | ForEach-Object { $_.ToString('x2') })
-  $env:CASTOR_SECRET_KEY   # l'afficher — à copier dans votre .env / compose
-  ```
+## Ports et reverse proxy
 
-  > **Docker Desktop (Windows/macOS) :** générez avec l'un des extraits ci-dessus, puis transmettez la
-  > valeur au conteneur en ligne (`-e CASTOR_SECRET_KEY=<64-hex>`) ou via un fichier `.env`. Utilisez la
-  > **même** valeur à chaque recréation.
-- **Validation :** Castor **refuse de démarrer** si la clé est absente ou ne se décode pas en exactement 32
-  octets. (`openssl rand -hex 16` ne fait que 16 octets — incorrect.)
-- **Responsabilité de sauvegarde :** stockez-la dans votre gestionnaire de secrets. **La perdre rend les secrets 2FA
-  enregistrés irrécupérables** (vous devriez alors réinitialiser la 2FA des utilisateurs concernés hors bande).
+Castor écoute sur `:8443` (HTTPS) et `:8080` (HTTP : healthcheck, challenges Let's Encrypt, redirection). Pour publier un autre port HTTPS, changez à la fois le mapping et l'écouteur : `-p 9443:9443 -e CASTOR_HTTPS_ADDR=:9443`.
 
----
-
-## 4. Socket Docker : lecture seule vs lecture-écriture
-
-Le montage par défaut est en **lecture seule** (`/var/run/docker.sock:ro`) :
-
-| Montage | Fonctionne | Ne fonctionne PAS |
-|---|---|---|
-| `…:ro` (par défaut) | list, inspect, logs, **stats**, events | start, stop, restart, **remove**, exec |
-| `…:rw` | cycle de vie Docker complet (la promesse de la V1) | — |
-
-Pour activer le cycle de vie complet, éditez `deploy/docker-compose.yml` (ou le `docker-compose.yml` racine) :
+Derrière Caddy, Traefik ou nginx assurant la terminaison TLS, désactivez l'écouteur intégré et ne publiez que le port 8080 vers le proxy :
 
 ```yaml
-    volumes:
-      # - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/run/docker.sock:/var/run/docker.sock:rw
+    environment:
+      CASTOR_TLS_MODE: "off"
+      CASTOR_TRUST_PROXY: "true"
 ```
 
-puis `docker compose up -d`.
+Bloc Caddy minimal : `castor.example.com { reverse_proxy castor:8080 }`. Le proxy doit transmettre `X-Forwarded-Proto` et `X-Forwarded-For` et laisser passer les upgrades WebSocket.
 
-> ⚠️ L'accès en écriture au socket est **équivalent à root sur l'hôte**. Castor atténue ce risque (uid non-root
-> 65532, suppression des capabilities, no-new-privileges, le garde-fou des ressources protégées, RBAC + audit), mais vous
-> faites tout de même confiance à Castor avec des pouvoirs de niveau hôte. Pour des configurations durcies, voir §8 (proxy de socket).
+## Let's Encrypt
 
-### Groupe du socket Docker (géré automatiquement)
+Prérequis : un nom DNS public pointant vers l'hôte, et les ports **80 et 443** joignables depuis internet et mappés vers Castor (`"80:8080"` et `"443:8443"` dans le fichier compose). Ensuite, dans **Settings → HTTPS & certificates → Let's Encrypt**, saisissez le domaine et un e-mail de contact puis cliquez sur **Enable Let's Encrypt**. Castor est alors joignable sur `https://votre-domaine` ; le renouvellement est automatique.
 
-En général, vous **n'avez rien à définir** : l'entrypoint lit le groupe du socket monté au démarrage
-et l'ajoute au processus serveur non-root. Sur les hôtes utilisant Docker rootless ou un socket non
-standard, définissez `CASTOR_DOCKER_HOST` et ajustez le montage en conséquence. (Vous pouvez aussi
-fixer explicitement l'utilisateur avec `--user 65532:65532 --group-add "$(getent group docker | cut -d: -f3)"`
-si vous préférez — l'entrypoint voit alors qu'il est déjà non-root et saute le rabaissement.)
+## Kubernetes
 
----
-
-## 5. Overlay Kubernetes (lecture seule)
+Ajoutez l'overlay qui monte votre kubeconfig en lecture seule et définit `CASTOR_KUBECONFIG` :
 
 ```bash
-docker compose \
-  -f deploy/docker-compose.yml \
-  -f deploy/docker-compose.kube.yml \
-  up -d
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.kube.yml up -d
 ```
 
-Ceci monte `~/.kube/config` en lecture seule à `/home/nonroot/.kube/config` et définit `CASTOR_KUBECONFIG`.
+Utilisez un kubeconfig autonome (identifiants embarqués) dont l'URL du serveur est joignable depuis un conteneur. Castor agit sur le cluster avec les droits que porte ce kubeconfig.
 
-Précautions :
+## Socket Docker : `:ro` ou `:rw`
 
-- Utilisez un kubeconfig **à portée lecture** (K8s est en lecture seule en V1).
-- Si le kubeconfig référence des **fichiers** CA/certificat client/clé **par chemin**, ces fichiers doivent être accessibles au
-  même chemin à l'intérieur du conteneur — préférez un kubeconfig autonome avec des identifiants **inline** (base64),
-  ou montez l'ensemble du répertoire `~/.kube`.
-- Un kubeconfig pointant vers `127.0.0.1`/`localhost` (kind/minikube) référence la
-  boucle locale du **conteneur**. Faites pointer l'URL du serveur vers une adresse accessible depuis l'hôte, ou utilisez le réseau de l'hôte pour de tels clusters
-  locaux.
+| Montage | Ce que Castor peut faire |
+|---|---|
+| `:ro` (par défaut) | Lister et inspecter les conteneurs, images, réseaux et volumes ; logs, stats, events |
+| `:rw` | Tout ce qui précède plus start, stop, restart, pause, remove, exec, create, prune, mises à jour d'images |
 
----
+Pour changer, éditez la ligne du socket dans [`deploy/docker-compose.yml`](../../deploy/docker-compose.yml) et lancez `docker compose up -d`. Pour restreindre l'accès de Castor au démon, faites pointer `CASTOR_DOCKER_HOST` vers un docker-socket-proxy.
 
-## 6. Santé, journaux et mises à niveau
-
-**Santé.** L'image distroless n'a ni shell ni curl, donc la vérification de santé est une sous-commande propre au binaire :
+## Mise à jour
 
 ```bash
-docker inspect --format '{{.State.Health.Status}}' castor   # healthy | starting | unhealthy
-docker exec castor /usr/local/bin/castor healthcheck         # quitte avec 0 (sain) / 1 (non sain)
+docker compose pull && docker compose up -d
 ```
 
-`castor healthcheck` effectue un `GET http://127.0.0.1:8080/api/v1/healthz` sur l'écouteur local.
+Les données de `/data` persistent et les migrations de schéma s'exécutent au démarrage.
 
-**Journaux.**
+## Sauvegarde et restauration
 
-```bash
-docker logs -f castor      # JSON structuré ; les secrets sont expurgés avant journalisation
-```
-
-**Mise à niveau.**
+Tout vit dans le volume `castor-data` (base de données, certificats, clé secrète). Sauvegarder le volume sauvegarde tout. Si vous avez fourni `CASTOR_SECRET_KEY` vous-même, conservez-la avec la sauvegarde.
 
 ```bash
-docker compose pull        # récupère la nouvelle image
-docker compose up -d        # recrée ; /data persiste, les migrations s'exécutent au démarrage
-```
-
----
-
-## 7. Sauvegarde et restauration
-
-Tout l'état persistant tient dans l'unique fichier SQLite `/data/castor.db` (mode WAL) sur le volume `castor-data`.
-
-**Sauvegarde** (copie cohérente via un conteneur jetable) :
-
-```bash
-docker run --rm \
-  -v castor-data:/data \
-  -v "$PWD:/backup" \
-  busybox sh -c 'cp /data/castor.db /backup/castor-$(date +%Y%m%d-%H%M%S).db'
-```
-
-> Pour une copie strictement cohérente à chaud, arrêtez d'abord Castor (`docker compose stop`) ou utilisez l'API
-> de sauvegarde de SQLite ; pour la plupart des déploiements, la copie du fichier en mode WAL ci-dessus suffit.
-
-**Restauration :**
-
-```bash
+# sauvegarde
+docker run --rm -v castor-data:/data -v "$PWD:/backup" busybox \
+  sh -c 'cd /data && tar czf /backup/castor-$(date +%Y%m%d).tgz .'
+# restauration
 docker compose stop
 docker run --rm -v castor-data:/data -v "$PWD:/backup" busybox \
-  sh -c 'cp /backup/castor-YYYYMMDD-HHMMSS.db /data/castor.db'
+  sh -c 'cd /data && tar xzf /backup/castor-YYYYMMDD.tgz'
 docker compose start
 ```
 
-> Sauvegardez également `CASTOR_SECRET_KEY` — sans elle, les secrets TOTP chiffrés dans la base sont inutilisables.
+## Dépannage
 
----
-
-## 8. Liste de contrôle de durcissement (production)
-
-- [ ] Exécutez derrière un **reverse proxy assurant la terminaison TLS** ; ne définissez `CASTOR_TRUST_PROXY=true` que lorsque le
-      proxy est de confiance (cela contrôle le drapeau de cookie `Secure` et l'adresse IP cliente auditée).
-- [ ] Gardez le conteneur **non-root** (par défaut) et un **rootfs en lecture seule** avec `cap_drop: ALL` et
-      `no-new-privileges` (tout est défini dans le compose fourni).
-- [ ] Préférez un **`docker-socket-proxy`** à portée restreinte au socket brut ; faites pointer `CASTOR_DOCKER_HOST` vers lui.
-- [ ] Restreignez qui peut atteindre le port 8080 (pare-feu / authentification du proxy en frontal).
-- [ ] Étiquetez les conteneurs d'infrastructure (BD, reverse proxy, etc.) avec `io.castor.protected="true"` afin que
-      l'interface les protège.
-- [ ] Imposez la 2FA pour l'administrateur ; envisagez de définir `security.totp_required_for_mutations`.
-- [ ] Stockez `CASTOR_SECRET_KEY` dans un gestionnaire de secrets ; planifiez des sauvegardes de `/data/castor.db`.
-
-Consultez le modèle de menaces complet dans [`security.md`](security.md).
-
----
-
-## 9. Dépannage
-
-| Symptôme | Cause / correctif |
+| Symptôme | Que faire |
 |---|---|
-| Le conteneur s'arrête immédiatement, le journal mentionne la clé secrète | `CASTOR_SECRET_KEY` absente ou pas de 32 octets → `export CASTOR_SECRET_KEY=$(openssl rand -hex 32)`. |
-| L'interface se charge, mais start/stop/remove échouent | Socket monté en lecture seule → passez en `:rw` (voir §4). |
-| « permission denied » sur `/var/run/docker.sock` | Le socket monté a un groupe inhabituel. Fixez-le : `--user 65532:65532 --group-add "$(getent group docker | cut -d: -f3)"`, ou placez un socket-proxy devant via `CASTOR_DOCKER_HOST`. |
-| La santé affiche `unhealthy` | Inspectez les journaux : `docker logs castor`. Le serveur est peut-être encore en cours de démarrage (`start_period` 10s). |
-| La vue Kubernetes est vide / connexion refusée | Problème de chemin/identifiants du kubeconfig ou de boucle locale → voir les précautions du §5. |
-| L'écran de bootstrap n'apparaît jamais / renvoie 409 | Le bootstrap est déjà terminé ; connectez-vous plutôt. Pour des installations sans surveillance, utilisez `CASTOR_BOOTSTRAP_TOKEN`. |
-
----
-
-## 10. Désinstallation
-
-```bash
-docker compose down              # arrête & supprime le conteneur (conserve le volume de données)
-docker volume rm castor-data      # ⚠️ supprime définitivement la base de données
-```
+| Le conteneur s'arrête juste après le démarrage | Consultez `docker logs castor` ; si vous avez défini `CASTOR_SECRET_KEY`, elle doit faire 64 caractères hexadécimaux. |
+| Le navigateur avertit au sujet du certificat | Faites confiance au certificat téléchargé depuis Settings, ou utilisez un certificat émis par une CA. |
+| La redirection pointe vers le mauvais port | Alignez `CASTOR_HTTPS_ADDR` sur le port HTTPS publié. |
+| Start, stop ou remove sont indisponibles | Montez le socket Docker en `:rw`. |
+| La vue Kubernetes est vide | Vérifiez le chemin du kubeconfig, les identifiants et l'URL du serveur depuis l'intérieur d'un conteneur. |

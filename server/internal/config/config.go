@@ -3,6 +3,8 @@
 package config
 
 import (
+	"bytes"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -21,7 +23,9 @@ type Config struct {
 	HTTPAddr string
 
 	// SecretKey is the 32-byte AES-256-GCM key used to seal TOTP secrets and
-	// other secrets at rest. REQUIRED; the server refuses to start without it.
+	// other secrets at rest. Load fills it from CASTOR_SECRET_KEY when set;
+	// ResolveSecretKey then falls back to <DataDir>/secret.key, generating that
+	// file on first start. Validate refuses to start without a 32-byte key.
 	SecretKey []byte
 
 	// DockerHost optionally overrides DOCKER_HOST (e.g. a socket proxy). Empty
@@ -134,9 +138,9 @@ func IsValidTLSMode(mode string) bool {
 	return false
 }
 
-// errSecretKey is returned by Validate when CASTOR_SECRET_KEY is unset or does
-// not yield a 32-byte AES-256 key.
-var errSecretKey = errors.New("config: CASTOR_SECRET_KEY must yield a 32-byte key — set it to 64 hex chars (`openssl rand -hex 32`), 44 base64 chars (`openssl rand -base64 32`), or a raw 32-byte string")
+// errSecretKey is returned when CASTOR_SECRET_KEY is set but does not yield a
+// 32-byte AES-256 key, or by Validate when no key was resolved at all.
+var errSecretKey = errors.New("config: CASTOR_SECRET_KEY must yield a 32-byte key — set it to 64 hex chars (`openssl rand -hex 32`), 44 base64 chars (`openssl rand -base64 32`), or a raw 32-byte string; or leave it unset to have Castor generate <data dir>/secret.key")
 
 // decodeSecretKey normalizes CASTOR_SECRET_KEY to a 32-byte key, accepting the
 // formats the docs/compose recommend: 64 hex chars (openssl rand -hex 32),
@@ -214,8 +218,140 @@ func Load() *Config {
 	return c
 }
 
-// Validate refuses to start if the secret key is missing or wrong length, if
-// the TLS mode is unknown, or if a listen address is malformed. When TLS is on
+// SecretKeyFile is the name of the key file under DataDir used when
+// CASTOR_SECRET_KEY is not set.
+const SecretKeyFile = "secret.key"
+
+// SecretKeySource tells where the effective secret key came from.
+type SecretKeySource string
+
+const (
+	// SecretKeySourceEnv: CASTOR_SECRET_KEY was set and used as-is.
+	SecretKeySourceEnv SecretKeySource = "env"
+	// SecretKeySourceFile: an existing <DataDir>/secret.key was read.
+	SecretKeySourceFile SecretKeySource = "file"
+	// SecretKeySourceGenerated: no key anywhere; one was generated and written
+	// to <DataDir>/secret.key.
+	SecretKeySourceGenerated SecretKeySource = "generated"
+)
+
+// SecretKeyInfo describes how the secret key was resolved so the caller can
+// log it. It never carries the key value itself.
+type SecretKeyInfo struct {
+	Source SecretKeySource
+	// Path is the key file considered (<DataDir>/secret.key), whatever the source.
+	Path string
+	// EnvDiffersFromFile is set when CASTOR_SECRET_KEY was used but the key file
+	// exists with a different key: data sealed with the file key is unreadable.
+	EnvDiffersFromFile bool
+}
+
+// LoadSecretKey resolves the secret key with the following precedence:
+//  1. envValue (CASTOR_SECRET_KEY) when non-empty, used as-is; an invalid value
+//     is an error, never silently replaced.
+//  2. <dataDir>/secret.key when it exists and decodes to 32 bytes; a file that
+//     cannot be read or decoded is a fatal error naming the path (it is never
+//     overwritten).
+//  3. Otherwise a fresh 32-byte key from crypto/rand is written to that file as
+//     64 hex chars (mode 0600, dataDir created 0700 if missing), read back and
+//     used.
+func LoadSecretKey(envValue, dataDir string) ([]byte, SecretKeyInfo, error) {
+	path := filepath.Join(dataDir, SecretKeyFile)
+	info := SecretKeyInfo{Path: path}
+
+	if strings.TrimSpace(envValue) != "" {
+		key := decodeSecretKey(envValue)
+		if key == nil {
+			return nil, info, errSecretKey
+		}
+		info.Source = SecretKeySourceEnv
+		// Warn when a key file holds a different key: the env wins, but anything
+		// sealed with the file key is unreadable. A missing or unreadable file is
+		// irrelevant here since the env is authoritative.
+		if fileKey, err := readSecretKeyFile(path); err == nil && !bytes.Equal(fileKey, key) {
+			info.EnvDiffersFromFile = true
+		}
+		return key, info, nil
+	}
+
+	key, err := readSecretKeyFile(path)
+	switch {
+	case err == nil:
+		info.Source = SecretKeySourceFile
+		return key, info, nil
+	case !errors.Is(err, os.ErrNotExist):
+		return nil, info, err
+	}
+
+	if err := writeSecretKeyFile(path); err != nil {
+		return nil, info, err
+	}
+	key, err = readSecretKeyFile(path)
+	if err != nil {
+		return nil, info, fmt.Errorf("config: secret key file %s written but cannot be read back: %w", path, err)
+	}
+	info.Source = SecretKeySourceGenerated
+	return key, info, nil
+}
+
+// readSecretKeyFile reads and decodes the key file. A missing file yields an
+// error wrapping os.ErrNotExist; any other failure (permissions, corrupted or
+// wrong-length content) is an explicit error naming the path.
+func readSecretKeyFile(path string) ([]byte, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("config: cannot read secret key file %s: %w", path, err)
+	}
+	key := decodeSecretKey(string(raw))
+	if key == nil {
+		return nil, fmt.Errorf("config: secret key file %s is corrupted (expected 64 hex chars for a 32-byte key); restore it from a backup, or remove it to generate a new key (data sealed with the old key becomes unreadable)", path)
+	}
+	return key, nil
+}
+
+// writeSecretKeyFile generates a 32-byte key and writes it hex-encoded (64
+// chars + newline) to path with mode 0600, creating the parent 0700 if needed.
+// It never overwrites an existing file.
+func writeSecretKeyFile(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("config: cannot create data dir for secret key file %s: %w", path, err)
+	}
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return fmt.Errorf("config: cannot generate secret key: %w", err)
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fmt.Errorf("config: cannot create secret key file %s: %w", path, err)
+	}
+	_, werr := f.WriteString(hex.EncodeToString(key) + "\n")
+	if cerr := f.Close(); werr == nil {
+		werr = cerr
+	}
+	if werr != nil {
+		_ = os.Remove(path)
+		return fmt.Errorf("config: cannot write secret key file %s: %w", path, werr)
+	}
+	return nil
+}
+
+// ResolveSecretKey fills c.SecretKey using LoadSecretKey with CASTOR_SECRET_KEY
+// and c.DataDir. Call it after Load (DataDir must be resolved) and before
+// Validate.
+func (c *Config) ResolveSecretKey() (SecretKeyInfo, error) {
+	key, info, err := LoadSecretKey(os.Getenv("CASTOR_SECRET_KEY"), c.DataDir)
+	if err != nil {
+		return info, err
+	}
+	c.SecretKey = key
+	return info, nil
+}
+
+// Validate refuses to start if the secret key is missing or wrong length (see
+// ResolveSecretKey), if the TLS mode is unknown, or if a listen address is malformed. When TLS is on
 // by default, the HTTP and HTTPS listeners must not share a port.
 func (c *Config) Validate() error {
 	if len(c.SecretKey) != 32 {
