@@ -8,319 +8,176 @@
 
 **Gérer · Déployer · Orchestrer**
 
-Open-source, self-hosted, multi-host container orchestration platform — **Docker · Docker Swarm · Kubernetes** under one modern UI.
+Open-source, self-hosted container orchestration platform — **Docker · Docker Swarm · Kubernetes** under one modern UI.
 
-Edited by **LEONARD-IT/GTEK-IT** · Apache-2.0 · ships as a single small Docker image (amd64 + arm64).
+By **IT Leonard** (LEONARD-IT / GTEK-IT) · Apache-2.0 · ships as a single small Docker image (amd64 + arm64).
 
 </div>
 
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Castor dashboard — live BI overview with KPI cards, container-state donut, top-by-CPU/memory charts, orchestrators panel and recent-activity audit feed" width="100%" />
+  <img src="docs/screenshots/dashboard.png" alt="Castor dashboard — live KPI cards, container-state donut, top-by-CPU/memory charts, orchestrators panel and recent-activity feed" width="100%" />
 </p>
 
-<p align="center"><em>The Castor dashboard: live KPIs, container states, per-resource charts, the three orchestrators, and a real-time audit feed — all in one view.</em></p>
-
 ---
 
-Castor is "Portainer, but better": three orchestrators in V1, a modern interface, real-time
-stats, and **security by default** (local auth + TOTP 2FA, resource-scoped RBAC, full audit log,
-protected/system containers, hardened distroless image). It runs as **one container**, talks to the
-**local Docker engine** over the mounted socket, and reads Kubernetes through a mounted kubeconfig.
+Castor manages your containers from a single, modern interface: Docker with full lifecycle control,
+Docker Swarm services and Kubernetes workloads (including Helm), live statistics and a real-time audit feed. It runs as
+**one container** next to your Docker engine and is secure by default: HTTPS, local accounts with
+TOTP 2FA, role-based access control and a hardened non-root image.
 
-| Orchestrator | V1 scope |
+| Orchestrator | Scope |
 |---|---|
-| **Docker** | Full read **+ write** — list/inspect, start/stop/restart/pause/unpause/remove, logs, stats, exec, events; images, networks & volumes (incl. **create** and **prune**); **one-click image updates with automatic rollback** |
-| **Docker Swarm** | **Read-only** — services / nodes / tasks |
-| **Kubernetes** | **Read-only** — pods / deployments / statefulsets / daemonsets / jobs / cronjobs / nodes (via `client-go` + kubeconfig) |
+| **Docker** | Full read **+ write** — list/inspect, start/stop/restart/pause/unpause/remove, logs, stats, exec, events; images, networks & volumes (create and prune); one-click image updates with automatic rollback |
+| **Docker Swarm** | Services (create / scale / update / restart / remove), nodes (drain / activate), secrets & configs |
+| **Kubernetes** | Pods, deployments, statefulsets, daemonsets, jobs & cronjobs (scale / restart / delete / run), apply YAML, HPA, storage, metrics, exec & logs, Helm (repos, install / upgrade with preview / rollback) — via a mounted kubeconfig |
 
-> Multi-host **Go agents are V2.** The internal `Provider` seam is designed so a remote agent
-> becomes "just another provider" with no API/UI rework — but no agent is built in V1.
-
----
-
-## ✨ Feature highlights
-
-- **Image update detection & one-click updates** — Castor compares each container's image digest
-  against its registry and flags available updates (opt-out in settings). Update in one click —
-  with **automatic rollback** if the new container fails to come up.
-- **Outbound notifications** — Discord, Slack, [ntfy](https://ntfy.sh) or any generic webhook,
-  triggered on *container down* and *image update available* events.
-- **Personal Access Tokens + Prometheus metrics** — call the API with `Authorization: Bearer`
-  tokens and scrape the `/metrics` endpoint (Prometheus format).
-- **Housekeeping built in** — pause/unpause containers, create networks and volumes, and prune
-  images / containers / volumes / networks from the UI.
-- **Polished UX** — **dark mode** (Light / Dark / System), a **"Getting started" onboarding
-  checklist**, and **bilingual (FR/EN) contextual help** on every view via the "?" button.
+Multi-host agents are planned for V2.
 
 ---
 
-## ⏱️ Quickstart — running in under 2 minutes
+## ✨ Features
 
-### Easiest — one-line installer
+- **Image update detection & one-click updates** — Castor compares each container's image digest with its registry and flags available updates; apply them in one click, with automatic rollback if the new container fails to start.
+- **Outbound notifications** — Discord, Slack, [ntfy](https://ntfy.sh) or any webhook, on *container down* and *image update available* events.
+- **Personal Access Tokens + Prometheus metrics** — call the API with `Authorization: Bearer` tokens and scrape `/metrics`.
+- **Housekeeping built in** — pause/unpause containers, create networks and volumes, prune images / containers / volumes / networks from the UI.
+- **Polished UX** — dark mode (Light / Dark / System), a "Getting started" onboarding checklist, and bilingual (FR/EN) contextual help on every view.
 
-The installer checks Docker, generates & saves your secret key, picks a free port, pulls the image
-and starts Castor. You only need **Docker** installed and running.
+---
 
-**Linux / macOS:**
+## ⏱️ Quickstart
+
+Requires **Docker** (Docker Desktop on Windows/macOS). The Compose path also requires **Docker Compose v2** — check with `docker compose version`.
+
+### One-line installer
+
+The installer checks Docker, generates and saves your secret key, picks free ports (HTTPS `8443`, HTTP `8080`), pulls the image and starts Castor.
+
+**Linux / macOS**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.sh | sh
 ```
 
-**Windows (PowerShell, Docker Desktop):**
+**Windows (PowerShell, Docker Desktop)**
 
 ```powershell
 irm https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.ps1 | iex
 ```
 
-> **Prefer to read before you run?** (recommended — never pipe an unread script into a shell.)
-> Download, inspect, then run:
-> ```bash
-> curl -fsSL https://raw.githubusercontent.com/Yannleonard/Castor/main/scripts/install.sh -o install.sh
-> less install.sh && sh install.sh           # Windows: irm …/install.ps1 -OutFile install.ps1; notepad install.ps1; ./install.ps1
-> ```
-> The scripts live in [`scripts/`](scripts/) and are tiny on purpose. When done, the installer prints
-> the URL — open it and create your admin account (then enable **TOTP 2FA**).
+The scripts live in [`scripts/`](scripts/) if you prefer to read them first.
 
-### Manual — clone & compose
-
-Prefer to do it by hand? You need **Docker Engine** with **Docker Compose v2** (the
-`docker compose` plugin — two words) and `openssl`.
-
-> [!IMPORTANT]
-> Castor requires **Compose v2**. The legacy standalone **`docker-compose` (v1, hyphenated)
-> is not supported** and will fail on this project's compose files. Check your version with:
-> ```bash
-> docker compose version   # must print v2.x  (NOT "docker-compose version 1.x")
-> ```
-> If you only have v1, install the Compose v2 plugin — on Debian/Ubuntu:
-> `sudo apt-get install docker-compose-plugin` (or follow the
-> [official install guide](https://docs.docker.com/compose/install/)). Docker Desktop already
-> ships v2. Throughout this README, always use `docker compose` (space), never `docker-compose`.
+### Docker Compose
 
 ```bash
-git clone https://github.com/Yannleonard/Castor.git
-cd Castor
-
-# 1) Generate the required 32-byte secret key (64 hex chars).
+git clone https://github.com/Yannleonard/Castor.git && cd Castor
 export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
-
-# 2) Up. (No DOCKER_GID / --group-add needed: Castor's entrypoint detects the
-#    Docker socket's group and runs the server as a non-root user automatically.)
 docker compose up -d
 ```
 
-Open **<http://localhost:8080>** → you'll land on the **bootstrap** screen to create the first
-admin. Enabling **TOTP 2FA** right after is strongly recommended.
+`CASTOR_SECRET_KEY` is a 32-byte key encoded as 64 hex characters. Keep it with your backups and reuse the same value whenever you recreate the container: it protects the 2FA secrets and any imported certificate. A `.env` template is available in [`deploy/env.example`](deploy/env.example).
 
-> Prefer not to clone? Pull the published image and run the compose file straight from the repo, or
-> run it directly:
->
-> ```bash
-> docker run -d --name castor \
->   -p 8080:8080 \
->   -e CASTOR_SECRET_KEY=$(openssl rand -hex 32) \
->   -v /var/run/docker.sock:/var/run/docker.sock:ro \
->   -v castor-data:/data \
->   --restart unless-stopped \
->   ghcr.io/yannleonard/castor:latest
-> ```
->
-> **No `--group-add`.** Castor's entrypoint starts as root only to read the mounted
-> socket's group, then drops to a non-root user (uid 65532) **with that group** and
-> re-execs the server. For a hardened run that keeps only the capabilities needed
-> to perform that drop:
->
-> ```bash
-> docker run -d --name castor \
->   -p 8080:8080 \
->   -e CASTOR_SECRET_KEY=$(openssl rand -hex 32) \
->   -v /var/run/docker.sock:/var/run/docker.sock:ro \
->   -v castor-data:/data \
->   --read-only --tmpfs /tmp \
->   --security-opt no-new-privileges:true \
->   --cap-drop ALL --cap-add SETUID --cap-add SETGID --cap-add DAC_OVERRIDE \
->   --restart unless-stopped \
->   ghcr.io/yannleonard/castor:latest
-> ```
-
-### `CASTOR_SECRET_KEY` — generate it correctly
-
-It is a **32-byte** key (AES-256-GCM, used to seal TOTP secrets). Encode it as **64 hex characters**.
-Pick the snippet for your platform:
-
-**Linux / macOS (bash/zsh)** — `openssl` is preinstalled:
+The compose file mounts the Docker socket read-only. To start, stop, restart, remove or exec into containers, switch the mount to `:rw` in [`deploy/docker-compose.yml`](deploy/docker-compose.yml). To manage Kubernetes too, add the overlay that mounts your kubeconfig:
 
 ```bash
-export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.kube.yml up -d
 ```
 
-**Windows — PowerShell** (no `openssl` needed; uses .NET's secure RNG):
+### First access
 
-```powershell
-$bytes = New-Object byte[] 32
-[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-$env:CASTOR_SECRET_KEY = -join ($bytes | ForEach-Object { $_.ToString('x2') })
-$env:CASTOR_SECRET_KEY   # show it — copy it into your .env / compose
-```
+Open **<https://localhost:8443>** and create the first admin account, then enable **TOTP 2FA**. Castor serves HTTPS out of the box with a self-signed certificate, so your browser shows a certificate warning on first access: accept it once, or replace the certificate as described below. `http://localhost:8080` redirects to HTTPS.
 
-**Windows — Git Bash** (ships with `openssl`, same as Linux):
+---
 
-```bash
-export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
-```
+## 🔒 HTTPS & certificates
 
-> **Docker Desktop (Windows/macOS):** generate the key with one of the snippets above, then pass it
-> to the container — either inline (`-e CASTOR_SECRET_KEY=<the 64-hex value>`) or via a `.env` file
-> next to your compose. The value must be the same every time you recreate the container.
+Castor serves the UI and the API over HTTPS on port **8443**. Port **8080** answers the healthcheck and Let's Encrypt challenges and redirects everything else to HTTPS. Certificates are managed from **Settings → HTTPS & certificates** and applied without restarting the container.
 
-> ⚠️ `openssl rand -hex 16` gives only 16 bytes (32 chars) — **wrong**. Castor refuses to start if
-> the key doesn't decode to exactly 32 bytes. Keep this key safe: **losing it makes enrolled 2FA
-> unrecoverable.**
+| Mode | What you get | When to use it |
+|---|---|---|
+| `self-signed` (default) | HTTPS with a certificate Castor generates | Out of the box, LAN / lab |
+| `custom` | HTTPS with a certificate you import (PEM cert + key + chain) | Certificate from a public or internal CA |
+| `acme` | HTTPS with a Let's Encrypt certificate, renewed automatically | Host with a public DNS name and ports 80/443 reachable |
+| `off` | Plain HTTP on 8080, no redirect | Behind a reverse proxy that terminates TLS (environment only) |
 
-### Read-only vs read-write Docker socket
+**Self-signed (default).** Castor generates the certificate on first start and stores it under `/data/tls/`. To remove the browser warning, download the certificate from **Settings → HTTPS & certificates** and add it to your OS or browser trust store. To include the name or IP you reach Castor with, set `CASTOR_TLS_SELF_SIGNED_HOSTS=castor.lan,192.168.1.10`; the certificate is regenerated at the next start to cover them.
 
-The compose file mounts `/var/run/docker.sock` **read-only** by default — enough to **list, inspect,
-read logs, and stream stats**, but **not** to start/stop/restart/remove/exec (those need write access
-to the socket). For the full Docker lifecycle, switch the mount to `:rw` in
-[`deploy/docker-compose.yml`](deploy/docker-compose.yml):
+**Import your own certificate.** In **Settings → HTTPS & certificates → Import a certificate**, paste the PEM certificate, its private key and, if provided, the intermediate chain. Castor validates the pair and switches to it immediately. Import the renewed certificate the same way; **Remove custom certificate** returns to the self-signed certificate.
+
+**Let's Encrypt.** Requires a public DNS name pointing at the host and ports **80 and 443** reachable from the internet, mapped to Castor's `8080` / `8443` (`"80:8080"` and `"443:8443"` in the compose file). In **Settings → HTTPS & certificates → Let's Encrypt**, enter your domain(s) and a contact e-mail, then click **Enable Let's Encrypt**. The certificate is issued, cached under `/data/tls/acme/` and renewed automatically; Castor is then reached at `https://your-domain`, without a port. A **staging** toggle is available for testing.
+
+**Behind a reverse proxy.** When Caddy, Traefik or nginx terminates TLS in front of Castor, turn the built-in listener off and publish only port 8080 to the proxy:
 
 ```yaml
-    volumes:
-      # - /var/run/docker.sock:/var/run/docker.sock:ro     # read-only (default)
-      - /var/run/docker.sock:/var/run/docker.sock:rw       # full lifecycle
+    environment:
+      CASTOR_TLS_MODE: "off"
+      CASTOR_TRUST_PROXY: "true"
 ```
 
-> **Security reality (ADR-003 §7, T1):** write access to the Docker socket is **root-equivalent on
-> the host**. Castor's server runs as **non-root** (uid 65532); its entrypoint reads the socket's
-> group at startup and drops to that non-root user with the group, so it reaches the socket without
-> running the server as root and without a manual `--group-add`. For hardened deployments, front the socket with a scoped
-> `docker-socket-proxy` and point `CASTOR_DOCKER_HOST` at it.
-
-### Add Kubernetes (read-only)
-
-Layer the Kubernetes overlay to mount your kubeconfig:
-
-```bash
-docker compose \
-  -f deploy/docker-compose.yml \
-  -f deploy/docker-compose.kube.yml \
-  up -d
-```
-
-This mounts `~/.kube/config` read-only into the container and sets `CASTOR_KUBECONFIG`. Use a
-read-scoped kubeconfig — K8s is read-only in V1. See
-[`deploy/docker-compose.kube.yml`](deploy/docker-compose.kube.yml) for caveats (loopback clusters,
-path-vs-inline credentials).
+With `CASTOR_TLS_MODE=off` set in the environment, the HTTPS mode is managed by the environment and cannot be changed from the UI.
 
 ---
 
-## ⚙️ Configuration (environment variables)
+## ⚙️ Configuration
 
-| Variable | Required | Default | Purpose |
-|---|:---:|---|---|
-| `CASTOR_SECRET_KEY` | ✅ | — | 32-byte key (64 hex chars) for AES-256-GCM. Refuses to start if unset / not 32 bytes. |
-| `CASTOR_HTTP_ADDR` | | `:8080` | Listen address inside the container. |
-| `CASTOR_DB_PATH` | | `/data/castor.db` | SQLite database file (on the `/data` volume). |
-| `CASTOR_DOCKER_HOST` | | (socket) | Override the Docker endpoint (e.g. a socket-proxy `tcp://…`). |
-| `CASTOR_KUBECONFIG` | | — | Path to a mounted kubeconfig (set by the kube overlay). |
-| `CASTOR_TRUST_PROXY` | | `false` | Honor `X-Forwarded-Proto`/`-For` (set `true` only behind a trusted TLS proxy). |
-| `CASTOR_SELF_CONTAINER_ID` | | (auto) | Self-protection hint; also resolved at runtime from `/proc/self/cgroup`. |
-| `CASTOR_BOOTSTRAP_TOKEN` | | — | Optional token to gate `POST /api/v1/bootstrap` for unattended installs. |
-
-A copy-paste template lives in [`deploy/env.example`](deploy/env.example). To use a `.env` file:
-
-```bash
-cp deploy/env.example .env      # edit CASTOR_SECRET_KEY at minimum
-docker compose --env-file .env up -d
-```
+| Variable | Default | Purpose |
+|---|---|---|
+| `CASTOR_SECRET_KEY` | — | **Required.** 32-byte key as 64 hex characters (`openssl rand -hex 32`). |
+| `CASTOR_HTTPS_ADDR` | `:8443` | HTTPS listen address (main access). |
+| `CASTOR_HTTP_ADDR` | `:8080` | HTTP listen address: healthcheck, ACME challenges, redirect to HTTPS; the only listener when `CASTOR_TLS_MODE=off`. |
+| `CASTOR_HTTP_REDIRECT` | `true` | Redirect HTTP to HTTPS (`308`) when TLS is on. |
+| `CASTOR_TLS_MODE` | `self-signed` | `self-signed` · `custom` · `acme` · `off`. The mode chosen in Settings takes precedence; `off` is set from the environment only. |
+| `CASTOR_TLS_DIR` | `/data/tls` | Location of the self-signed certificate and the Let's Encrypt cache. |
+| `CASTOR_TLS_SELF_SIGNED_HOSTS` | — | Extra names / IPs (comma-separated) added to the self-signed certificate. |
+| `CASTOR_DB_PATH` | `/data/castor.db` | SQLite database file. |
+| `CASTOR_DOCKER_HOST` | (socket) | Alternate Docker endpoint, e.g. a socket proxy (`tcp://…`). |
+| `CASTOR_KUBECONFIG` | — | Path to a mounted kubeconfig (set by the Kubernetes overlay). |
+| `CASTOR_TRUST_PROXY` | `false` | Honor `X-Forwarded-Proto` / `X-Forwarded-For`; set `true` only behind a trusted reverse proxy, with `CASTOR_TLS_MODE=off`. |
+| `CASTOR_SELF_CONTAINER_ID` | (auto) | Identifier of Castor's own container, used for self-protection. |
+| `CASTOR_BOOTSTRAP_TOKEN` | — | Optional token that gates the first-admin creation for unattended installs. |
 
 ---
 
-## 🔐 Security highlights
+## 🔐 Security
 
-- **Local auth + TOTP 2FA** (argon2id password hashing; TOTP secret AES-256-GCM-sealed at rest).
-- **Resource-scoped RBAC** with built-in `admin` / `operator` / `viewer` roles, scope-aware for V2.
-- **Personal Access Tokens** — Bearer tokens (`Authorization: Bearer`) for the API and `/metrics`
-  scraping, as an alternative to session auth.
-- **Full audit log** — every mutating action writes exactly one append-only row.
-- **Protected containers** — Castor's own container and the `/data` volume can **never** be removed
-  via the UI (even by admins); containers labelled `io.castor.protected="true"` are guarded too.
-- **Hardened image** — distroless `static:nonroot` (uid 65532), no shell, no libc, read-only rootfs
-  in compose, all capabilities dropped, `no-new-privileges`.
-- **CI gates** — `golangci-lint`, `go test -race`, vitest, and `govulncheck` on every push/PR.
+- **HTTPS by default**, with hot-reloaded certificates (self-signed, imported or Let's Encrypt) and HSTS with CA-issued certificates.
+- **Local accounts with TOTP 2FA** — argon2id password hashing, TOTP secrets encrypted at rest (AES-256-GCM).
+- **Role-based access control** with built-in `admin`, `operator` and `viewer` roles.
+- **Personal Access Tokens** for the API and `/metrics`.
+- **Full audit log** — every mutating action is recorded in an append-only log.
+- **Protected containers** — Castor's own container and the `/data` volume cannot be removed from the UI; containers labelled `io.castor.protected="true"` are protected too.
+- **Hardened image** — distroless, runs as a non-root user, read-only root filesystem, all capabilities dropped, `no-new-privileges`.
+- **CI gates** — `golangci-lint`, `go test -race`, vitest and `govulncheck` on every push.
 
-Full threat model & operational guidance: [`docs/runbooks/security.md`](docs/runbooks/security.md).
+Threat model and operational guidance: [`docs/runbooks/security.md`](docs/runbooks/security.md).
 
 ---
 
-## 🏗️ Architecture & build
+## 🩺 Health & updates
 
-Castor is **one static Go binary** that serves the JSON/WebSocket API **and** the React UI (embedded
-via `embed.FS`) on a single port. SQLite (`modernc.org/sqlite`, pure Go) is the only datastore;
-live cluster state is never persisted — it is fetched on demand and cached in memory.
-
-The image is a **three-stage** build:
-
-```
-ui    (node:24-alpine)            ── vite build ──▶  /server/web/dist  (React static assets)
-build (golang:1.25-alpine)        ── copies dist into the embed path, then
-                                     CGO_ENABLED=0 go build ──▶ /usr/local/bin/castor
-final (distroless/static:nonroot) ── ships only the binary; non-root; no shell; no libc
-```
-
-**Embed-path contract (must stay in lockstep):** the UI's `vite.config.ts` sets
-`build.outDir = "../server/web/dist"`, the Go side uses `//go:embed dist` in `server/web/embed.go`,
-and the Dockerfile copies the built dist into `server/web/dist` **before** `go build`. A placeholder
-`server/web/dist/index.html` is committed so a bare `go build` never fails the embed.
-
-### Build it yourself
-
-> Go is **not** required on your host — it is compiled inside the Docker build.
-
-```bash
-# Linux/macOS
-./build.sh build      # buildx the image for your arch and load it
-./build.sh run        # docker compose up -d  (needs CASTOR_SECRET_KEY)
-
-# Windows (PowerShell 7+)
-$env:CASTOR_SECRET_KEY = (openssl rand -hex 32)
-./build.ps1 build
-./build.ps1 run
-
-# Make (Unix), with a local Go + Node toolchain:
-make build            # UI -> embed -> static Go binary
-make docker-build     # buildx local-arch image
-make docker-push      # buildx multi-arch (amd64+arm64) push to GHCR
-make verify           # golangci-lint + go test -race + govulncheck
-```
-
-Multi-arch images (`linux/amd64`, `linux/arm64`) are published to
-`ghcr.io/yannleonard/castor` by [`.github/workflows/release.yml`](.github/workflows/release.yml) on a
-`v*.*.*` tag.
-
----
-
-## 🩺 Health & operations
-
-- **Healthcheck:** the image has no shell/curl, so health is the binary's own subcommand —
-  `castor healthcheck` performs `GET /api/v1/healthz` on the local listener and exits `0`/`1`. Both
-  the Dockerfile `HEALTHCHECK` and the compose `healthcheck` use it.
-- **Data & backup:** everything persistent lives in `/data/castor.db` on the `castor-data` volume.
-  Back it up by copying that file (SQLite WAL mode):
+- **Healthcheck** — `GET /api/v1/healthz` on the HTTP listener; the image and the compose file ship a `castor healthcheck` probe.
+- **Metrics** — `GET /metrics` in Prometheus format, authenticated with a Personal Access Token.
+- **Logs** — `docker logs castor` (structured JSON, secrets redacted).
+- **Update** — `docker compose pull && docker compose up -d`. Data on `/data` persists and schema migrations run automatically.
+- **Backup** — everything persistent lives in `/data` (`castor-data` volume). Copy the database:
   ```bash
   docker run --rm -v castor-data:/data -v "$PWD:/backup" busybox \
     sh -c 'cp /data/castor.db /backup/castor-$(date +%Y%m%d).db'
   ```
-- **Metrics:** `GET /metrics` serves Prometheus-format metrics — authenticate scrapes with a
-  Personal Access Token (`Authorization: Bearer`).
-- **Logs:** `docker logs castor` (structured JSON; secrets are redacted before logging).
-- **Upgrade:** `docker compose pull && docker compose up -d` — the DB on `/data` persists; schema
-  migrations run automatically on startup. Castor also **detects image updates** for your containers
-  (registry digest comparison, opt-out in settings) and can apply them in one click with automatic
-  rollback.
 
-More: [`docs/runbooks/install.md`](docs/runbooks/install.md).
+---
+
+## 🏗️ Build from source
+
+The UI and the Go binary are built inside Docker; only Docker is required on the host.
+
+```bash
+export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
+./build.sh build      # build the image for your architecture (Windows: ./build.ps1 build)
+./build.sh run        # docker compose up -d
+```
+
+With a local Go + Node toolchain, `make build`, `make docker-build` and `make verify` (lint + tests) are also available. Multi-arch images (`linux/amd64`, `linux/arm64`) are published to `ghcr.io/yannleonard/castor` on every `v*.*.*` tag.
 
 ---
 
@@ -328,14 +185,16 @@ More: [`docs/runbooks/install.md`](docs/runbooks/install.md).
 
 - Install & operations — [`docs/runbooks/install.md`](docs/runbooks/install.md)
 - Security & threat model — [`docs/runbooks/security.md`](docs/runbooks/security.md)
+- Deployment files — [`deploy/`](deploy/)
 - Architecture decisions — [`docs/adr/`](docs/adr/)
 - Contributing — [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ## 🤝 Contributing
 
-Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md). Castor is **100% from scratch**
-and self-contained; it depends on no other repository.
+Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## 📄 License
 
 [Apache-2.0](LICENSE) © 2026 LEONARD-IT/GTEK-IT.
+
+Castor by IT Leonard — the Castor name, logo and in-app attribution are trademarks; see [NOTICE](NOTICE) and [TRADEMARKS.md](TRADEMARKS.md).

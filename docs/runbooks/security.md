@@ -78,7 +78,7 @@ This runbook summarizes Castor's security posture for operators. The authoritati
 | **T4 — CSRF** | `SameSite=Strict` cookie + a **per-session CSRF token** required in `X-Castor-CSRF` on every mutating request + an **Origin/Referer allowlist** on mutations and the WS upgrade. |
 | **T5 — Secret leakage** | A deny-list redactor strips `password`/`token`/`secret`/`authorization`/`*_key`/env values before anything is logged or written to `audit_log.detail`; `password_hash`, `totp_secret_enc`, recovery-code hashes, and raw session ids carry `json:"-"`; container inspect masks secret-like env values unless an admin holds an explicit permission. |
 | **T6 — Session / brute-force** | New random session id on login (no fixation); hashed at rest; login throttling/lockout (`failed_logins` + `locked_until`); constant-time password compare; uniform error messages (no user enumeration); one-time recovery codes; ±1-step TOTP window. |
-| **T7 — Castor supply-chain / container hardening** | Distroless `static:nonroot` (uid 65532), no shell/libc, read-only rootfs + `cap_drop: ALL` + `no-new-privileges` in compose; pinned, small dependency set; CI runs `govulncheck` + an image build; strict **security headers** (CSP `default-src 'self'`, `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, HSTS on HTTPS, `Cache-Control: no-store` on `/api`). |
+| **T7 — Castor supply-chain / container hardening** | Distroless `static:nonroot` (uid 65532), no shell/libc, read-only rootfs + `cap_drop: ALL` + `no-new-privileges` in compose; pinned, small dependency set; CI runs `govulncheck` + an image build; strict **security headers** (CSP `default-src 'self'`, `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, HSTS (`max-age=86400`) on HTTPS when a CA-issued certificate — `custom` or Let's Encrypt — is served and not expired, `Cache-Control: no-store` on `/api`). |
 | **T8 — Accidental destruction of critical infra** | The **protected-containers guard** (below). |
 
 ---
@@ -106,12 +106,14 @@ Evaluated **before** any destructive Docker verb (`stop`/`kill`/`restart`/`remov
 
 ## 5. The secret key
 
-`CASTOR_SECRET_KEY` (32 bytes, 64 hex chars from `openssl rand -hex 32`) seals TOTP secrets at rest.
-Operator responsibilities:
+`CASTOR_SECRET_KEY` (32 bytes, 64 hex chars from `openssl rand -hex 32`) seals TOTP secrets and the
+private key of an imported TLS certificate at rest. Operator responsibilities:
 
 - Store it in a **secret manager**; never commit it; never log it.
-- **Losing it makes enrolled 2FA unrecoverable** — affected users must have 2FA reset out-of-band.
-- Rotating it invalidates existing sealed TOTP secrets (plan a re-enrollment).
+- **Losing it makes enrolled 2FA unrecoverable** — affected users must have 2FA reset out-of-band —
+  and an imported certificate must be imported again.
+- Rotating it invalidates existing sealed TOTP secrets and the imported certificate (plan a
+  re-enrollment and a re-import).
 
 ---
 
@@ -127,9 +129,14 @@ Operator responsibilities:
 
 ## 7. Network exposure recommendations
 
-- Terminate **TLS** at a trusted reverse proxy; restrict port `8080` to that proxy.
-- Set `CASTOR_TRUST_PROXY=true` only behind a proxy you control (governs the `Secure` cookie flag and
-  the client IP recorded in the audit log; otherwise a client could spoof `X-Forwarded-*`).
+- Castor serves **HTTPS itself** on `8443` (self-signed by default). In production, serve a CA-issued
+  certificate (`custom` or Let's Encrypt, from **Settings → HTTPS & certificates**); HSTS is sent only
+  with those. Port `8080` only redirects to HTTPS, answers the healthcheck and the ACME challenges.
+- Behind a reverse proxy that terminates TLS, set `CASTOR_TLS_MODE=off` (the mode is then managed by
+  the environment and cannot be changed from the UI) and restrict port `8080` to that proxy.
+- Set `CASTOR_TRUST_PROXY=true` only behind a proxy you control (governs the `Secure` cookie flag,
+  the client IP recorded in the audit log and the HTTP→HTTPS redirect for `X-Forwarded-Proto: https`;
+  otherwise a client could spoof `X-Forwarded-*`).
 - Keep the WS/Origin allowlist aligned with your public origin.
 
 ---

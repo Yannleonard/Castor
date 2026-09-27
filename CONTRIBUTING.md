@@ -3,7 +3,7 @@
 # Contributing to Castor
 
 Thanks for your interest in Castor — the open-source, multi-host container orchestration platform
-by LEONARD-IT/GTEK-IT. Contributions of all kinds are welcome: bug reports, docs, tests, and code.
+by IT Leonard (LEONARD-IT / GTEK-IT). Contributions of all kinds are welcome: bug reports, docs, tests, and code.
 
 Castor is **100% from scratch and self-contained** — it depends on no other repository. Please keep
 it that way: do not introduce a dependency on any external/internal proprietary codebase.

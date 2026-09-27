@@ -33,7 +33,7 @@
 - Primary button: **Get started** (`#install`)
 
 **Announcement bar (optional, dismissible), above nav:**
-> Castor by Leonard It is open source under Apache-2.0 — one UI for Docker, Swarm & Kubernetes. **Star us on GitHub →**
+> Castor by IT Leonard is open source under Apache-2.0 — one UI for Docker, Swarm & Kubernetes. **Star us on GitHub →**
 
 ---
 
@@ -294,7 +294,7 @@ docker compose up -d
 ## Free, permissive, and built in the open.
 
 **Body:**
-Castor is licensed under **Apache-2.0** — permissive, patent-protected, and friendly to commercial use. It's built and maintained by **LEONARD-IT/GTEK-IT**, 100% from scratch and self-contained, with no hidden dependency on any other product. No "open core" bait-and-switch: the features on this page are the free features.
+Castor is licensed under **Apache-2.0** — permissive, patent-protected, and friendly to commercial use. It's built and maintained by **IT Leonard** (LEONARD-IT / GTEK-IT), 100% from scratch and self-contained, with no hidden dependency on any other product. No "open core" bait-and-switch: the features on this page are the free features.
 
 **Three small stat/value tiles:**
 - **Apache-2.0** — Use it, fork it, ship it. No per-node fees, no locked-away enterprise tier for SSO and audit.
@@ -307,7 +307,7 @@ Castor is licensed under **Apache-2.0** — permissive, patent-protected, and fr
 - **Contribute** → `CONTRIBUTING.md`
 
 **Line (muted):**
-Edited by LEONARD-IT/GTEK-IT · Apache-2.0 © 2026
+IT Leonard (LEONARD-IT / GTEK-IT) · Apache-2.0 © 2026
 
 ---
 
@@ -381,8 +381,8 @@ One UI for Docker, Swarm, and Kubernetes. Open source, self-hosted, secure by de
 - Report an issue
 
 **Bottom bar:**
-- © 2026 LEONARD-IT/GTEK-IT. Castor is released under the Apache-2.0 License.
-- Made with the Castor icon by LEONARD-IT.
+- © 2026 IT Leonard. Castor is released under the Apache-2.0 License.
+- Castor by IT Leonard (LEONARD-IT / GTEK-IT).
 - (Right) small social/GitHub icon.
 
 ---
@@ -433,7 +433,7 @@ One UI for Docker, Swarm, and Kubernetes. Open source, self-hosted, secure by de
   "description": "Open-source, self-hosted platform to manage, deploy and orchestrate containers across Docker, Docker Swarm and Kubernetes from one modern UI.",
   "license": "https://www.apache.org/licenses/LICENSE-2.0",
   "url": "https://castor.example.com/",
-  "author": { "@type": "Organization", "name": "LEONARD-IT/GTEK-IT" },
+  "author": { "@type": "Organization", "name": "IT Leonard" },
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
 }
 ```
