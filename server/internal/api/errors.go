@@ -28,10 +28,11 @@ import (
 // ErrInvalidNetworkConfig -> 422) each keep a distinct machine code and are
 // matched before the generic sentinel they wrap.
 //
-// The TLS manager sentinels map to 422: tlsmgr.ErrInvalidCertificate becomes
-// tls_key_mismatch / tls_certificate_expired / tls_invalid_certificate
-// depending on the cause (see tlsCertificateError); ErrInvalidACMEConfig and
-// ErrInvalidMode become validation_failed carrying the manager's explanation.
+// The TLS manager sentinels map to 422: tlsmgr.ErrInvalidCertificate (a
+// *tlsmgr.CertError) becomes tls_key_mismatch / tls_certificate_expired /
+// tls_invalid_certificate by its Kind, carrying the manager's message verbatim
+// (see tlsCertificateError); ErrInvalidACMEConfig and ErrInvalidMode become
+// validation_failed carrying the manager's explanation.
 // The TLS state conflicts (409 tls_managed_by_env, tls_https_off,
 // tls_no_custom_certificate) are emitted by the handlers as *authz.APIError
 // and pass through.
@@ -115,25 +116,25 @@ func invalidNetworkConfigMsg(err error) string {
 	return withSentinelDetail(authz.ErrInvalidNetworkConfig.Message, err, provider.ErrInvalidNetworkConfig)
 }
 
-// tlsCertificateError picks the machine code for a rejected certificate import.
-// tlsmgr exposes one sentinel for every validation failure, so the cause is
-// read from its (secret-free, operator-facing) explanation: a key that does not
-// pair with the leaf, an expired leaf, or anything else (unparseable PEM, weak
-// key, not yet valid, oversized input, a bad chain, a private key in a
-// certificate field). Chain failures are matched first: their detail quotes
-// certificate subjects, which are free text that may contain the other
-// markers.
+// tlsCertificateError picks the machine code for a rejected certificate
+// import from the *tlsmgr.CertError kind: no certificate pairing with the key
+// (tls_key_mismatch), an expired leaf (tls_certificate_expired), anything else
+// (tls_invalid_certificate). The response message is the manager's explanation
+// verbatim: it is precise, operator-facing and secret-free, and the UI shows
+// it as is. A bare ErrInvalidCertificate wrap (none is produced today) keeps
+// the canonical message plus whatever detail it carries.
 func tlsCertificateError(err error) *authz.APIError {
-	detail := sentinelDetail(err, tlsmgr.ErrInvalidCertificate)
-	switch {
-	case strings.HasPrefix(detail, "chain certificate"):
+	var ce *tlsmgr.CertError
+	if !errors.As(err, &ce) {
 		return authz.Errorf(authz.ErrTLSInvalidCertificate, withSentinelDetail(authz.ErrTLSInvalidCertificate.Message, err, tlsmgr.ErrInvalidCertificate))
-	case strings.Contains(strings.ToLower(detail), "does not match"):
-		return authz.Errorf(authz.ErrTLSKeyMismatch, withSentinelDetail(authz.ErrTLSKeyMismatch.Message, err, tlsmgr.ErrInvalidCertificate))
-	case strings.HasPrefix(detail, "certificate expired on"):
-		return authz.Errorf(authz.ErrTLSCertificateExpired, withSentinelDetail(authz.ErrTLSCertificateExpired.Message, err, tlsmgr.ErrInvalidCertificate))
+	}
+	switch ce.Kind {
+	case tlsmgr.CertErrorKeyMismatch:
+		return authz.Errorf(authz.ErrTLSKeyMismatch, ce.Message)
+	case tlsmgr.CertErrorExpired:
+		return authz.Errorf(authz.ErrTLSCertificateExpired, ce.Message)
 	default:
-		return authz.Errorf(authz.ErrTLSInvalidCertificate, withSentinelDetail(authz.ErrTLSInvalidCertificate.Message, err, tlsmgr.ErrInvalidCertificate))
+		return authz.Errorf(authz.ErrTLSInvalidCertificate, ce.Message)
 	}
 }
 

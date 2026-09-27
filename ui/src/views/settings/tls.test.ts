@@ -6,16 +6,19 @@
 import { describe, it, expect } from "vitest";
 import {
   MAX_PEM_BYTES,
+  combinedImportReady,
   expiryTone,
   httpsUrl,
   importReady,
   isEncryptedPrivateKeyPem,
+  isSelfSignedCustom,
   listenPort,
   normalizeDomain,
   sameDomains,
   shortFingerprint,
   validateAcmeDomain,
   validateAcmeEmail,
+  validateCombinedPem,
   validatePem,
 } from "./tls";
 
@@ -75,6 +78,52 @@ describe("importReady", () => {
     expect(importReady(CERT, KEY_ENCRYPTED_PKCS8, "")).toBe(false);
     expect(importReady(CERT, KEY_PKCS8, "garbage")).toBe(false);
     expect(importReady(KEY_PKCS8, CERT, "")).toBe(false);
+  });
+});
+
+describe("validateCombinedPem", () => {
+  it("accepts a combined export whatever the block order and key type", () => {
+    expect(validateCombinedPem(`${CERT}${KEY_RSA}${CERT}`)).toBeNull();
+    expect(validateCombinedPem(`${KEY_PKCS8}${CERT}`)).toBeNull();
+    expect(validateCombinedPem(`${CERT}${CERT}${KEY_EC}`)).toBeNull();
+    expect(validateCombinedPem(`${CERT}${KEY_PKCS8}`)).toBeNull();
+  });
+
+  it("treats an empty paste as not-yet-filled", () => {
+    expect(validateCombinedPem("")).toBeNull();
+    expect(validateCombinedPem(" \n ")).toBeNull();
+  });
+
+  it("names the missing half rather than refusing as a whole", () => {
+    expect(validateCombinedPem("not a pem")).toBe("notPem");
+    expect(validateCombinedPem(`${CERT}${CERT}`)).toBe("missingKey");
+    expect(validateCombinedPem(KEY_PKCS8)).toBe("missingCert");
+  });
+
+  it("flags an encrypted key before anything else, like tlsmgr", () => {
+    expect(validateCombinedPem(`${CERT}${KEY_ENCRYPTED_PKCS8}`)).toBe("keyEncrypted");
+    expect(validateCombinedPem(`${CERT}${KEY_ENCRYPTED_LEGACY}`)).toBe("keyEncrypted");
+    expect(validateCombinedPem(KEY_ENCRYPTED_PKCS8)).toBe("keyEncrypted");
+  });
+
+  it("flags a paste over the 64 KiB per-field cap", () => {
+    expect(validateCombinedPem(`${CERT}${KEY_PKCS8}${"A".repeat(MAX_PEM_BYTES)}`)).toBe("tooLarge");
+  });
+
+  it("gates the single-file submit on a filled, clean paste", () => {
+    expect(combinedImportReady(`${CERT}${KEY_RSA}${CERT}`)).toBe(true);
+    expect(combinedImportReady("")).toBe(false);
+    expect(combinedImportReady(CERT)).toBe(false);
+    expect(combinedImportReady(`${CERT}${KEY_ENCRYPTED_PKCS8}`)).toBe(false);
+  });
+});
+
+describe("isSelfSignedCustom", () => {
+  it("prefers the server's explicit verdict and falls back to selfSigned", () => {
+    expect(isSelfSignedCustom({ selfSigned: false, selfSignedCustom: true })).toBe(true);
+    expect(isSelfSignedCustom({ selfSigned: true, selfSignedCustom: false })).toBe(false);
+    expect(isSelfSignedCustom({ selfSigned: true })).toBe(true);
+    expect(isSelfSignedCustom({ selfSigned: false })).toBe(false);
   });
 });
 

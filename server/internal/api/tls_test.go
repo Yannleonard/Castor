@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -192,6 +193,63 @@ func keyBody(keyPEM []byte) string {
 	return base64.StdEncoding.EncodeToString(blk.Bytes)
 }
 
+// parseTestKey parses a PEM private key in any of the accepted encodings.
+func parseTestKey(t *testing.T, keyPEM []byte) crypto.Signer {
+	t.Helper()
+	blk, _ := pem.Decode(keyPEM)
+	if blk == nil {
+		t.Fatalf("no PEM block in key")
+	}
+	var (
+		k   any
+		err error
+	)
+	switch blk.Type {
+	case "RSA PRIVATE KEY":
+		k, err = x509.ParsePKCS1PrivateKey(blk.Bytes)
+	case "EC PRIVATE KEY":
+		k, err = x509.ParseECPrivateKey(blk.Bytes)
+	default:
+		k, err = x509.ParsePKCS8PrivateKey(blk.Bytes)
+	}
+	if err != nil {
+		t.Fatalf("parse %s: %v", blk.Type, err)
+	}
+	return k.(crypto.Signer)
+}
+
+// sameKey reports whether two PEM private keys (whatever their encoding) hold
+// the same key: what is sealed is the PKCS#8 re-serialization of the input.
+func sameKey(t *testing.T, a, b []byte) bool {
+	t.Helper()
+	pa, pb := parseTestKey(t, a).Public(), parseTestKey(t, b).Public()
+	return pa.(interface{ Equal(crypto.PublicKey) bool }).Equal(pb)
+}
+
+// fingerprintPrefix formats the first 8 bytes of a key identifier the way the
+// import messages do (upper-case hex pairs, colon separated).
+func fingerprintPrefix(id []byte) string {
+	h := strings.ToUpper(hex.EncodeToString(id[:8]))
+	parts := make([]string, 0, 8)
+	for i := 0; i+2 <= len(h); i += 2 {
+		parts = append(parts, h[i:i+2])
+	}
+	return strings.Join(parts, ":")
+}
+
+// misSignedCertificate mints the classic mistake behind most import failures:
+// a certificate naming ca as its issuer but signed with its own key, so its
+// Authority Key Identifier is its own Subject Key Identifier.
+func misSignedCertificate(t *testing.T, cn string, key crypto.Signer, ca *x509.Certificate, notBefore, notAfter time.Time) (certPEM, keyPEM []byte) {
+	t.Helper()
+	ski := []byte{0xAF, 0xCA, 0x29, 0xFE, 0xAD, 0x5E, 0x8A, 0x89, 0x55, 0x85, 0x11, 0x28, 0x34, 0x0A, 0xA5, 0x25, 0xCC, 0xB1, 0xC3, 0x9E}
+	tmpl := serverTemplate(cn, notBefore, notAfter)
+	tmpl.SubjectKeyId = ski
+	fakeParent := &x509.Certificate{RawSubject: ca.RawSubject, SubjectKeyId: ski}
+	certPEM, _, _ = mintCertificate(t, tmpl, fakeParent, key.Public(), key)
+	return certPEM, pemPrivateKey(t, key)
+}
+
 // tlsErrorCode fetches error.code from an envelope body.
 func tlsErrorCode(t *testing.T, body map[string]any) string {
 	t.Helper()
@@ -275,12 +333,17 @@ func TestTLSImportCertificateLifecycle(t *testing.T) {
 	if cert == nil || cert["source"] != config.TLSModeCustom || cert["subject"] != "CN=imported.example.test" || cert["expired"] != false {
 		t.Errorf("post-import certificate = %v", cert)
 	}
+	// A self-signed certificate imported on purpose is accepted, and flagged so
+	// the UI can warn that browsers will not trust it as is.
+	if cert["selfSignedCustom"] != true {
+		t.Errorf("certificate.selfSignedCustom = %v want true", cert["selfSignedCustom"])
+	}
 	fingerprint, _ := cert["fingerprintSha256"].(string)
 	if fingerprint == "" {
 		t.Fatalf("certificate.fingerprintSha256 missing")
 	}
-	if custom, _ := body["custom"].(map[string]any); custom == nil || custom["fingerprintSha256"] != fingerprint {
-		t.Errorf("custom = %v want the imported fingerprint", body["custom"])
+	if custom, _ := body["custom"].(map[string]any); custom == nil || custom["fingerprintSha256"] != fingerprint || custom["selfSignedCustom"] != true {
+		t.Errorf("custom = %v want the imported fingerprint, selfSignedCustom true", body["custom"])
 	}
 
 	// GET reflects the same and still carries no key.
@@ -288,8 +351,12 @@ func TestTLSImportCertificateLifecycle(t *testing.T) {
 	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "PRIVATE KEY") || strings.Contains(rec.Body.String(), secret) {
 		t.Fatalf("GET after import: code=%d leak=%t", rec.Code, strings.Contains(rec.Body.String(), secret))
 	}
-	if decodeBody(t, rec)["mode"] != config.TLSModeCustom {
-		t.Errorf("GET mode after import = %v", decodeBody(t, rec)["mode"])
+	body = decodeBody(t, rec)
+	if body["mode"] != config.TLSModeCustom {
+		t.Errorf("GET mode after import = %v", body["mode"])
+	}
+	if cert, _ := body["certificate"].(map[string]any); cert == nil || cert["selfSignedCustom"] != true {
+		t.Errorf("GET certificate after import = %v want selfSignedCustom true", body["certificate"])
 	}
 
 	// Hot reload: the manager now serves the imported leaf.
@@ -309,8 +376,8 @@ func TestTLSImportCertificateLifecycle(t *testing.T) {
 	if string(row.KeyEnc) == string(keyPEM) || strings.Contains(string(row.KeyEnc), secret) {
 		t.Fatalf("private key stored in clear")
 	}
-	if opened, err := authz.OpenSecret(e.srv.cfg.SecretKey, row.KeyEnc); err != nil || string(opened) != string(keyPEM) {
-		t.Errorf("sealed key does not open to the imported PEM: %v", err)
+	if opened, err := authz.OpenSecret(e.srv.cfg.SecretKey, row.KeyEnc); err != nil || !sameKey(t, opened, keyPEM) {
+		t.Errorf("sealed key does not open to the imported key: %v", err)
 	}
 	if row.FingerprintSHA256 != fingerprint || row.Subject != "CN=imported.example.test" || row.CertPEM != string(certPEM) || row.ChainPEM != "" {
 		t.Errorf("stored row = %+v", row)
@@ -416,6 +483,9 @@ func TestTLSImportPersistsParsedMaterialOnly(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("import code = %d (%s)", rec.Code, rec.Body.String())
 	}
+	if cert, _ := decodeBody(t, rec)["certificate"].(map[string]any); cert == nil || cert["selfSignedCustom"] != false {
+		t.Errorf("a CA-issued certificate must not be flagged self-signed: %v", cert)
+	}
 	served, err := m.GetCertificate(&tls.ClientHelloInfo{})
 	if err != nil || len(served.Certificate) != 3 || served.Leaf == nil || served.Leaf.Subject.CommonName != "chained.example.test" {
 		t.Errorf("served chain = %d certificates, leaf %v, err %v", len(served.Certificate), served.Leaf, err)
@@ -436,15 +506,96 @@ func TestTLSImportPersistsParsedMaterialOnly(t *testing.T) {
 			t.Errorf("stored column carries raw input: %q", col)
 		}
 	}
-	if opened, err := authz.OpenSecret(e.srv.cfg.SecretKey, row.KeyEnc); err != nil || string(opened) != string(keyPEM) {
-		t.Errorf("sealed key does not open to the imported PEM: %v", err)
+	if opened, err := authz.OpenSecret(e.srv.cfg.SecretKey, row.KeyEnc); err != nil || !sameKey(t, opened, keyPEM) {
+		t.Errorf("sealed key does not open to the imported key: %v", err)
+	}
+}
+
+// TestTLSImportAcceptsCombinedBundle: the file most CAs and tools hand out,
+// certificate + key + CA in one PEM, pasted in the certificate field alone
+// (nothing in the key field), is split by block type: the leaf is the
+// certificate the key belongs to, the CA becomes the chain, and only
+// CERTIFICATE blocks reach cert_pem / chain_pem while the key (PKCS#1 here) is
+// sealed, re-serialized as PKCS#8. A chain pasted root-first is reordered.
+func TestTLSImportAcceptsCombinedBundle(t *testing.T) {
+	e := newTestEnv(t)
+	m := withTLSManager(t, e)
+	ctx := context.Background()
+	cookies, csrf := adminSession(t, e)
+	now := time.Now()
+
+	rootKey := testECKey(t)
+	rootPEM, root := testCA(t, "Test Root", rootKey, nil, nil, now.Add(-2*time.Hour), now.Add(72*time.Hour))
+	interKey := testECKey(t)
+	interPEM, inter := testCA(t, "Test Intermediate", interKey, root, rootKey, now.Add(-time.Hour), now.Add(48*time.Hour))
+	leafKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leafPEM, _ := testIssuedCertificate(t, "bundle.example.test", leafKey, inter, interKey, now.Add(-time.Hour), now.Add(24*time.Hour))
+	pkcs1 := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(leafKey)})
+	secret := keyBody(pkcs1)
+
+	bundle := string(leafPEM) + string(pkcs1) + string(interPEM)
+	rec := e.doHTTPS(t, http.MethodPost, "/api/v1/settings/tls/certificate", map[string]any{
+		"certPem": bundle, "chainPem": string(rootPEM) + string(interPEM), // root first, intermediate repeated
+	}, cookies, csrf)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import code = %d (%s)", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "PRIVATE KEY") || strings.Contains(rec.Body.String(), secret) {
+		t.Fatalf("import response leaked key material")
+	}
+	body := decodeBody(t, rec)
+	if body["mode"] != config.TLSModeCustom || body["hasCustomCertificate"] != true {
+		t.Errorf("post-import status = %v", body)
+	}
+	cert, _ := body["certificate"].(map[string]any)
+	if cert == nil || cert["subject"] != "CN=bundle.example.test" || cert["issuer"] != "CN=Test Intermediate" || cert["selfSignedCustom"] != false {
+		t.Errorf("post-import certificate = %v", cert)
+	}
+
+	served, err := m.GetCertificate(&tls.ClientHelloInfo{})
+	if err != nil || len(served.Certificate) != 3 || served.Leaf == nil || served.Leaf.Subject.CommonName != "bundle.example.test" {
+		t.Fatalf("served chain = %d certificates, leaf %v, err %v", len(served.Certificate), served.Leaf, err)
+	}
+	if _, isRSA := served.PrivateKey.(*rsa.PrivateKey); !isRSA {
+		t.Errorf("served key = %T want the RSA key from the bundle", served.PrivateKey)
+	}
+
+	row, err := e.st.GetTLSCertificate(ctx)
+	if err != nil {
+		t.Fatalf("GetTLSCertificate: %v", err)
+	}
+	if row.CertPEM != string(leafPEM) {
+		t.Errorf("cert_pem = %q want the leaf alone", row.CertPEM)
+	}
+	if row.ChainPEM != string(interPEM)+string(rootPEM) {
+		t.Errorf("chain_pem = %q want intermediate then root (reordered, deduplicated)", row.ChainPEM)
+	}
+	for _, col := range []string{row.CertPEM, row.ChainPEM, row.Subject, row.Issuer} {
+		if strings.Contains(col, "PRIVATE KEY") || strings.Contains(col, secret) {
+			t.Fatalf("private key persisted with the public material")
+		}
+	}
+	opened, err := authz.OpenSecret(e.srv.cfg.SecretKey, row.KeyEnc)
+	if err != nil || !sameKey(t, opened, pkcs1) {
+		t.Errorf("sealed key does not open to the bundle's key: %v", err)
+	}
+	if blk, _ := pem.Decode(opened); blk == nil || blk.Type != "PRIVATE KEY" {
+		t.Errorf("sealed key must be the PKCS#8 re-serialization, got %v", blk)
+	}
+	entries, _, _ := e.st.ListAudit(ctx, store.AuditFilter{Action: "tls.certificate.import"})
+	if len(entries) != 1 || entries[0].Result != "success" || strings.Contains(entries[0].Detail, secret) || strings.Contains(entries[0].Detail, "PRIVATE KEY") {
+		t.Errorf("audit rows = %+v", entries)
 	}
 }
 
 // TestTLSImportRejectsBadMaterial maps each validation failure to its machine
-// code and proves a rejected import changes nothing (mode, store, manager).
-// The combined "certificate + key" file is the headline case: refused instead
-// of having its key stored in clear in cert_pem.
+// code and the precise message the UI shows as is, and proves a rejected
+// import changes nothing (mode, store, manager). The headline case is the
+// certificate signed with its own key while naming the CA as issuer, imported
+// with that CA: the message says so and how to fix it.
 func TestTLSImportRejectsBadMaterial(t *testing.T) {
 	e := newTestEnv(t)
 	m := withTLSManager(t, e)
@@ -456,6 +607,7 @@ func TestTLSImportRejectsBadMaterial(t *testing.T) {
 	certPEM, keyPEM, _ := testCertificate(t, "ok.example.test", k1, now.Add(-time.Hour), now.Add(24*time.Hour))
 	_, otherKeyPEM, _ := testCertificate(t, "other.example.test", k2, now.Add(-time.Hour), now.Add(24*time.Hour))
 	expiredPEM, expiredKeyPEM, _ := testCertificate(t, "old.example.test", k1, now.Add(-48*time.Hour), now.Add(-time.Hour))
+	futurePEM, futureKeyPEM, _ := testCertificate(t, "future.example.test", k1, now.Add(time.Hour), now.Add(48*time.Hour))
 	rk, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		t.Fatal(err)
@@ -464,26 +616,40 @@ func TestTLSImportRejectsBadMaterial(t *testing.T) {
 	secret := keyBody(keyPEM)
 
 	otherCAKey := testECKey(t)
-	otherCAPEM, _ := testCA(t, "Unrelated CA", otherCAKey, nil, nil, now.Add(-time.Hour), now.Add(48*time.Hour))
+	otherCAPEM, otherCA := testCA(t, "Unrelated CA", otherCAKey, nil, nil, now.Add(-time.Hour), now.Add(48*time.Hour))
 	expiredCAKey := testECKey(t)
 	expiredCAPEM, expiredCA := testCA(t, "Expired CA", expiredCAKey, nil, nil, now.Add(-48*time.Hour), now.Add(-time.Hour))
 	leafOfExpiredPEM, leafOfExpiredKeyPEM := testIssuedCertificate(t, "chain.example.test", k2, expiredCA, expiredCAKey, now.Add(-time.Hour), now.Add(24*time.Hour))
+	realCAKey := testECKey(t)
+	_, realCA := testCA(t, "Real CA", realCAKey, nil, nil, now.Add(-time.Hour), now.Add(48*time.Hour))
+	issuedPEM, issuedKeyPEM := testIssuedCertificate(t, "issued.example.test", k2, realCA, realCAKey, now.Add(-time.Hour), now.Add(24*time.Hour))
+	misSignedPEM, misSignedKeyPEM := misSignedCertificate(t, "castor.example.test", k2, otherCA, now.Add(-time.Hour), now.Add(24*time.Hour))
+	noSANTemplate := serverTemplate("nosan.example.test", now.Add(-time.Hour), now.Add(24*time.Hour))
+	noSANTemplate.DNSNames = nil
+	noSANPEM, _, _ := mintCertificate(t, noSANTemplate, nil, k1.Public(), k1)
+	encryptedPEM := pem.EncodeToMemory(&pem.Block{Type: "ENCRYPTED PRIVATE KEY", Bytes: []byte{1, 2, 3}})
+	legacyEncryptedPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Headers: map[string]string{"Proc-Type": "4,ENCRYPTED", "DEK-Info": "AES-128-CBC,00112233445566778899AABBCCDDEEFF"}, Bytes: []byte{1, 2, 3}})
 
 	cases := []struct {
 		name string
 		body map[string]any
 		code string
+		want string
 	}{
-		{"key mismatch", map[string]any{"certPem": string(certPEM), "keyPem": string(otherKeyPEM)}, "tls_key_mismatch"},
-		{"expired", map[string]any{"certPem": string(expiredPEM), "keyPem": string(expiredKeyPEM)}, "tls_certificate_expired"},
-		{"garbage", map[string]any{"certPem": "not a pem", "keyPem": string(otherKeyPEM)}, "tls_invalid_certificate"},
-		{"missing key", map[string]any{"certPem": string(certPEM)}, "tls_invalid_certificate"},
-		{"weak rsa", map[string]any{"certPem": string(weakPEM), "keyPem": string(weakKeyPEM)}, "tls_invalid_certificate"},
-		{"combined cert and key", map[string]any{"certPem": string(certPEM) + string(keyPEM), "keyPem": string(keyPEM)}, "tls_invalid_certificate"},
-		{"key in chain field", map[string]any{"certPem": string(certPEM), "chainPem": string(keyPEM), "keyPem": string(keyPEM)}, "tls_invalid_certificate"},
-		{"unrelated chain", map[string]any{"certPem": string(certPEM), "chainPem": string(otherCAPEM), "keyPem": string(keyPEM)}, "tls_invalid_certificate"},
-		{"expired intermediate", map[string]any{"certPem": string(leafOfExpiredPEM), "chainPem": string(expiredCAPEM), "keyPem": string(leafOfExpiredKeyPEM)}, "tls_invalid_certificate"},
-		{"leaf duplicated in chain", map[string]any{"certPem": string(certPEM), "chainPem": string(certPEM), "keyPem": string(keyPEM)}, "tls_invalid_certificate"},
+		{"key mismatch", map[string]any{"certPem": string(certPEM), "keyPem": string(otherKeyPEM)}, "tls_key_mismatch", "No certificate matches the private key (found CN=ok.example.test)"},
+		{"expired", map[string]any{"certPem": string(expiredPEM), "keyPem": string(expiredKeyPEM)}, "tls_certificate_expired", "The certificate has expired"},
+		{"not yet valid", map[string]any{"certPem": string(futurePEM), "keyPem": string(futureKeyPEM)}, "tls_invalid_certificate", "The certificate is not yet valid"},
+		{"garbage", map[string]any{"certPem": "not a pem", "keyPem": string(otherKeyPEM)}, "tls_invalid_certificate", "No certificate found"},
+		{"missing key", map[string]any{"certPem": string(certPEM)}, "tls_invalid_certificate", "No private key found"},
+		{"two keys", map[string]any{"certPem": string(certPEM) + string(keyPEM), "keyPem": string(otherKeyPEM)}, "tls_invalid_certificate", "More than one private key found"},
+		{"encrypted key", map[string]any{"certPem": string(certPEM), "keyPem": string(encryptedPEM)}, "tls_invalid_certificate", "Private key is encrypted (remove the passphrase first)"},
+		{"legacy encrypted key", map[string]any{"certPem": string(certPEM), "keyPem": string(legacyEncryptedPEM)}, "tls_invalid_certificate", "Private key is encrypted (remove the passphrase first)"},
+		{"weak rsa", map[string]any{"certPem": string(weakPEM), "keyPem": string(weakKeyPEM)}, "tls_invalid_certificate", "RSA key is too short (min 2048 bits)"},
+		{"no SAN", map[string]any{"certPem": string(noSANPEM), "keyPem": string(keyPEM)}, "tls_invalid_certificate", "The certificate has no Subject Alternative Name; browsers reject such certificates. Re-issue it with DNS and/or IP names for the address you use to reach Castor (e.g. castor.example.com, localhost)."},
+		{"self-signed leaf with the CA it names", map[string]any{"certPem": string(misSignedPEM) + string(misSignedKeyPEM) + string(otherCAPEM)}, "tls_invalid_certificate", "The certificate is not signed by the provided CA certificate: its Authority Key Identifier (AF:CA:29:FE:AD:5E:8A:89…) matches its own Subject Key Identifier, so it is self-signed. Re-issue it from your CA."},
+		{"unrelated chain", map[string]any{"certPem": string(issuedPEM), "chainPem": string(otherCAPEM), "keyPem": string(issuedKeyPEM)}, "tls_invalid_certificate", "names another issuer and the provided CA (SKI " + fingerprintPrefix(otherCA.SubjectKeyId) + "…) did not sign it; export the intermediate that did."},
+		{"self-signed leaf without AKI with an unrelated CA", map[string]any{"certPem": string(certPEM), "chainPem": string(otherCAPEM), "keyPem": string(keyPEM)}, "tls_invalid_certificate", "it has no Authority Key Identifier and its signature verifies with its own public key, so it is self-signed. Re-issue it from your CA."},
+		{"expired intermediate", map[string]any{"certPem": string(leafOfExpiredPEM), "chainPem": string(expiredCAPEM), "keyPem": string(leafOfExpiredKeyPEM)}, "tls_invalid_certificate", "The CA certificate CN=Expired CA (chain #1) expired on"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -495,8 +661,10 @@ func TestTLSImportRejectsBadMaterial(t *testing.T) {
 			if got := tlsErrorCode(t, body); got != c.code {
 				t.Errorf("error code = %q want %q (%s)", got, c.code, rec.Body.String())
 			}
-			if msg := tlsErrorMessage(t, body); len(msg) <= len(authz.ErrTLSInvalidCertificate.Message) && c.code == "tls_invalid_certificate" {
-				t.Errorf("error message %q carries no detail", msg)
+			// The message is the manager's explanation verbatim, never the
+			// canonical placeholder.
+			if msg := tlsErrorMessage(t, body); !strings.Contains(msg, c.want) || msg == authz.ErrTLSInvalidCertificate.Message {
+				t.Errorf("error message = %q want it to contain %q", msg, c.want)
 			}
 			if strings.Contains(rec.Body.String(), "PRIVATE KEY") || strings.Contains(rec.Body.String(), secret) {
 				t.Errorf("error response leaked key material")
@@ -817,8 +985,10 @@ func TestTLSSettingsView(t *testing.T) {
 	if body["redirect"] != false || body["serving"] != true || body["managedByEnv"] != false || body["hsts"] != false {
 		t.Errorf("status = %v", body)
 	}
-	if cert, _ := body["certificate"].(map[string]any); cert == nil || cert["expired"] != false {
-		t.Errorf("certificate = %v want expired=false", body["certificate"])
+	// Castor's own self-signed certificate is not an imported one: the flag
+	// that drives the trust-store warning stays false.
+	if cert, _ := body["certificate"].(map[string]any); cert == nil || cert["expired"] != false || cert["selfSignedCustom"] != false {
+		t.Errorf("certificate = %v want expired=false, selfSignedCustom=false", body["certificate"])
 	}
 	for _, key := range []string{"mode", "effectiveMode", "managedByEnv", "serving", "httpsAddr", "httpAddr", "redirect", "publicHttpsUrl", "hsts", "restartRequired", "certificate", "custom", "hasCustomCertificate", "acme"} {
 		if _, present := body[key]; !present {

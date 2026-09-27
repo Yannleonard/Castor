@@ -68,6 +68,52 @@ export function importReady(certPem: string, keyPem: string, chainPem: string): 
   );
 }
 
+/* ---- single-file import ---- */
+
+/** How the import modal collects the material: one combined PEM (the export
+ *  most providers and openssl produce) or the three parts separately. */
+export type ImportMode = "single" | "separate";
+
+/** Problem with the combined paste; keys map to settingsDict tls.import.*. */
+export type CombinedPemError = "notPem" | "missingKey" | "missingCert" | "keyEncrypted" | "tooLarge";
+
+/**
+ * Validates the single-file paste. The server splits the text into PEM
+ * blocks and sorts them itself (exactly one private key, the certificate
+ * matching it as the leaf, the rest as the chain), so the only client-side
+ * requirements are one certificate block and one unencrypted key block, under
+ * the per-field cap. An empty value is not an error (the submit gate is).
+ */
+export function validateCombinedPem(text: string): CombinedPemError | null {
+  const v = text.trim();
+  if (v === "") return null;
+  if (v.length > MAX_PEM_BYTES) return "tooLarge";
+  const hasCert = looksLikeCertificatePem(v);
+  const hasKey = looksLikePrivateKeyPem(v);
+  if (!hasCert && !hasKey) return "notPem";
+  if (isEncryptedPrivateKeyPem(v)) return "keyEncrypted";
+  if (!hasKey) return "missingKey";
+  if (!hasCert) return "missingCert";
+  return null;
+}
+
+/** Submit gate of the single-file mode. */
+export function combinedImportReady(text: string): boolean {
+  return text.trim() !== "" && validateCombinedPem(text) === null;
+}
+
+/**
+ * Whether an imported certificate is self-signed, i.e. imported without a
+ * chain and signed with its own key: the server accepts it but browsers will
+ * not trust it. selfSignedCustom is the server's explicit verdict; a status
+ * predating it falls back to the generic selfSigned flag.
+ */
+export function isSelfSignedCustom(
+  cert: Pick<TlsCertificateInfo, "selfSigned"> & Partial<Pick<TlsCertificateInfo, "selfSignedCustom">>,
+): boolean {
+  return cert.selfSignedCustom ?? cert.selfSigned;
+}
+
 /* ---- ACME ---- */
 
 /** Problem with an ACME domain; keys map to settingsDict tls.acme.domain.*. */

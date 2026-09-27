@@ -46,6 +46,7 @@ import { ImportCertificateModal } from "./ImportCertificateModal";
 import {
   expiryTone,
   httpsUrl,
+  isSelfSignedCustom,
   normalizeDomain,
   sameDomains,
   shortFingerprint,
@@ -429,6 +430,14 @@ export function TlsCard() {
                     )}
                   </div>
                   <CertificateDetails cert={status.custom} />
+                  {/* Accepted without a chain because it signs itself: served,
+                      but no browser trusts it until it is in the trust store. */}
+                  {isSelfSignedCustom(status.custom) ? (
+                    <div className="banner warning" style={{ alignItems: "flex-start" }}>
+                      <IconAlert size={16} style={{ flex: "0 0 auto", marginTop: 2 }} />
+                      <span>{t("tls.custom.selfSignedWarn")}</span>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <span className="text-sm muted">{t("tls.custom.none")}</span>

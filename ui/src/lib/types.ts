@@ -1140,6 +1140,10 @@ export type TlsMode = "self-signed" | "custom" | "acme" | "off";
 // expired is the server's own verdict (its clock is authoritative over the
 // browser's); fingerprintSha256 is upper-case colon-separated hex (the
 // openssl/browser form); sans lists the DNS names then the IP addresses.
+// selfSignedCustom is set on an imported certificate that was accepted
+// without a chain because it is consistently self-signed (AKI absent or equal
+// to its SKI, signature verified with its own key): served as-is, but
+// browsers will not trust it until it is added to their trust store.
 export interface TlsCertificateInfo {
   source: TlsMode;
   subject: string;
@@ -1151,6 +1155,7 @@ export interface TlsCertificateInfo {
   fingerprintSha256: string;
   daysLeft: number;
   selfSigned: boolean;
+  selfSignedCustom?: boolean;
 }
 
 // TlsAcmeConfig mirrors api.tlsACMEView: the persisted ACME settings plus the
@@ -1224,14 +1229,17 @@ export interface UpdateTlsRequest {
   acme?: TlsAcmeRequest;
 }
 
-// ImportCertificateRequest is the POST /settings/tls/certificate body: PEM
-// leaf, the unencrypted PEM private key and an optional PEM chain (the
-// intermediate CA certificates). keyPem is the only place the private key is
-// ever transmitted — it is sealed server-side and never returned, logged or
-// audited. Each part is capped at 64 KiB.
+// ImportCertificateRequest is the POST /settings/tls/certificate body. Each
+// field may hold a combined PEM (several blocks): the server gathers every
+// block of the three fields and sorts them — exactly one unencrypted private
+// key, the leaf (the certificate whose public key matches it) and the chain
+// (the other certificates, ordered from the leaf's signer to the root). A
+// single-file export therefore travels untouched in certPem, keyPem and
+// chainPem omitted. The private key is sealed server-side and never
+// returned, logged or audited. Each field is capped at 64 KiB.
 export interface ImportCertificateRequest {
   certPem: string;
-  keyPem: string;
+  keyPem?: string;
   chainPem?: string;
 }
 

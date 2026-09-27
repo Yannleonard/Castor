@@ -135,6 +135,8 @@ export const settingsDict = defineDict({
     "tls.custom.served": "Served",
     "tls.custom.notServed": "Imported but not served — select \"Custom certificate\" above to use it.",
     "tls.custom.none": "No custom certificate imported.",
+    "tls.custom.selfSignedWarn":
+      "This certificate is self-signed; browsers will not trust it unless you add it to your trust store.",
 
     // Let's Encrypt
     "tls.acme.title": "Let's Encrypt",
@@ -169,7 +171,15 @@ export const settingsDict = defineDict({
     // Import modal
     "tls.import.title": "Import a certificate",
     "tls.import.intro":
-      "Paste each PEM block or load it from a file. The private key is sent once, stored encrypted and never displayed again.",
+      "Load the PEM export your provider gave you, or paste the blocks. The private key is sent once, stored encrypted and never displayed again.",
+    "tls.import.mode": "Import from",
+    "tls.import.modeSingle": "Single file",
+    "tls.import.modeSeparate": "Separate files",
+    "tls.import.combined": "Paste the certificate, private key and chain (one PEM file)",
+    "tls.import.combinedHint": "Accepts a combined PEM export (certificate + private key + CA chain) or separate files.",
+    "tls.import.notPem": "No PEM block found (-----BEGIN CERTIFICATE----- or -----BEGIN … PRIVATE KEY-----).",
+    "tls.import.missingKey": "No private key block found (-----BEGIN … PRIVATE KEY-----). Add it here, or switch to separate files.",
+    "tls.import.missingCert": "No certificate block found (-----BEGIN CERTIFICATE-----).",
     "tls.import.cert": "Certificate (PEM)",
     "tls.import.certHint": "The server (leaf) certificate: -----BEGIN CERTIFICATE-----",
     "tls.import.key": "Private key (PEM)",
@@ -379,6 +389,8 @@ export const settingsDict = defineDict({
     "tls.custom.served": "Servi",
     "tls.custom.notServed": "Importé mais non servi — sélectionnez « Certificat personnalisé » ci-dessus pour l'utiliser.",
     "tls.custom.none": "Aucun certificat personnalisé importé.",
+    "tls.custom.selfSignedWarn":
+      "Ce certificat est auto-signé ; les navigateurs ne lui feront pas confiance tant que vous ne l'aurez pas ajouté à votre magasin de confiance.",
 
     // Let's Encrypt
     "tls.acme.title": "Let's Encrypt",
@@ -413,7 +425,15 @@ export const settingsDict = defineDict({
     // Fenêtre d'import
     "tls.import.title": "Importer un certificat",
     "tls.import.intro":
-      "Collez chaque bloc PEM ou chargez-le depuis un fichier. La clé privée est envoyée une seule fois, stockée chiffrée et plus jamais affichée.",
+      "Chargez l'export PEM fourni par votre prestataire, ou collez les blocs. La clé privée est envoyée une seule fois, stockée chiffrée et plus jamais affichée.",
+    "tls.import.mode": "Importer depuis",
+    "tls.import.modeSingle": "Un seul fichier",
+    "tls.import.modeSeparate": "Fichiers séparés",
+    "tls.import.combined": "Collez le certificat, la clé privée et la chaîne (un seul fichier PEM)",
+    "tls.import.combinedHint": "Accepte un export PEM combiné (certificat + clé privée + chaîne d'AC) ou des fichiers séparés.",
+    "tls.import.notPem": "Aucun bloc PEM trouvé (-----BEGIN CERTIFICATE----- ou -----BEGIN … PRIVATE KEY-----).",
+    "tls.import.missingKey": "Aucun bloc de clé privée trouvé (-----BEGIN … PRIVATE KEY-----). Ajoutez-le ici, ou passez en fichiers séparés.",
+    "tls.import.missingCert": "Aucun bloc de certificat trouvé (-----BEGIN CERTIFICATE-----).",
     "tls.import.cert": "Certificat (PEM)",
     "tls.import.certHint": "Le certificat serveur (feuille) : -----BEGIN CERTIFICATE-----",
     "tls.import.key": "Clé privée (PEM)",

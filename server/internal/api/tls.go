@@ -69,12 +69,24 @@ type tlsSettingsView struct {
 	// listener relative to what was bound at startup (off <-> on).
 	RestartRequired bool `json:"restartRequired"`
 	// Certificate is what visitors currently get; null when TLS is off.
-	Certificate *tlsmgr.CertInfo `json:"certificate"`
+	Certificate *tlsCertView `json:"certificate"`
 	// Custom describes the imported certificate whatever the active mode, so the
 	// UI can show what "custom" would serve; null when none is installed.
-	Custom               *tlsmgr.CertInfo `json:"custom"`
-	HasCustomCertificate bool             `json:"hasCustomCertificate"`
-	ACME                 tlsACMEView      `json:"acme"`
+	Custom               *tlsCertView `json:"custom"`
+	HasCustomCertificate bool         `json:"hasCustomCertificate"`
+	ACME                 tlsACMEView  `json:"acme"`
+}
+
+// tlsCertView is a certificate description plus the import-specific flag the
+// UI warns on.
+type tlsCertView struct {
+	*tlsmgr.CertInfo
+	// SelfSignedCustom is true for an imported certificate that is self-signed
+	// (a single certificate signed with its own key, see tlsmgr.SelfSigned): it
+	// was accepted as is, but browsers will not trust it until it is added to
+	// their trust store. Always false for Castor's own self-signed certificate
+	// and for ACME certificates.
+	SelfSignedCustom bool `json:"selfSignedCustom"`
 }
 
 // tlsACMEView is the ACME configuration (persisted settings) plus the outcome
@@ -180,8 +192,15 @@ func (s *Server) tlsView(r *http.Request) tlsSettingsView {
 	v.PublicHTTPSURL = s.tls.PublicHTTPSURL(r.Host)
 	v.HSTS = st.HSTS
 	v.RestartRequired = st.RestartRequired
-	v.Certificate = st.Certificate
-	v.Custom = st.Custom
+	// The flag is read from the installed (re-serialized, public) material so
+	// it survives restarts without a schema change.
+	selfSignedCustom := tlsmgr.SelfSignedPEM(s.tls.CustomPEM())
+	if st.Certificate != nil {
+		v.Certificate = &tlsCertView{CertInfo: st.Certificate, SelfSignedCustom: selfSignedCustom && st.Certificate.Source == config.TLSModeCustom}
+	}
+	if st.Custom != nil {
+		v.Custom = &tlsCertView{CertInfo: st.Custom, SelfSignedCustom: selfSignedCustom}
+	}
 	v.HasCustomCertificate = st.Custom != nil
 	if a := st.ACME; a != nil {
 		// The applied configuration is authoritative over the rows (they are
@@ -292,14 +311,17 @@ func (s *Server) UpdateTLSSettings(w http.ResponseWriter, r *http.Request) {
 	ok(w, s.tlsView(r))
 }
 
-// ImportTLSCertificate installs an operator certificate (perm settings.update):
-// PEM leaf, optional PEM chain and the unencrypted PEM private key. The input
-// is validated by tlsmgr.ParseCustom (key/leaf match, validity window, RSA >=
-// 2048 or ECDSA, size, chain linking to the leaf, no private key in a
-// certificate field), installed for serving, then stored with the key sealed
-// under the secret key, and the mode switches to "custom". What is persisted
-// is the parsed material re-serialized as CERTIFICATE blocks (leaf in
-// cert_pem, intermediates in chain_pem), never the raw input. The audit target
+// ImportTLSCertificate installs an operator certificate (perm settings.update).
+// The three PEM fields (certificate, chain, private key) are pooled, so a
+// combined file pasted in one field is as good as three separate ones; the
+// input is validated by tlsmgr.ParseCustom (exactly one unencrypted key, the
+// leaf being the certificate that key belongs to, validity window, RSA >= 2048
+// or ECDSA, a SAN, size, chain ordered by signature and linking to the leaf),
+// installed for serving, then stored with the key sealed under the secret key,
+// and the mode switches to "custom". What is persisted, installed and reloaded
+// at startup is the parsed material re-serialized: CERTIFICATE blocks (leaf in
+// cert_pem, intermediates in chain_pem) and a PKCS#8 key, never the raw input.
+// A rejection maps to 422 with the manager's precise message. The audit target
 // is the leaf fingerprint; the key never reaches the audit row, the log or the
 // reply.
 func (s *Server) ImportTLSCertificate(w http.ResponseWriter, r *http.Request) {
@@ -326,14 +348,22 @@ func (s *Server) ImportTLSCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	leafPEM, chainPEM := tlsmgr.EncodeChainPEM(parsed)
-	// Seal is pure, so a (theoretical) failure changes nothing.
-	sealed, err := authz.SealSecret(s.cfg.SecretKey, []byte(req.KeyPEM))
+	// The key is re-serialized (PKCS#8) whatever the operator pasted, so the
+	// sealed value is exactly what SetCustom gets back at startup. Encoding and
+	// sealing are pure, so a (theoretical) failure changes nothing.
+	keyPEM, err := tlsmgr.EncodeKeyPEM(parsed)
 	if err != nil {
 		authz.WriteError(w, r, authz.ErrInternal)
 		return
 	}
-	// Install: the manager re-runs the same validation on the same bytes.
-	info, err := m.SetCustom([]byte(req.CertPEM), []byte(req.ChainPEM), []byte(req.KeyPEM))
+	sealed, err := authz.SealSecret(s.cfg.SecretKey, keyPEM)
+	if err != nil {
+		authz.WriteError(w, r, authz.ErrInternal)
+		return
+	}
+	// Install the canonical material, the same bytes the store gets: the
+	// manager re-runs the validation on them.
+	info, err := m.SetCustom(leafPEM, chainPEM, keyPEM)
 	if err != nil {
 		writeMapped(w, r, err)
 		return
@@ -341,6 +371,8 @@ func (s *Server) ImportTLSCertificate(w http.ResponseWriter, r *http.Request) {
 	authz.SetAuditTarget(r, "tls_certificate", info.FingerprintSHA256, info.Subject)
 	authz.AddAuditDetail(r, "issuer", info.Issuer)
 	authz.AddAuditDetail(r, "notAfter", info.NotAfter)
+	authz.AddAuditDetail(r, "chainLength", len(parsed.Certificate)-1)
+	authz.AddAuditDetail(r, "selfSigned", tlsmgr.SelfSigned(parsed))
 
 	// Persist. Should this write fail the manager keeps serving the (valid)
 	// certificate just installed until the next restart reloads the stored one;

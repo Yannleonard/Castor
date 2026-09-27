@@ -53,6 +53,18 @@ export const toast = {
     useToastStore.getState().push({ kind: "warning", title, message }),
 };
 
+// Validation refusals whose server message names the precise cause (the PEM
+// block that is missing, an encrypted key, a certificate without SAN, a
+// gateway outside its subnet…). The localized phrasing of the code alone would
+// hide it, so both are shown for these codes.
+const DETAILED_CODES = new Set([
+  "validation_failed",
+  "tls_invalid_certificate",
+  "tls_key_mismatch",
+  "tls_certificate_expired",
+  "invalid_network_config",
+]);
+
 /** Map an unknown error (likely ApiError) to a user-facing toast. Known error
  *  codes get a localized, actionable message; any other code falls back to the
  *  server-supplied message so nothing is ever hidden. */
@@ -62,7 +74,13 @@ export function toastError(prefix: string, err: unknown): void {
     // server message. `translate` returns the key itself when the code is absent,
     // which lets us detect "no localized entry" and fall back.
     const localized = translate(errorsDict, err.code);
-    const body = localized !== err.code ? localized : err.message;
+    let body = localized !== err.code ? localized : err.message;
+    // ApiError falls back to the code as message when the server sent none:
+    // only a real, distinct message is appended.
+    const detail = err.message.trim();
+    if (localized !== err.code && DETAILED_CODES.has(err.code) && detail !== "" && detail !== err.code) {
+      body = `${localized} ${detail}`;
+    }
     toast.error(prefix, `${body}${err.requestId ? ` (req ${err.requestId})` : ""}`);
   } else if (err instanceof Error) {
     toast.error(prefix, err.message);
