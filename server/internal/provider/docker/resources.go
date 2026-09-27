@@ -8,7 +8,6 @@ import (
 
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 )
 
@@ -60,74 +59,8 @@ func (p *DockerProvider) DeleteImage(ctx context.Context, id string, force bool)
 	return nil
 }
 
-// NetworkInfo is the normalized network summary the API exposes.
-type NetworkInfo struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Driver   string `json:"driver"`
-	Scope    string `json:"scope"`
-	Internal bool   `json:"internal"`
-}
-
-// ListNetworks returns normalized network summaries.
-func (p *DockerProvider) ListNetworks(ctx context.Context) ([]NetworkInfo, error) {
-	nets, err := p.cli.NetworkList(ctx, network.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	out := make([]NetworkInfo, 0, len(nets))
-	for _, n := range nets {
-		out = append(out, NetworkInfo{
-			ID:       n.ID,
-			Name:     n.Name,
-			Driver:   n.Driver,
-			Scope:    n.Scope,
-			Internal: n.Internal,
-		})
-	}
-	return out, nil
-}
-
-// NetworkSpec is the minimal create-network request. Name is required; Driver
-// defaults to "bridge" when empty. Internal and Labels are optional.
-type NetworkSpec struct {
-	Name     string            `json:"name"`
-	Driver   string            `json:"driver"`
-	Internal bool              `json:"internal"`
-	Labels   map[string]string `json:"labels"`
-}
-
-// CreateNetwork creates a network from spec (name + driver, default bridge) and
-// returns the normalized summary of the created network.
-func (p *DockerProvider) CreateNetwork(ctx context.Context, spec NetworkSpec) (*NetworkInfo, error) {
-	driver := spec.Driver
-	if driver == "" {
-		driver = "bridge"
-	}
-	resp, err := p.cli.NetworkCreate(ctx, spec.Name, network.CreateOptions{
-		Driver:   driver,
-		Internal: spec.Internal,
-		Labels:   spec.Labels,
-	})
-	if err != nil {
-		return nil, mapResourceErr(err)
-	}
-	return &NetworkInfo{
-		ID:       resp.ID,
-		Name:     spec.Name,
-		Driver:   driver,
-		Scope:    "local",
-		Internal: spec.Internal,
-	}, nil
-}
-
-// DeleteNetwork removes a network by id.
-func (p *DockerProvider) DeleteNetwork(ctx context.Context, id string) error {
-	if err := p.cli.NetworkRemove(ctx, id); err != nil {
-		return mapResourceErr(err)
-	}
-	return nil
-}
+// Networks (types, list/inspect/create/delete, connect/disconnect) live in
+// networks.go; only the prune stays here with the other prune operations.
 
 // VolumeInfo is the normalized volume summary the API exposes.
 type VolumeInfo struct {

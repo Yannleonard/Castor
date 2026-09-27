@@ -75,6 +75,91 @@ const MsgImageNotFound = "Image not found or could not be pulled. Check the imag
 // maps it to HTTP 404 with an actionable message instead of a generic 500.
 var ErrImageNotFound = fmt.Errorf("%w: %s", ErrNotFound, MsgImageNotFound)
 
+// MsgNetworkExists is the user-facing 409 message when a network cannot be
+// created because its name is already taken.
+const MsgNetworkExists = "A network with this name already exists."
+
+// ErrNetworkExists is the specific ErrConflict raised when NetworkCreate is
+// refused because the name is in use. It wraps ErrConflict (HTTP 409).
+var ErrNetworkExists = fmt.Errorf("%w: %s", ErrConflict, MsgNetworkExists)
+
+// MsgSubnetOverlap is the user-facing 409 message when a requested subnet
+// collides with the address space of an existing network.
+const MsgSubnetOverlap = "This subnet overlaps an existing network's address space. Choose a different subnet."
+
+// ErrSubnetOverlap is the specific ErrConflict raised when the daemon's IPAM
+// refuses a pool because it overlaps another network. It wraps ErrConflict.
+var ErrSubnetOverlap = fmt.Errorf("%w: %s", ErrConflict, MsgSubnetOverlap)
+
+// MsgIPInUse is the user-facing 409 message when a static address requested for
+// a container is already allocated to another endpoint on that network.
+const MsgIPInUse = "That IP address is already used on this network."
+
+// ErrIPInUse is the specific ErrConflict raised when a network connect (or a
+// deploy with a static address) is refused because the IP is taken.
+var ErrIPInUse = fmt.Errorf("%w: %s", ErrConflict, MsgIPInUse)
+
+// MsgAlreadyConnected is the user-facing 409 message when a container is
+// connected to a network it already belongs to.
+const MsgAlreadyConnected = "This container is already connected to that network."
+
+// ErrAlreadyConnected is the specific ErrConflict raised when NetworkConnect
+// finds an endpoint for the container on that network already.
+var ErrAlreadyConnected = fmt.Errorf("%w: %s", ErrConflict, MsgAlreadyConnected)
+
+// MsgNotConnected is the user-facing 404 message when a container is
+// disconnected from a network it does not belong to.
+const MsgNotConnected = "This container is not connected to that network."
+
+// ErrNotConnected is the specific ErrNotFound raised when NetworkDisconnect
+// finds no endpoint for the container on that network. It wraps ErrNotFound.
+var ErrNotConnected = fmt.Errorf("%w: %s", ErrNotFound, MsgNotConnected)
+
+// MsgStaticIPUnsupported is the user-facing 409 message when a static address
+// is requested on a network that cannot honor one (the default bridge, or any
+// network without a user-configured subnet).
+const MsgStaticIPUnsupported = "Static IP addresses are only supported on user-defined networks, not on the default bridge."
+
+// ErrStaticIPUnsupported is the specific ErrConflict raised when the daemon
+// rejects a user-specified IP on a network without a configured subnet.
+var ErrStaticIPUnsupported = fmt.Errorf("%w: %s", ErrConflict, MsgStaticIPUnsupported)
+
+// MsgNetworkInUse is the user-facing 409 message when a network cannot be
+// removed because containers are still attached to it.
+const MsgNetworkInUse = "This network still has connected containers. Disconnect them first."
+
+// ErrNetworkInUse is the specific ErrConflict raised when NetworkRemove is
+// refused because the network still has active endpoints.
+var ErrNetworkInUse = fmt.Errorf("%w: %s", ErrConflict, MsgNetworkInUse)
+
+// MsgAliasUnsupported is the user-facing 409 message when a network-scoped
+// alias is requested on a network that cannot register one (the default
+// bridge, or any network that is not user-defined).
+const MsgAliasUnsupported = "Network aliases are only supported on user-defined networks, not on the default bridge."
+
+// ErrAliasUnsupported is the specific ErrConflict raised when the daemon
+// rejects a network-scoped alias on a non user-defined network.
+var ErrAliasUnsupported = fmt.Errorf("%w: %s", ErrConflict, MsgAliasUnsupported)
+
+// MsgIPPoolExhausted is the user-facing 409 message when a network has no free
+// address left in its pools for a new endpoint.
+const MsgIPPoolExhausted = "This network has no free IP address left in its address pools. Disconnect a container from it, or use a network with a larger subnet."
+
+// ErrIPPoolExhausted is the specific ErrConflict raised when the daemon's IPAM
+// cannot allocate an address for a connect or a deploy.
+var ErrIPPoolExhausted = fmt.Errorf("%w: %s", ErrConflict, MsgIPPoolExhausted)
+
+// MsgNetworkModeUnjoinable is the explanation ErrInvalidNetworkConfig carries
+// when a container running in host, none or container:<id> network mode is
+// connected to a network: it has no network sandbox of its own to attach.
+const MsgNetworkModeUnjoinable = "A container using host/none/container network mode cannot join other networks."
+
+// ErrInvalidNetworkConfig is returned when the daemon rejects a network or
+// endpoint configuration as malformed (bad CIDR, gateway outside the subnet,
+// address outside the pool). The wrapping error carries the daemon's cleaned
+// explanation. The API maps it to HTTP 422.
+var ErrInvalidNetworkConfig = errors.New("provider: invalid network configuration")
+
 // ErrForbidden is returned when a request is rejected by a server-side security
 // policy (not by missing RBAC, which is enforced earlier at the middleware). The
 // canonical case is ErrHostMountDenied below. The API maps it to HTTP 403.

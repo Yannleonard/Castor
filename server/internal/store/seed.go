@@ -74,6 +74,12 @@ var operatorExtraPermissions = []string{
 	// stays admin-only). Deleting them (network.delete / volume.remove) is
 	// destructive and stays admin-only.
 	"docker.network.create",
+	// Attaching/detaching an existing container to a network is day-to-day
+	// wiring (the handler refuses protected containers and Castor itself);
+	// creating an L2 network (macvlan/ipvlan/parent) is superuser-only in the
+	// handler regardless of this grant.
+	"docker.network.connect",
+	"docker.network.disconnect",
 	"docker.volume.create",
 	// Prune reclaims unused images/containers/volumes/networks — a routine
 	// housekeeping op granted to operators (it only touches dangling/unused

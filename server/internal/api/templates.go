@@ -1,13 +1,17 @@
 package api
 
 import (
+	"fmt"
+	"net"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/gtek-it/castor/server/internal/authz"
+	"github.com/gtek-it/castor/server/internal/cache"
 	"github.com/gtek-it/castor/server/internal/compose"
+	"github.com/gtek-it/castor/server/internal/provider"
 	"github.com/gtek-it/castor/server/internal/provider/docker"
 	"github.com/gtek-it/castor/server/internal/store"
 	"github.com/gtek-it/castor/server/internal/templates"
@@ -176,6 +180,15 @@ type deployRequest struct {
 	Labels        map[string]string `json:"labels"`
 	RestartPolicy string            `json:"restartPolicy"`
 
+	// Networks are the existing networks the container joins, in order: the
+	// first is its primary network. Each entry names the network (name or id)
+	// with an optional static IPv4 (user-defined networks with a subnet only)
+	// and extra DNS aliases. Empty leaves the container on the default bridge.
+	// Every network must exist on the host, be listed once, and joining one
+	// bound to a host interface (macvlan/ipvlan, parent, bridge name) is
+	// reserved to superusers; see deployNetworks.
+	Networks []docker.NetworkAttach `json:"networks"`
+
 	// Optional resource limits/reservations (<=0 means unset). Same semantics as
 	// docker.DeploySpec: cpu values are cores, memory values are bytes.
 	CpuLimit               float64 `json:"cpuLimit"`
@@ -216,7 +229,7 @@ func (s *Server) DeployTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spec, err := s.buildDeploySpec(r, &req)
+	spec, err := s.buildDeploySpec(r, hostID, &req)
 	if err != nil {
 		authz.WriteError(w, r, err)
 		return
@@ -235,8 +248,10 @@ func (s *Server) DeployTemplate(w http.ResponseWriter, r *http.Request) {
 // buildDeploySpec resolves the (optional) template slug and merges the request
 // overrides into a docker.DeploySpec. Request-supplied ports/env/volumes REPLACE
 // the template defaults when provided (non-nil); env maps are merged so the
-// caller can fill in just the required values.
-func (s *Server) buildDeploySpec(r *http.Request, req *deployRequest) (docker.DeploySpec, error) {
+// caller can fill in just the required values. Network attachments are
+// resolved and authorized against hostID's snapshot (deployNetworks), so every
+// refusal happens before the image pull.
+func (s *Server) buildDeploySpec(r *http.Request, hostID string, req *deployRequest) (docker.DeploySpec, error) {
 	spec := docker.DeploySpec{
 		Image:                  strings.TrimSpace(req.Image),
 		Name:                   strings.TrimSpace(req.Name),
@@ -305,6 +320,17 @@ func (s *Server) buildDeploySpec(r *http.Request, req *deployRequest) (docker.De
 	if spec.Name != "" && !validContainerName(spec.Name) {
 		return spec, authz.Errorf(authz.ErrValidation, "Invalid container name.")
 	}
+	if len(req.Networks) > 0 {
+		snap, found := s.manager.Store().Get(hostID)
+		if !found {
+			return spec, authz.ErrNotFound
+		}
+		nets, err := s.deployNetworks(r, snap, req.Networks)
+		if err != nil {
+			return spec, err
+		}
+		spec.Networks = nets
+	}
 
 	// Host-mount escalation guard: only a global superuser may opt into host bind
 	// mounts, and a non-admin that requests one (in the merged volume set) is
@@ -314,6 +340,69 @@ func (s *Server) buildDeploySpec(r *http.Request, req *deployRequest) (docker.De
 		return spec, err
 	}
 	return spec, nil
+}
+
+// deployNetworks validates and authorizes the request's network attachments
+// into the spec's, entirely from the snapshot so nothing reaches the daemon
+// first: each entry is normalized (normalizeNetworkAttach), its network must
+// exist on the host and, when bound to a host interface, the caller must be a
+// superuser (authorizeNetworkAttach: 422/403); a network listed twice is a
+// 422 (the daemon would keep one entry and drop the other's settings), and
+// the default bridge accepts neither aliases (422) nor a static address
+// (409). nil in yields nil (default bridge).
+func (s *Server) deployNetworks(r *http.Request, snap cache.Snapshot, in []docker.NetworkAttach) ([]docker.NetworkAttach, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+	out := make([]docker.NetworkAttach, 0, len(in))
+	first := make(map[string]int, len(in)) // network key -> 1-based index of its first entry
+	for i, n := range in {
+		att, err := normalizeNetworkAttach(i, n)
+		if err != nil {
+			return nil, err
+		}
+		info, err := s.authorizeSnapshotNetworkAttach(r, snap, att.Name)
+		if err != nil {
+			return nil, err
+		}
+		key := info.ID
+		if key == "" {
+			key = info.Name
+		}
+		if j, dup := first[key]; dup {
+			return nil, authz.Errorf(authz.ErrValidation,
+				fmt.Sprintf("Network %s is listed twice (#%d and #%d); merge the two entries.", info.Name, j, i+1))
+		}
+		first[key] = i + 1
+		if info.Name == defaultBridgeNetwork {
+			if len(att.Aliases) > 0 {
+				return nil, authz.Errorf(authz.ErrValidation, msgAliasesDefaultBridge)
+			}
+			if att.IPv4 != "" {
+				return nil, authz.Errorf(authz.ErrStaticIPUnsupported, provider.MsgStaticIPUnsupported)
+			}
+		}
+		out = append(out, att)
+	}
+	return out, nil
+}
+
+// normalizeNetworkAttach trims the i-th (0-based) attachment of a deploy
+// request: it must name a network, a static IPv4 must parse as one, and
+// aliases are trimmed with empties dropped.
+func normalizeNetworkAttach(i int, n docker.NetworkAttach) (docker.NetworkAttach, error) {
+	name := strings.TrimSpace(n.Name)
+	if name == "" {
+		return docker.NetworkAttach{}, authz.Errorf(authz.ErrValidation, fmt.Sprintf("Network #%d needs a name.", i+1))
+	}
+	ipv4 := strings.TrimSpace(n.IPv4)
+	if ipv4 != "" {
+		if ip := net.ParseIP(ipv4); ip == nil || ip.To4() == nil {
+			return docker.NetworkAttach{}, authz.Errorf(authz.ErrValidation,
+				fmt.Sprintf("Invalid IPv4 address %q for network %q.", ipv4, name))
+		}
+	}
+	return docker.NetworkAttach{Name: name, IPv4: ipv4, Aliases: trimAll(n.Aliases)}, nil
 }
 
 // authorizeHostMounts decides whether spec.Volumes may include host bind mounts

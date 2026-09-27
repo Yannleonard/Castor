@@ -74,6 +74,33 @@ type Workload struct {
 
 	// Protected marks system/Castor-own workloads that must NOT be removed by accident.
 	Protected bool `json:"protected"`
+
+	// NetworkNames lists the networks the workload is attached to, sorted. The
+	// list view shows this without an inspect; the per-network detail is in
+	// Networks. Docker only for now.
+	NetworkNames []string `json:"networkNames,omitempty"`
+
+	// IPAddress is the first IPv4 the workload holds across its networks (in
+	// NetworkNames order), or empty when it has none (host/none network mode).
+	IPAddress string `json:"ipAddress,omitempty"`
+
+	// Networks is the per-network attachment detail (id, addresses, gateway,
+	// MAC, aliases). Populated by InspectWorkload only, so the list snapshot
+	// stays lean; list rows carry NetworkNames and IPAddress instead.
+	Networks []WorkloadNetwork `json:"networks,omitempty"`
+}
+
+// WorkloadNetwork is one network a workload is attached to, with the addresses
+// that network gave it. Aliases are the extra DNS names registered for the
+// workload on that network (compose service names, user-added aliases).
+type WorkloadNetwork struct {
+	Name      string   `json:"name"`
+	NetworkID string   `json:"networkId,omitempty"`
+	IPv4      string   `json:"ipv4,omitempty"`
+	IPv6      string   `json:"ipv6,omitempty"`
+	Gateway   string   `json:"gateway,omitempty"`
+	MAC       string   `json:"mac,omitempty"`
+	Aliases   []string `json:"aliases,omitempty"`
 }
 
 // WorkloadDetail is the full inspect payload: the normalized header + opaque raw JSON.

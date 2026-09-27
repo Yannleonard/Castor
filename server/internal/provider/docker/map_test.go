@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 
 	"github.com/gtek-it/castor/server/internal/provider"
 )
@@ -68,6 +69,98 @@ func TestMapContainer(t *testing.T) {
 	}
 	if wl.Protected {
 		t.Errorf("non-self container should not be protected")
+	}
+}
+
+// TestMapContainerNetworks covers the list-row network summary: names sorted,
+// IPAddress = first IPv4 in that order (skipping networks without one), and a
+// container with no network settings (or none attached) carries neither.
+func TestMapContainerNetworks(t *testing.T) {
+	p := &DockerProvider{id: ProviderID}
+	s := &container.Summary{
+		ID:    "abc",
+		Names: []string{"/web"},
+		State: "running",
+		NetworkSettings: &container.NetworkSettingsSummary{
+			Networks: map[string]*network.EndpointSettings{
+				"shop_default": {IPAddress: "172.20.0.5", NetworkID: "n1"},
+				"back":         {IPAddress: ""},
+				"front":        {IPAddress: "10.10.0.5", NetworkID: "n2"},
+			},
+		},
+	}
+	wl := p.mapContainer(s)
+	if len(wl.NetworkNames) != 3 || wl.NetworkNames[0] != "back" || wl.NetworkNames[1] != "front" || wl.NetworkNames[2] != "shop_default" {
+		t.Errorf("networkNames = %v want sorted [back front shop_default]", wl.NetworkNames)
+	}
+	if wl.IPAddress != "10.10.0.5" {
+		t.Errorf("ipAddress = %q want first non-empty IPv4 in name order (front)", wl.IPAddress)
+	}
+	if wl.Networks != nil {
+		t.Errorf("list rows must not carry the per-network detail, got %+v", wl.Networks)
+	}
+
+	bare := p.mapContainer(&container.Summary{ID: "x", Names: []string{"/none"}, State: "exited"})
+	if bare.NetworkNames != nil || bare.IPAddress != "" {
+		t.Errorf("no network settings: names=%v ip=%q want none", bare.NetworkNames, bare.IPAddress)
+	}
+}
+
+// TestMapInspectNetworks covers the inspect mapping of a container's endpoint
+// settings into WorkloadNetwork entries, sorted by name, with the configured
+// static address used when the live one is absent (stopped container).
+func TestMapInspectNetworks(t *testing.T) {
+	p := &DockerProvider{id: ProviderID, daemonHost: "node-1"}
+	cj := &container.InspectResponse{
+		ContainerJSONBase: &container.ContainerJSONBase{
+			ID:      "abcdef123456",
+			Name:    "/web",
+			Created: "2026-09-25T10:00:00.000000000Z",
+			State:   &container.State{Status: "running", Running: true},
+		},
+		Config: &container.Config{Image: "nginx:latest"},
+		NetworkSettings: &container.NetworkSettings{
+			Networks: map[string]*network.EndpointSettings{
+				"front": {
+					NetworkID:         "n-front",
+					IPAddress:         "10.10.0.5",
+					Gateway:           "10.10.0.1",
+					GlobalIPv6Address: "fd00:10::5",
+					MacAddress:        "02:42:0a:0a:00:05",
+					Aliases:           []string{"web", "www"},
+				},
+				"back": {
+					NetworkID:  "n-back",
+					IPAMConfig: &network.EndpointIPAMConfig{IPv4Address: "10.20.0.9"},
+				},
+			},
+		},
+	}
+	wl := p.mapInspect(cj)
+
+	if len(wl.Networks) != 2 {
+		t.Fatalf("networks = %+v want 2", wl.Networks)
+	}
+	back, front := wl.Networks[0], wl.Networks[1]
+	if back.Name != "back" || back.NetworkID != "n-back" || back.IPv4 != "10.20.0.9" || back.Gateway != "" {
+		t.Errorf("back = %+v (static IPv4 must be used when no live address)", back)
+	}
+	if front.Name != "front" || front.NetworkID != "n-front" || front.IPv4 != "10.10.0.5" || front.IPv6 != "fd00:10::5" ||
+		front.Gateway != "10.10.0.1" || front.MAC != "02:42:0a:0a:00:05" || len(front.Aliases) != 2 || front.Aliases[1] != "www" {
+		t.Errorf("front = %+v", front)
+	}
+	if len(wl.NetworkNames) != 2 || wl.NetworkNames[0] != "back" || wl.NetworkNames[1] != "front" {
+		t.Errorf("networkNames = %v", wl.NetworkNames)
+	}
+	if wl.IPAddress != "10.20.0.9" {
+		t.Errorf("ipAddress = %q want first IPv4 in name order", wl.IPAddress)
+	}
+
+	none := p.mapInspect(&container.InspectResponse{
+		ContainerJSONBase: &container.ContainerJSONBase{ID: "x", Name: "/lonely", State: &container.State{Status: "exited"}},
+	})
+	if none.Networks != nil || none.NetworkNames != nil || none.IPAddress != "" {
+		t.Errorf("no network settings must yield no network fields: %+v", none)
 	}
 }
 

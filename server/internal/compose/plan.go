@@ -2,6 +2,7 @@ package compose
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
@@ -20,30 +21,64 @@ const (
 	LabelCastorTemplate = "io.castor.template"        // marketplace template slug a container was deployed from
 )
 
+// defaultNetworkKey is the compose name of the implicit project network: a
+// service that lists no network joins it, and a service may list it
+// explicitly next to others.
+const defaultNetworkKey = "default"
+
 // Plan is the ordered deployment plan derived from a compose Model: the specs
-// to create+start (in dependency order) plus the per-service network aliases
-// and the explicit (non-default) networks each service joins.
+// to create+start (in dependency order) plus the network set they join.
+//
+// Networks are referenced by their project-scoped key, "<project>_<name>"
+// (the compose name sanitized; "default" for the implicit project network).
+// NetworkNames maps each key to the daemon network name: the key itself
+// unless the declaration sets `name:` (created under that exact name) or is
+// external (joined by its real name, never created or removed).
 type Plan struct {
 	Project string
 	// Specs are in topological order: a service's dependencies appear before it.
+	// Each spec's Networks holds exactly its primary membership (the first
+	// network of Memberships, by daemon name, with the ipv4_address and the
+	// aliases it carries): the network ContainerCreate hands the container.
 	Specs []docker.DeploySpec
 	// Aliases maps a spec Name (== sanitized container name) to the network
-	// aliases it should be reachable as on the project network. The service name
-	// is always an alias so intra-stack DNS by service name works.
+	// aliases it should be reachable as on every network it joins. The service
+	// name is always an alias so intra-stack DNS by service name works.
 	Aliases map[string][]string
-	// ExtraNetworks maps a spec Name to the explicit user-named networks the
-	// service declared (besides the implicit project default network). The names
-	// are the project-scoped network names (project_netname).
-	ExtraNetworks map[string][]string
-	// Networks is the de-duplicated set of explicit network names (project-scoped)
-	// that must exist for the plan, in addition to the default project network.
+	// Memberships maps a spec Name to the keys of every network the service
+	// joins, in declaration order and de-duplicated: the first is the primary
+	// (mirrored in Specs), the rest are connected after create. A service that
+	// lists no network joins the project default only; one that lists networks
+	// joins exactly those (the default too only when listed).
+	Memberships map[string][]string
+	// Networks is the de-duplicated set of keys the services join, in first-use
+	// order: every one must exist before the containers are created. A declared
+	// network no service joins is not in it.
 	Networks []string
+	// NetworkNames maps every key in Networks (and every declared network) to
+	// its daemon network name; see the type comment.
+	NetworkNames map[string]string
+	// NetworkDefs maps every top-level network declaration to its definition,
+	// keyed like Networks. A network a service references without a top-level
+	// declaration has no entry: the deploy path creates it as a plain bridge.
+	NetworkDefs map[string]NetworkDef
+	// StaticIPs maps a spec Name to the per-network addressing it requested
+	// (ipv4_address, ipv6_address, extra aliases), keyed by network key.
+	// Attachments that request nothing are absent; an address the plan dropped
+	// (see Warnings) is absent too.
+	StaticIPs map[string]map[string]ServiceNetwork
+	// Warnings lists what the plan left out of a valid document, one message
+	// per item: a static address on a network that declares no subnet of its
+	// family (the daemon assigns one instead), or an ipv6_address on a
+	// service's primary network (only ipv4 is carried at create).
+	Warnings []string
 }
 
 // BuildPlan converts a validated Model into an ordered deployment Plan for the
 // given (raw) project name. It sanitizes the project name, topologically sorts
-// services by depends_on (cycle -> error), parses port and volume strings, and
-// stamps every spec with the compose object labels.
+// services by depends_on (cycle -> error), parses port and volume strings,
+// resolves the network set and stamps every spec with the compose object
+// labels.
 func BuildPlan(rawProject string, m *Model) (*Plan, error) {
 	project := SanitizeProjectName(rawProject)
 	if project == "" {
@@ -54,12 +89,26 @@ func BuildPlan(rawProject string, m *Model) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Parse already ran this; a Model built by hand has not been checked.
+	if err := m.validateNetworks(); err != nil {
+		return nil, err
+	}
+	pools, err := m.networkPools()
+	if err != nil {
+		return nil, err
+	}
 
 	plan := &Plan{
-		Project:       project,
-		Specs:         make([]docker.DeploySpec, 0, len(order)),
-		Aliases:       make(map[string][]string, len(order)),
-		ExtraNetworks: make(map[string][]string, len(order)),
+		Project:      project,
+		Specs:        make([]docker.DeploySpec, 0, len(order)),
+		Aliases:      make(map[string][]string, len(order)),
+		Memberships:  make(map[string][]string, len(order)),
+		NetworkNames: make(map[string]string, len(m.Networks)+1),
+		NetworkDefs:  make(map[string]NetworkDef, len(m.Networks)),
+		StaticIPs:    make(map[string]map[string]ServiceNetwork),
+	}
+	if err := plan.declareNetworks(m); err != nil {
+		return nil, err
 	}
 	netSet := map[string]struct{}{}
 
@@ -88,17 +137,6 @@ func BuildPlan(rawProject string, m *Model) (*Plan, error) {
 			LabelCastorManaged: "true",
 		}
 
-		spec := docker.DeploySpec{
-			Image:         svc.Image,
-			Name:          containerName,
-			Env:           envMap(svc.Environment),
-			Ports:         ports,
-			Volumes:       vols,
-			Labels:        labels,
-			RestartPolicy: normalizeRestart(svc.Restart),
-		}
-		plan.Specs = append(plan.Specs, spec)
-
 		// The service is always reachable by its compose service name; if the
 		// container name differs, expose it as an alias too.
 		aliases := []string{name}
@@ -107,23 +145,150 @@ func BuildPlan(rawProject string, m *Model) (*Plan, error) {
 		}
 		plan.Aliases[containerName] = aliases
 
-		// Explicit user networks (project-scoped).
-		for _, n := range svc.Networks {
-			pn := project + "_" + SanitizeNetworkSuffix(n)
-			plan.ExtraNetworks[containerName] = append(plan.ExtraNetworks[containerName], pn)
-			netSet[pn] = struct{}{}
+		// Memberships in declaration order, the project default when none is
+		// listed; a network listed twice counts once.
+		var keys []string
+		seen := map[string]struct{}{}
+		for _, att := range svc.attachments() {
+			key := plan.networkKey(att.Name)
+			if _, dup := seen[key]; dup {
+				continue
+			}
+			seen[key] = struct{}{}
+			keys = append(keys, key)
+			if _, listed := netSet[key]; !listed {
+				netSet[key] = struct{}{}
+				plan.Networks = append(plan.Networks, key)
+			}
+			if _, known := plan.NetworkNames[key]; !known {
+				plan.NetworkNames[key] = key
+			}
+			att = plan.routableAddresses(name, att, m, pools[att.Name])
+			if att.IPv4 != "" || att.IPv6 != "" || len(att.Aliases) > 0 {
+				if plan.StaticIPs[containerName] == nil {
+					plan.StaticIPs[containerName] = make(map[string]ServiceNetwork)
+				}
+				plan.StaticIPs[containerName][key] = att
+			}
 		}
-	}
+		plan.Memberships[containerName] = keys
 
-	for n := range netSet {
-		plan.Networks = append(plan.Networks, n)
+		// The primary membership travels with the spec so the container is
+		// created on it and never touches the daemon's default bridge.
+		primary := keys[0]
+		att := plan.StaticIPs[containerName][primary]
+		if att.IPv6 != "" {
+			plan.warnf("Service %q: ipv6_address %q on its primary network %q is not applied (only ipv4_address and aliases are set at create; list another network first to keep it).",
+				name, att.IPv6, att.Name)
+		}
+		spec := docker.DeploySpec{
+			Image:         svc.Image,
+			Name:          containerName,
+			Env:           envMap(svc.Environment),
+			Ports:         ports,
+			Volumes:       vols,
+			Labels:        labels,
+			RestartPolicy: normalizeRestart(svc.Restart),
+			Networks: []docker.NetworkAttach{{
+				Name:    plan.NetworkNames[primary],
+				IPv4:    att.IPv4,
+				Aliases: append(append([]string{}, aliases...), att.Aliases...),
+			}},
+		}
+		plan.Specs = append(plan.Specs, spec)
 	}
 	return plan, nil
 }
 
-// DefaultNetworkName is the implicit project network all services join (matches
-// docker compose's "<project>_default").
-func (p *Plan) DefaultNetworkName() string { return p.Project + "_default" }
+// declareNetworks records the top-level declarations under their keys and
+// resolves each one's daemon name. Two declarations collapsing onto the same
+// key (names differing only in sanitized characters) or onto the same daemon
+// name are rejected: they would silently share one network.
+func (p *Plan) declareNetworks(m *Model) error {
+	byKey := make(map[string]string, len(m.Networks))
+	byName := make(map[string]string, len(m.Networks))
+	for _, yamlName := range sortedKeys(m.Networks) {
+		def := m.Networks[yamlName]
+		key := p.networkKey(yamlName)
+		if prev, dup := byKey[key]; dup {
+			return validationf("Networks %q and %q both map to %q; rename one.", prev, yamlName, key)
+		}
+		byKey[key] = yamlName
+		name := key
+		if def.External || def.ExplicitName {
+			name = def.Name
+		}
+		if prev, dup := byName[name]; dup {
+			return validationf("Networks %q and %q both resolve to the network name %q; rename one.", prev, yamlName, name)
+		}
+		byName[name] = yamlName
+		p.NetworkDefs[key] = def
+		p.NetworkNames[key] = name
+	}
+	return nil
+}
+
+// networkKey returns the project-scoped key of a compose network name.
+func (p *Plan) networkKey(name string) string {
+	return p.Project + "_" + SanitizeNetworkSuffix(name)
+}
+
+// routableAddresses returns att without the static addresses the network
+// cannot honor: an ipv4_address or ipv6_address on a network that declares no
+// pool of that family (undeclared networks included) is dropped with a
+// warning, the daemon then assigning an address. An external network keeps
+// them: its pools live outside the document.
+func (p *Plan) routableAddresses(svc string, att ServiceNetwork, m *Model, pools []*net.IPNet) ServiceNetwork {
+	def, declared := m.Networks[att.Name]
+	if declared && def.External {
+		return att
+	}
+	if att.IPv4 != "" && !hasPoolFamily(pools, false) {
+		p.warnf("Service %q: ipv4_address %q ignored: network %q declares no ipam subnet, so the daemon assigns the address.", svc, att.IPv4, att.Name)
+		att.IPv4 = ""
+	}
+	if att.IPv6 != "" && !hasPoolFamily(pools, true) {
+		p.warnf("Service %q: ipv6_address %q ignored: network %q declares no IPv6 ipam subnet, so the daemon assigns the address.", svc, att.IPv6, att.Name)
+		att.IPv6 = ""
+	}
+	return att
+}
+
+// warnf appends a formatted message to Warnings.
+func (p *Plan) warnf(format string, args ...any) {
+	p.Warnings = append(p.Warnings, fmt.Sprintf(format, args...))
+}
+
+// attachments returns the service's network attachments in declaration
+// order: NetworkAttach when Parse produced it, else one plain attachment per
+// Networks entry (a Model built by hand), else the implicit project default.
+func (s Service) attachments() []ServiceNetwork {
+	if len(s.Networks) == 0 && len(s.NetworkAttach) == 0 {
+		return []ServiceNetwork{{Name: defaultNetworkKey}}
+	}
+	if len(s.Networks) == 0 {
+		return s.NetworkAttach
+	}
+	byName := make(map[string]ServiceNetwork, len(s.NetworkAttach))
+	for _, att := range s.NetworkAttach {
+		byName[att.Name] = att
+	}
+	out := make([]ServiceNetwork, 0, len(s.Networks))
+	for _, n := range s.Networks {
+		att, ok := byName[n]
+		if !ok {
+			att = ServiceNetwork{Name: n}
+		}
+		out = append(out, att)
+	}
+	return out
+}
+
+// DefaultNetworkName is the key of the implicit project network every service
+// without an explicit network list joins (matches docker compose's
+// "<project>_default"). NetworkNames gives its daemon name, which differs when
+// the document declares `networks: default:` with `name:` or `external:`.
+func (p *Plan) DefaultNetworkName() string { return p.networkKey(defaultNetworkKey) }
 
 // HostMountSources returns every host bind-mount source declared across all of
 // the plan's services, in spec order. It is the single place the deploy path

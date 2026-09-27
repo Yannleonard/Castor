@@ -40,13 +40,26 @@ var (
 	ErrConflict          = newErr(http.StatusConflict, "conflict", "The request conflicts with the current state.")
 	// Deploy-specific conflicts carry a distinct machine code so the UI can both
 	// show the actionable server message and localize it by code.
-	ErrNameConflict = newErr(http.StatusConflict, "name_conflict", "A container with this name already exists.")
-	ErrPortConflict = newErr(http.StatusConflict, "port_conflict", "A published port is already in use on the host.")
+	ErrNameConflict  = newErr(http.StatusConflict, "name_conflict", "A container with this name already exists.")
+	ErrPortConflict  = newErr(http.StatusConflict, "port_conflict", "A published port is already in use on the host.")
 	ErrImageNotFound = newErr(http.StatusNotFound, "image_not_found", "Image not found or could not be pulled.")
-	ErrValidation        = newErr(http.StatusUnprocessableEntity, "validation_failed", "The request payload is invalid.")
-	ErrRateLimited       = newErr(http.StatusTooManyRequests, "rate_limited", "Too many requests. Please slow down.")
-	ErrInternal          = newErr(http.StatusInternalServerError, "internal", "An internal error occurred.")
-	ErrAccountLocked     = newErr(http.StatusForbidden, "account_locked", "This account is temporarily locked. Try again later.")
+	ErrValidation    = newErr(http.StatusUnprocessableEntity, "validation_failed", "The request payload is invalid.")
+	ErrRateLimited   = newErr(http.StatusTooManyRequests, "rate_limited", "Too many requests. Please slow down.")
+	ErrInternal      = newErr(http.StatusInternalServerError, "internal", "An internal error occurred.")
+	ErrAccountLocked = newErr(http.StatusForbidden, "account_locked", "This account is temporarily locked. Try again later.")
+
+	// Network-specific outcomes, one machine code per daemon refusal so the UI
+	// can offer the right fix (pick another subnet, disconnect first, ...).
+	ErrNetworkExists        = newErr(http.StatusConflict, "network_exists", "A network with this name already exists.")
+	ErrSubnetOverlap        = newErr(http.StatusConflict, "subnet_overlap", "This subnet overlaps an existing network's address space.")
+	ErrIPInUse              = newErr(http.StatusConflict, "ip_in_use", "That IP address is already used on this network.")
+	ErrAlreadyConnected     = newErr(http.StatusConflict, "already_connected", "This container is already connected to that network.")
+	ErrNotConnected         = newErr(http.StatusNotFound, "not_connected", "This container is not connected to that network.")
+	ErrStaticIPUnsupported  = newErr(http.StatusConflict, "static_ip_unsupported", "Static IP addresses are only supported on user-defined networks.")
+	ErrNetworkInUse         = newErr(http.StatusConflict, "network_in_use", "This network still has connected containers.")
+	ErrAliasUnsupported     = newErr(http.StatusConflict, "alias_unsupported", "Network aliases are only supported on user-defined networks.")
+	ErrIPPoolExhausted      = newErr(http.StatusConflict, "ip_pool_exhausted", "This network has no free IP address left.")
+	ErrInvalidNetworkConfig = newErr(http.StatusUnprocessableEntity, "invalid_network_config", "Invalid network configuration.")
 )
 
 // Errorf returns a copy of a canonical error with a custom message.

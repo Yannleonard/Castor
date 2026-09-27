@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,8 +13,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/gtek-it/castor/server/internal/authz"
+	"github.com/gtek-it/castor/server/internal/cache"
 	"github.com/gtek-it/castor/server/internal/compose"
 	"github.com/gtek-it/castor/server/internal/git"
+	"github.com/gtek-it/castor/server/internal/provider/docker"
 	"github.com/gtek-it/castor/server/internal/store"
 )
 
@@ -75,12 +79,14 @@ type stackServiceView struct {
 }
 
 // stackValidateResponse is returned by POST .../stacks/validate on success: the
-// normalized service summary plus the deploy order.
+// normalized service summary, the deploy order and what the plan left out of
+// the document (compose.Plan.Warnings; never null).
 type stackValidateResponse struct {
 	Valid        bool               `json:"valid"`
 	ServiceCount int                `json:"serviceCount"`
 	Services     []stackServiceView `json:"services"`
 	DeployOrder  []string           `json:"deployOrder"`
+	Warnings     []string           `json:"warnings"`
 }
 
 // stackView is a stack row as returned by the list/detail/create endpoints. The
@@ -198,6 +204,7 @@ func (s *Server) ValidateStack(w http.ResponseWriter, r *http.Request) {
 		ServiceCount: len(model.Services),
 		Services:     serviceViews(model),
 		DeployOrder:  deployOrder(plan),
+		Warnings:     normStrs(plan.Warnings),
 	})
 }
 
@@ -214,7 +221,8 @@ func (s *Server) ValidateStack(w http.ResponseWriter, r *http.Request) {
 // and returned exactly once in the create response (only its hash is stored).
 func (s *Server) CreateStack(w http.ResponseWriter, r *http.Request) {
 	hostID := chi.URLParam(r, "hostID")
-	if _, ok := s.manager.Store().Get(hostID); !ok {
+	snap, ok := s.manager.Store().Get(hostID)
+	if !ok {
 		authz.WriteError(w, r, authz.ErrNotFound)
 		return
 	}
@@ -275,11 +283,18 @@ func (s *Server) CreateStack(w http.ResponseWriter, r *http.Request) {
 	}
 	authz.SetAuditTarget(r, "stack", project, name)
 
-	// Host-mount escalation guard runs only when there is a compose plan to check;
-	// a git-only stack is guarded on its first sync instead.
+	// The host-mount guard and the network policy (driver, options, host
+	// interfaces, external networks) run only when there is a compose plan to
+	// check; a git-only stack is checked on its first sync.
+	var nets []stackNetwork
 	if hasCompose {
 		if err := s.authorizePlanHostMounts(r, plan, req.AllowHostMounts); err != nil {
 			authz.WriteError(w, r, err)
+			return
+		}
+		var nerr error
+		if nets, nerr = s.authorizeStackNetworks(r, snap, plan); nerr != nil {
+			authz.WriteError(w, r, nerr)
 			return
 		}
 	}
@@ -351,7 +366,7 @@ func (s *Server) CreateStack(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(context.Background(), stackDeployTimeout)
 		defer cancel()
 
-		status, derr := s.deployPlan(ctx, plan)
+		status, derr := s.deployPlan(ctx, plan, nets)
 		_ = s.store.UpdateStackStatus(r.Context(), st.ID, status)
 		st.Status = status
 
@@ -402,34 +417,145 @@ func (s *Server) authorizePlanHostMounts(r *http.Request, plan *compose.Plan, re
 	return nil
 }
 
-// deployPlan creates the project network(s) then creates+starts every spec in
-// order, connecting each container to the project network with its service-name
-// aliases. It returns the final stack status and, on failure, the mapped error.
-func (s *Server) deployPlan(ctx context.Context, plan *compose.Plan) (status string, err error) {
-	dp := s.manager.Docker()
-	netLabels := map[string]string{
-		compose.LabelProject:       plan.Project,
-		compose.LabelCastorStack:   plan.Project,
-		compose.LabelCastorManaged: "true",
-	}
+// stackNetwork is one network a stack's services join, authorized and
+// resolved against the host: either a network the stack creates (Spec, the
+// declaration checked by authorizeNetworkCreate) or an external one it joins
+// as it exists (Info, resolved in the snapshot by authorizeNetworkAttach).
+type stackNetwork struct {
+	// Key is the plan's project-scoped key (compose.Plan.Networks).
+	Key string
+	// Name is the daemon network name: created under it, or the external
+	// network's real name.
+	Name     string
+	External bool
+	Spec     *docker.NetworkSpec
+	Info     *docker.NetworkInfo
+}
 
-	// Default project network (every service joins this).
-	defaultNet, nerr := dp.EnsureProjectNetwork(ctx, plan.DefaultNetworkName(), netLabels)
-	if nerr != nil {
-		return "error", mapError(nerr)
-	}
-	// Any explicit user-declared networks.
-	extraNetIDs := map[string]string{}
-	for _, n := range plan.Networks {
-		id, eerr := dp.EnsureProjectNetwork(ctx, n, netLabels)
-		if eerr != nil {
-			return "error", mapError(eerr)
+// authorizeStackNetworks applies the network policy to every network a
+// plan's services join, before anything reaches the daemon, and returns them
+// in plan order. A network the stack creates (declared or not, the project
+// default included) goes through authorizeNetworkCreate: a driver outside
+// bridge/overlay/macvlan/ipvlan or an option outside the allowlist is a 422,
+// and a network bound to a host interface (macvlan/ipvlan, parent,
+// com.docker.network.bridge.name, ...) is reserved to a global superuser
+// (403, audited). An external network goes through authorizeNetworkAttach on
+// the host's snapshot: unknown is a 422, and joining one bound to a host
+// interface is reserved to a superuser too. The public webhook carries no
+// principal, so it can neither declare nor join such a network. Services
+// cannot join the daemon's default bridge (their aliases are refused there).
+func (s *Server) authorizeStackNetworks(r *http.Request, snap cache.Snapshot, plan *compose.Plan) ([]stackNetwork, error) {
+	out := make([]stackNetwork, 0, len(plan.Networks))
+	for _, key := range plan.Networks {
+		name := plan.NetworkNames[key]
+		if name == "" {
+			name = key
 		}
-		extraNetIDs[n] = id
+		def, declared := plan.NetworkDefs[key]
+		if declared && def.External {
+			info, err := s.authorizeSnapshotNetworkAttach(r, snap, name)
+			if err != nil {
+				return nil, err
+			}
+			if info.Name == defaultBridgeNetwork {
+				return nil, authz.Errorf(authz.ErrValidation,
+					fmt.Sprintf("Network %s resolves to the default bridge network, which stack services cannot join (%s).", key, msgAliasesDefaultBridge))
+			}
+			out = append(out, stackNetwork{Key: key, Name: name, External: true, Info: info})
+			continue
+		}
+		spec := networkSpecFromDef(def)
+		spec.Name = name
+		if err := s.authorizeNetworkCreate(r, spec); err != nil {
+			return nil, err
+		}
+		out = append(out, stackNetwork{Key: key, Name: name, Spec: spec})
+	}
+	return out, nil
+}
+
+// networkSpecFromDef maps a compose top-level network declaration onto the
+// provider's create spec: driver, internal, attachable, IPv6, driver options
+// and IPAM pools. A zero declaration (an undeclared network) maps to a plain
+// spec. Name and labels are set by the deploy path.
+func networkSpecFromDef(def compose.NetworkDef) *docker.NetworkSpec {
+	spec := &docker.NetworkSpec{
+		Driver:     def.Driver,
+		Internal:   def.Internal,
+		Attachable: def.Attachable,
+		EnableIPv6: def.EnableIPv6,
+		Options:    def.Options,
+	}
+	if def.IPAM.Driver != "" || len(def.IPAM.Config) > 0 {
+		ipam := &docker.IPAMSpec{Driver: def.IPAM.Driver, Config: make([]docker.IPAMConfig, 0, len(def.IPAM.Config))}
+		for _, c := range def.IPAM.Config {
+			ipam.Config = append(ipam.Config, docker.IPAMConfig{
+				Subnet:       c.Subnet,
+				Gateway:      c.Gateway,
+				IPRange:      c.IPRange,
+				AuxAddresses: c.AuxAddresses,
+			})
+		}
+		spec.IPAM = ipam
+	}
+	return spec
+}
+
+// stackAttachOptions builds the connect options for one container on one
+// network (by plan key): the service-name aliases every attachment carries,
+// plus the static addresses and extra aliases the compose mapping form
+// requested on it.
+func stackAttachOptions(plan *compose.Plan, specName, network string) docker.NetworkAttachOptions {
+	opts := docker.NetworkAttachOptions{Aliases: append([]string{}, plan.Aliases[specName]...)}
+	if att, ok := plan.StaticIPs[specName][network]; ok {
+		opts.IPv4 = att.IPv4
+		opts.IPv6 = att.IPv6
+		opts.Aliases = append(opts.Aliases, att.Aliases...)
+	}
+	return opts
+}
+
+// deployPlan makes every network of nets (authorizeStackNetworks, in plan
+// order) exist, then creates+starts every spec in order. A network the stack
+// owns is created with its declared settings under the project's labels, or
+// adopted when the existing network already belongs to the project
+// (EnsureProjectNetworkWithSpec); an external network is joined by the id the
+// policy resolved. Each container is created directly on its primary network
+// (the spec's, so it never touches the daemon's default bridge and an
+// internal network isolates it from the start) and then connected to the rest
+// of its memberships with the static addresses and aliases it requested. It
+// returns the final stack status and, on failure, the mapped error.
+func (s *Server) deployPlan(ctx context.Context, plan *compose.Plan, nets []stackNetwork) (status string, err error) {
+	dp := s.manager.Docker()
+
+	ids := make(map[string]string, len(nets)) // daemon network name -> id
+	for _, n := range nets {
+		if n.External {
+			id := n.Name
+			if n.Info != nil && n.Info.ID != "" {
+				id = n.Info.ID
+			}
+			ids[n.Name] = id
+			continue
+		}
+		id, eerr := dp.EnsureProjectNetworkWithSpec(ctx, plan.Project, n.Name, n.Spec)
+		if eerr != nil {
+			return "error", mapStackNetworkErr(eerr)
+		}
+		ids[n.Name] = id
 	}
 
 	deployed := 0
 	for _, spec := range plan.Specs {
+		// Attach by the resolved ids: what the policy authorized is exactly what
+		// the container joins, even if a name was rebound meanwhile. The spec's
+		// slice is copied so the plan itself is left untouched.
+		spec.Networks = append([]docker.NetworkAttach(nil), spec.Networks...)
+		for i := range spec.Networks {
+			if id, ok := ids[spec.Networks[i].Name]; ok {
+				spec.Networks[i].Name = id
+			}
+		}
 		id, cerr := dp.ContainerCreateAndStart(ctx, spec)
 		if cerr != nil {
 			if deployed == 0 {
@@ -439,22 +565,43 @@ func (s *Server) deployPlan(ctx context.Context, plan *compose.Plan) (status str
 		}
 		deployed++
 
-		// Attach to the default project network with the service aliases so peers
-		// resolve it by service name.
-		aliases := plan.Aliases[spec.Name]
-		if connErr := dp.ConnectToNetwork(ctx, defaultNet, id, aliases); connErr != nil {
-			return "partial", mapError(connErr)
-		}
-		// Attach to any explicit networks the service declared.
-		for _, n := range plan.ExtraNetworks[spec.Name] {
-			if nid, ok := extraNetIDs[n]; ok {
-				if connErr := dp.ConnectToNetwork(ctx, nid, id, aliases); connErr != nil {
-					return "partial", mapError(connErr)
-				}
+		// The primary membership was set at create; connect the others.
+		for _, key := range secondaryNetworks(plan, spec.Name) {
+			nid, ok := ids[plan.NetworkNames[key]]
+			if !ok {
+				continue
+			}
+			opts := stackAttachOptions(plan, spec.Name, key)
+			if connErr := dp.ConnectContainerToNetwork(ctx, nid, id, opts); connErr != nil {
+				return "partial", mapError(connErr)
 			}
 		}
 	}
 	return "running", nil
+}
+
+// secondaryNetworks returns the keys of the networks a spec joins after its
+// primary (compose.Plan.Memberships minus the first), nil when it joins one.
+func secondaryNetworks(plan *compose.Plan, specName string) []string {
+	m := plan.Memberships[specName]
+	if len(m) < 2 {
+		return nil
+	}
+	return m[1:]
+}
+
+// mapStackNetworkErr maps a network create/adopt failure of the deploy path:
+// a name taken by a network the stack does not own is a 409 that says so
+// (the generic network_exists message would suggest a plain duplicate);
+// everything else goes through mapError.
+func mapStackNetworkErr(err error) error {
+	var notOwned *docker.NetworkNotOwnedError
+	if errors.As(err, &notOwned) {
+		return authz.Errorf(authz.ErrNetworkExists,
+			fmt.Sprintf("Network name %q is taken by a network not managed by this stack (no %s=%s label); rename the network in the compose file, declare it external, or remove the existing network.",
+				notOwned.Name, compose.LabelCastorStack, notOwned.Project))
+	}
+	return mapError(err)
 }
 
 // ListStacks returns the stacks registered for a host. Perm docker.container.read.
@@ -522,13 +669,7 @@ func (s *Server) DeleteStack(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := contextWithTimeout(r, 2*time.Minute)
 	defer cancel()
 
-	// Re-derive explicit networks from the stored compose so project-scoped extras
-	// are cleaned alongside the default network.
-	var extraNets []string
-	if _, plan, perr := s.parseAndPlan(st.ComposeYAML, st.Name); perr == nil {
-		extraNets = plan.Networks
-	}
-	if err := s.teardownProject(ctx, st.ProjectName, extraNets); err != nil {
+	if err := s.teardownProject(ctx, st.ProjectName); err != nil {
 		writeMapped(w, r, err)
 		return
 	}
@@ -541,18 +682,20 @@ func (s *Server) DeleteStack(w http.ResponseWriter, r *http.Request) {
 }
 
 // teardownProject stops and removes every container of a compose project (by the
-// compose project label) and removes the project's networks (default plus any
-// extra network names passed in). It does NOT remove named data volumes: it only
-// deletes containers and networks, so both a full delete and a re-sync preserve
-// the stack's persistent data. Container removal drops only anonymous volumes
-// (StopAndRemoveContainer), never named ones.
+// compose project label) and removes the networks Castor created for it (by the
+// io.castor.stack label, so the set does not depend on re-parsing the stored
+// compose; an external network the stack only joined, or a foreign network it
+// refused to adopt, never carries that label). It does NOT remove named data
+// volumes: it only deletes containers and networks, so both a full delete and a
+// re-sync preserve the stack's persistent data. Container removal drops only
+// anonymous volumes (StopAndRemoveContainer), never named ones.
 //
 // It is shared by DeleteStack (a full teardown before dropping the row) and
 // syncAndDeploy (a teardown before re-deploying, so container recreation does not
 // collide on deterministic names). A container-removal failure is returned so the
 // caller can surface it; network removal is best-effort (an in-use network from an
 // unrelated container must not fail the operation).
-func (s *Server) teardownProject(ctx context.Context, project string, extraNetworks []string) error {
+func (s *Server) teardownProject(ctx context.Context, project string) error {
 	dp := s.manager.Docker()
 
 	conts, lerr := dp.ListProjectContainers(ctx, project)
@@ -565,14 +708,10 @@ func (s *Server) teardownProject(ctx context.Context, project string, extraNetwo
 		}
 	}
 
-	// Remove the project networks (default + any project-scoped extras). Best
-	// effort: a failure (e.g. still in use by an unrelated container) is ignored
-	// here so it cannot block a re-deploy; EnsureProjectNetwork re-adopts an
-	// existing network on the way back up.
-	_ = dp.RemoveNetworkByName(ctx, project+"_default")
-	for _, n := range extraNetworks {
-		_ = dp.RemoveNetworkByName(ctx, n)
-	}
+	// Best effort: a network still in use by an unrelated container is left in
+	// place so it cannot block a re-deploy; EnsureProjectNetworkWithSpec adopts
+	// it again on the way back up (it still carries the project's label).
+	_ = dp.RemoveProjectNetworks(ctx, project)
 	return nil
 }
 
@@ -763,6 +902,17 @@ func (s *Server) syncAndDeploy(ctx context.Context, st *store.Stack, r *http.Req
 	if err := s.authorizeSyncHostMounts(plan, r, public); err != nil {
 		return "", "", err
 	}
+	// Network policy, against the host's snapshot and the request's principal
+	// (the public webhook has none, so it can neither declare nor join a
+	// network bound to a host interface).
+	snap, found := s.manager.Store().Get(st.HostID)
+	if !found {
+		return "", "", authz.ErrNotFound
+	}
+	nets, nerr := s.authorizeStackNetworks(r, snap, plan)
+	if nerr != nil {
+		return "", "", nerr
+	}
 
 	// Deploy on a background-derived timeout so a client disconnect mid-pull does
 	// not orphan a half-built stack.
@@ -776,11 +926,11 @@ func (s *Server) syncAndDeploy(ctx context.Context, st *store.Stack, r *http.Req
 	// named data volumes, so a sync preserves the stack's persistent data. On a
 	// teardown failure the row keeps its prior state and we report an error rather
 	// than deploying on top of a half-removed project.
-	if terr := s.teardownProject(dctx, plan.Project, plan.Networks); terr != nil {
+	if terr := s.teardownProject(dctx, plan.Project); terr != nil {
 		return "error", res.Commit, terr
 	}
 
-	status, derr := s.deployPlan(dctx, plan)
+	status, derr := s.deployPlan(dctx, plan, nets)
 
 	// Persist the synced compose + commit + status regardless of deploy outcome so
 	// the row reflects what was applied and is teardownable by project label. Use

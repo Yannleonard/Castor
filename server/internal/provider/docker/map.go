@@ -1,10 +1,12 @@
 package docker
 
 import (
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 
 	"github.com/gtek-it/castor/server/internal/provider"
 )
@@ -36,6 +38,9 @@ func (p *DockerProvider) mapContainer(s *container.Summary) provider.Workload {
 		Group:      s.Labels[composeProjectLabel],
 		Protected:  p.isProtected(s.ID, s.Labels),
 	}
+	if s.NetworkSettings != nil {
+		wl.NetworkNames, wl.IPAddress = summarizeNetworks(s.NetworkSettings.Networks)
+	}
 	return wl
 }
 
@@ -61,7 +66,7 @@ func (p *DockerProvider) mapInspect(cj *container.InspectResponse) provider.Work
 			stateRaw = cj.State.Status + " (" + cj.State.Health.Status + ")"
 		}
 	}
-	return provider.Workload{
+	wl := provider.Workload{
 		ID:         cj.ID,
 		Name:       name,
 		Kind:       provider.KindDocker,
@@ -76,6 +81,78 @@ func (p *DockerProvider) mapInspect(cj *container.InspectResponse) provider.Work
 		Group:      labels[composeProjectLabel],
 		Protected:  p.isProtected(cj.ID, labels),
 	}
+	if cj.NetworkSettings != nil {
+		wl.NetworkNames, wl.IPAddress = summarizeNetworks(cj.NetworkSettings.Networks)
+		wl.Networks = mapInspectNetworks(cj.NetworkSettings.Networks)
+	}
+	return wl
+}
+
+// summarizeNetworks returns the sorted names of the networks a container is on
+// and the first IPv4 it holds in that order (empty when it has none).
+func summarizeNetworks(nets map[string]*network.EndpointSettings) ([]string, string) {
+	if len(nets) == 0 {
+		return nil, ""
+	}
+	names := sortedNetworkNames(nets)
+	for _, name := range names {
+		if ip := endpointIPv4(nets[name]); ip != "" {
+			return names, ip
+		}
+	}
+	return names, ""
+}
+
+// mapInspectNetworks converts a container's per-network endpoint settings into
+// the normalized attachment list, sorted by network name.
+func mapInspectNetworks(nets map[string]*network.EndpointSettings) []provider.WorkloadNetwork {
+	if len(nets) == 0 {
+		return nil
+	}
+	names := sortedNetworkNames(nets)
+	out := make([]provider.WorkloadNetwork, 0, len(names))
+	for _, name := range names {
+		ep := nets[name]
+		wn := provider.WorkloadNetwork{Name: name, IPv4: endpointIPv4(ep)}
+		if ep != nil {
+			wn.NetworkID = ep.NetworkID
+			wn.IPv6 = ep.GlobalIPv6Address
+			wn.Gateway = ep.Gateway
+			wn.MAC = ep.MacAddress
+			wn.Aliases = ep.Aliases
+			if wn.IPv6 == "" && ep.IPAMConfig != nil {
+				wn.IPv6 = ep.IPAMConfig.IPv6Address
+			}
+		}
+		out = append(out, wn)
+	}
+	return out
+}
+
+// sortedNetworkNames returns the map's keys in sorted order.
+func sortedNetworkNames(nets map[string]*network.EndpointSettings) []string {
+	names := make([]string, 0, len(nets))
+	for name := range nets {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// endpointIPv4 returns the address an endpoint currently holds, falling back to
+// the static address it was configured with (a stopped container has no live
+// address but still shows what it will get on start).
+func endpointIPv4(ep *network.EndpointSettings) string {
+	if ep == nil {
+		return ""
+	}
+	if ep.IPAddress != "" {
+		return ep.IPAddress
+	}
+	if ep.IPAMConfig != nil {
+		return ep.IPAMConfig.IPv4Address
+	}
+	return ""
 }
 
 // isProtected reports whether a container is Castor's own or carries the

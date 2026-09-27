@@ -11,6 +11,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
 
 	"github.com/gtek-it/castor/server/internal/provider"
@@ -33,6 +34,15 @@ type VolMount struct {
 	Target string `json:"target"`
 }
 
+// NetworkAttach is one network membership in a DeploySpec: the network (name
+// or id), an optional static IPv4 (user-defined networks with a configured
+// subnet only) and extra DNS aliases the other containers on it can resolve.
+type NetworkAttach struct {
+	Name    string   `json:"name"`
+	IPv4    string   `json:"ipv4"`
+	Aliases []string `json:"aliases"`
+}
+
 // DeploySpec is the normalized, SDK-agnostic description of a single container
 // to create+start. It is the SHARED input type used by both the one-click
 // template deploy (templates.go) and the compose stack deploy: any feature that
@@ -46,6 +56,12 @@ type DeploySpec struct {
 	Volumes       []VolMount        `json:"volumes"`
 	Labels        map[string]string `json:"labels"`
 	RestartPolicy string            `json:"restartPolicy"` // ""|no|always|on-failure|unless-stopped
+
+	// Networks are the networks the container joins. The first one is the
+	// primary network handed to ContainerCreate (it provides the default
+	// gateway); the rest are connected after create and before start. Empty
+	// leaves the container on the daemon's default bridge.
+	Networks []NetworkAttach `json:"networks"`
 
 	// Resource limits/reservations (all optional; <=0 means "unset"). These map
 	// to the same knobs as `docker run --cpus/--memory/...`:
@@ -105,9 +121,19 @@ func (p *DockerProvider) ContainerCreateAndStart(ctx context.Context, spec Deplo
 		Resources:     buildResources(spec),
 	}
 
-	created, err := p.cli.ContainerCreate(ctx, cfg, hostCfg, nil, nil, spec.Name)
+	netCfg, extraNets := buildNetworkingConfig(spec.Networks)
+	created, err := p.cli.ContainerCreate(ctx, cfg, hostCfg, netCfg, nil, spec.Name)
 	if err != nil {
 		return "", mapDeployCreateErr(err)
+	}
+	// Secondary networks join before start: the daemon accepts a connect on a
+	// created container, and the container then comes up with every interface.
+	for _, n := range extraNets {
+		opts := NetworkAttachOptions{IPv4: n.IPv4, Aliases: n.Aliases}
+		if err := p.ConnectContainerToNetwork(ctx, n.Name, created.ID, opts); err != nil {
+			_ = p.cli.ContainerRemove(ctx, created.ID, container.RemoveOptions{Force: true})
+			return "", err
+		}
 	}
 	if err := p.cli.ContainerStart(ctx, created.ID, container.StartOptions{}); err != nil {
 		// Best-effort cleanup so a failed start does not leak a created container.
@@ -121,11 +147,16 @@ func (p *DockerProvider) ContainerCreateAndStart(ctx context.Context, spec Deplo
 // sentinel. The daemon returns HTTP 409 "Conflict. The container name '/x' is
 // already in use by container ..." when the name is taken; map that to
 // ErrNameConflict (a specific ErrConflict) so the API surfaces a clear message
-// instead of the opaque generic conflict. Other errors fall back to
-// mapResourceErr (not-found / in-use / generic).
+// instead of the opaque generic conflict. A rejected network config (static IP
+// on the default bridge, address outside the subnet) is matched first so it
+// keeps its own sentinel. Other errors fall back to mapResourceErr (not-found /
+// in-use / generic).
 func mapDeployCreateErr(err error) error {
 	if err == nil {
 		return nil
+	}
+	if nerr := matchNetworkErr(err); nerr != nil {
+		return nerr
 	}
 	msg := strings.ToLower(err.Error())
 	if cerrdefs.IsConflict(err) ||
@@ -140,19 +171,55 @@ func mapDeployCreateErr(err error) error {
 // reports "driver failed programming external connectivity ... bind: address
 // already in use" (or "port is already allocated"). Map those to ErrPortConflict
 // (a specific ErrConflict → HTTP 409) rather than letting the bare error fall
-// through to a generic 500. Unknown-container errors still map to ErrNotFound.
+// through to a generic 500. The primary network's address is allocated at
+// start too, so a bare "Address already in use" (no bind/port context) is the
+// IPAM refusal for a taken static IP and maps to ErrIPInUse; other network
+// phrasings keep their own sentinel. Unknown-container errors still map to
+// ErrNotFound.
 func mapDeployStartErr(err error) error {
 	if err == nil {
 		return nil
 	}
 	msg := strings.ToLower(err.Error())
-	if strings.Contains(msg, "address already in use") ||
-		strings.Contains(msg, "port is already allocated") ||
+	if strings.Contains(msg, "port is already allocated") ||
+		strings.Contains(msg, "external connectivity") ||
 		(strings.Contains(msg, "bind") && strings.Contains(msg, "in use")) ||
-		strings.Contains(msg, "external connectivity") {
+		(strings.Contains(msg, "address already in use") && strings.Contains(msg, "port")) {
 		return provider.ErrPortConflict
 	}
+	if nerr := matchNetworkErr(err); nerr != nil {
+		return nerr
+	}
 	return mapNotFound(err)
+}
+
+// buildNetworkingConfig splits the spec's networks into the primary endpoint,
+// handed to ContainerCreate as its NetworkingConfig, and the extra memberships
+// ContainerCreateAndStart connects after create. Entries without a name are
+// dropped. Returns (nil, nil) when the container stays on the default bridge.
+func buildNetworkingConfig(nets []NetworkAttach) (*network.NetworkingConfig, []NetworkAttach) {
+	primary := -1
+	var extra []NetworkAttach
+	for i := range nets {
+		if strings.TrimSpace(nets[i].Name) == "" {
+			continue
+		}
+		if primary < 0 {
+			primary = i
+			continue
+		}
+		extra = append(extra, nets[i])
+	}
+	if primary < 0 {
+		return nil, nil
+	}
+	first := nets[primary]
+	cfg := &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			first.Name: endpointSettings(NetworkAttachOptions{IPv4: first.IPv4, Aliases: first.Aliases}),
+		},
+	}
+	return cfg, extra
 }
 
 // ensureImage pulls ref when it is not already present locally. A successful

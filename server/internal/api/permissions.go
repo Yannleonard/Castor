@@ -24,9 +24,12 @@ var permissionCatalog = []string{
 	"docker.image.read",
 	"docker.image.pull",
 	"docker.image.delete",
-	// docker networks
+	// docker networks (connect/disconnect attach an existing container to an
+	// existing network; delete is destructive and stays admin-only)
 	"docker.network.read",
 	"docker.network.create",
+	"docker.network.connect",
+	"docker.network.disconnect",
 	"docker.network.delete",
 	// docker volumes
 	"docker.volume.read",

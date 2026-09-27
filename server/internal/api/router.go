@@ -197,12 +197,23 @@ func (s *Server) mountResourceRoutes(pr chi.Router) {
 	pr.With(az.AuditWrap("docker.image.delete"), az.RequireAAL, az.RequirePermission("docker.image.delete", scopeFromHost)).
 		Delete("/hosts/{hostID}/images/{id}", s.DeleteImage)
 
+	// Networks: list (snapshot) + inspect (daemon) reads; create/delete plus
+	// container connect/disconnect follow the fixed mutation chain AuditWrap
+	// (OUTERMOST) -> RequireAAL -> RequirePermission -> handler. Connect and
+	// disconnect are operator-grade (they rewire existing containers, never
+	// Castor's own or a protected one); delete stays admin-only.
 	pr.With(az.RequirePermission("docker.network.read", scopeFromHost)).
 		Get("/hosts/{hostID}/networks", s.Networks)
+	pr.With(az.RequirePermission("docker.network.read", scopeFromHost)).
+		Get("/hosts/{hostID}/networks/{id}", s.NetworkDetail)
 	pr.With(az.AuditWrap("docker.network.create"), az.RequireAAL, az.RequirePermission("docker.network.create", scopeFromHost)).
 		Post("/hosts/{hostID}/networks", s.CreateNetwork)
 	pr.With(az.AuditWrap("docker.network.delete"), az.RequireAAL, az.RequirePermission("docker.network.delete", scopeFromHost)).
 		Delete("/hosts/{hostID}/networks/{id}", s.DeleteNetwork)
+	pr.With(az.AuditWrap("docker.network.connect"), az.RequireAAL, az.RequirePermission("docker.network.connect", scopeFromHost)).
+		Post("/hosts/{hostID}/networks/{id}/connect", s.ConnectNetwork)
+	pr.With(az.AuditWrap("docker.network.disconnect"), az.RequireAAL, az.RequirePermission("docker.network.disconnect", scopeFromHost)).
+		Post("/hosts/{hostID}/networks/{id}/disconnect", s.DisconnectNetwork)
 
 	pr.With(az.RequirePermission("docker.volume.read", scopeFromHost)).
 		Get("/hosts/{hostID}/volumes", s.Volumes)
