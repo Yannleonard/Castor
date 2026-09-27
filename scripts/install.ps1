@@ -110,6 +110,7 @@ $ErrorActionPreference = 'Stop'
 Write-Host ""
 Write-Host "Castor is up!" -ForegroundColor Green
 Write-Host ""
-Write-Host "   Open https://localhost:$HttpsPort and create your admin account."
+$UrlPort = if ($HttpsPort -eq 443) { "" } else { ":$HttpsPort" }
+Write-Host "   Open https://localhost$UrlPort and create your admin account."
 Write-Host "   Your browser warns about the self-signed certificate: accept it once, or replace it in Settings -> HTTPS." -ForegroundColor Yellow
 Write-Host ""

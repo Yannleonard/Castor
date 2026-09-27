@@ -119,5 +119,9 @@ done
 
 # --- done --------------------------------------------------------------------
 printf '\n%s🦫  Castor is up!%s\n\n' "$B" "$N"
-printf '   Open %shttps://localhost:%s%s and create your admin account.\n' "$B" "$HTTPS_PORT" "$N"
+# Port omitted for 443; the host address helps when installing on a remote server.
+URL_PORT=""; [ "$HTTPS_PORT" != "443" ] && URL_PORT=":$HTTPS_PORT"
+HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+printf '   Open %shttps://localhost%s%s and create your admin account.\n' "$B" "$URL_PORT" "$N"
+[ -n "$HOST_IP" ] && printf '   From another machine: %shttps://%s%s%s\n' "$B" "$HOST_IP" "$URL_PORT" "$N"
 printf '   Your browser warns about the self-signed certificate: accept it once, or replace it in Settings → HTTPS.\n\n'
