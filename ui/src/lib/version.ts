@@ -1,15 +1,31 @@
 // ui/src/lib/version.ts
-// UI build version, populated from the backend /healthz at runtime where shown.
-// The static short label is a build-time constant; the live version comes from
-// healthz and is surfaced in the topbar/footer.
+//
+// The version shown in the UI comes from the SERVER (`/api/v1/healthz`), which
+// is stamped at build time from the git tag, so the footer can never drift from
+// the running binary. package.json only provides the pre-fetch fallback.
+import { useQuery } from "@tanstack/react-query";
 import pkg from "../../package.json";
+import { api } from "./api";
 
-// Display version shown next to the brand mark in the sidebar footer
-// ("Castor by IT Leonard  v1.0.2", see components/BrandLock.tsx; the
-// attribution text itself comes from lib/brand.ts).
-const DISPLAY_VERSION = "1.0.2";
+const FALLBACK = (pkg as { version?: string }).version ?? "0.0.0";
+
+function display(v: string): string {
+  return v.startsWith("v") ? v : `v${v}`;
+}
 
 export const version = {
-  ui: (pkg as { version?: string }).version ?? DISPLAY_VERSION,
-  short: `v${DISPLAY_VERSION}`,
+  ui: FALLBACK,
+  short: display(FALLBACK),
 };
+
+/** Server build version ("v1.3.1"); falls back to the UI package version until
+ *  healthz has answered. Cached for the session — it cannot change at runtime. */
+export function useServerVersion(): string {
+  const q = useQuery({
+    queryKey: ["healthz", "version"],
+    queryFn: () => api.healthz(),
+    staleTime: Infinity,
+    retry: 1,
+  });
+  return display(q.data?.version || FALLBACK);
+}

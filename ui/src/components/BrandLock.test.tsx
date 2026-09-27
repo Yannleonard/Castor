@@ -1,3 +1,4 @@
+import type React from "react";
 // ui/src/components/BrandLock.test.tsx
 // The brand mark must survive the usual runtime tampering: hidden through an
 // inline style, detached from its parent, logo removed or re-pointed, text
@@ -5,14 +6,20 @@
 // failing that, from the 1 s tick; polling with real timers covers both.
 import { describe, it, expect } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrandLock } from "./BrandLock";
 import { AuthBrand } from "../views/AuthBrand";
 import { BRAND } from "../lib/brand";
 
+// BrandLock reads the server version through a query; give it a client.
+function withQuery(ui: React.ReactElement) {
+  return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>;
+}
+
 const settle = { timeout: 2500, interval: 50 };
 
 function renderLock() {
-  const utils = render(<BrandLock />);
+  const utils = render(withQuery(<BrandLock />));
   const el = screen.getByLabelText(BRAND.attribution);
   return { ...utils, el };
 }

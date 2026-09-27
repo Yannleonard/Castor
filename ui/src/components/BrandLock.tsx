@@ -23,7 +23,7 @@
 
 import { useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 import { BRAND } from "../lib/brand";
-import { version } from "../lib/version";
+import { useServerVersion } from "../lib/version";
 
 // Stable id for the sidebar instance (the guard works by ref, not by id).
 const LOCK_ID = "castor-brandlock-7f3a";
@@ -236,9 +236,10 @@ export function BrandMark({ id, className, logoSize = 20, logoAlt = BRAND.name, 
 
 // Sidebar footer: the mark plus the build version.
 export function BrandLock() {
+  const serverVersion = useServerVersion();
   return (
     <BrandMark id={LOCK_ID} className="sidebar-footer brandlock" logoSize={20}>
-      <span className="mono brand-version">{version.short}</span>
+      <span className="mono brand-version">{serverVersion}</span>
     </BrandMark>
   );
 }
