@@ -1,42 +1,41 @@
 // ui/src/views/Networks.tsx
 //
-// Docker networks: read + gated writes. Create opens a modal (name validated
-// client-side; backend re-validates). Delete is admin-gated
-// (docker.network.delete, CapNetworks); prune is gated by docker.system.prune.
+// Docker networks: read + gated writes. The list shows each network's driver,
+// subnets and attached-container count; a row opens the live detail panel
+// (IPAM, options, connected containers, connect/disconnect). Create opens the
+// full form (drivers, flags, IPAM pools, options); the sub-components live in
+// ./networks. Delete is admin-gated (docker.network.delete, CapNetworks) and
+// never offered on Docker's built-in networks; prune is gated by
+// docker.system.prune.
 
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useNetworks, useCapabilityLookup } from "../lib/hooks";
+import { useNetworks, useCapabilityLookup, qk } from "../lib/hooks";
 import { useSelectedHost } from "../lib/hostStore";
 import { PageHeader } from "../components/PageHeader";
 import { DataTable, type Column } from "../components/DataTable";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingFill } from "../components/Spinner";
-import { Modal } from "../components/Modal";
 import { ActionButton } from "../components/ActionButton";
 import { CapabilityGate } from "../components/CapabilityGate";
 import { ConfirmDestructiveDialog } from "../components/ConfirmDestructiveDialog";
 import { HelpButton } from "../components/HelpButton";
-import { TextField, SelectField } from "../components/Field";
 import { IconNetworks, IconPlus, IconPrune, IconTrash, IconRefresh, IconSearch } from "../components/icons";
 import { toast, toastError } from "../lib/toast";
 import { formatBytes, shortId } from "../lib/format";
 import { useT, t as tr } from "../i18n";
 import { networksDict } from "../i18n/locales/networks";
-import { commonDict } from "../i18n/locales/common";
 import type { DockerNetwork } from "../lib/types";
+import { CreateNetworkModal } from "./networks/CreateNetworkModal";
+import { NetworkDetailModal } from "./networks/NetworkDetailModal";
+import { SYSTEM_NETWORKS } from "./networks/validate";
 
-const SYSTEM_NETWORKS = new Set(["bridge", "host", "none"]);
 const EMPTY_NETWORKS: DockerNetwork[] = [];
-
-const NETWORK_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
-const NETWORK_DRIVERS = ["bridge", "overlay", "macvlan", "ipvlan"];
 
 export function Networks() {
   const t = useT(networksDict);
-  const tc = useT(commonDict);
   const hostId = useSelectedHost();
   const queryClient = useQueryClient();
   const { can } = useAuth();
@@ -47,10 +46,7 @@ export function Networks() {
   const [search, setSearch] = useState("");
   const [removeTarget, setRemoveTarget] = useState<DockerNetwork | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [createName, setCreateName] = useState("");
-  const [createDriver, setCreateDriver] = useState("bridge");
-  const [createInternal, setCreateInternal] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [pruneOpen, setPruneOpen] = useState(false);
 
   const canCreate = caps?.includes("networks") && can("docker.network.create");
@@ -61,29 +57,10 @@ export function Networks() {
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     if (!s) return networks;
-    return networks.filter((n) => `${n.name} ${n.driver} ${n.id}`.toLowerCase().includes(s));
+    return networks.filter((n) => `${n.name} ${n.driver} ${n.id} ${n.subnets.join(" ")}`.toLowerCase().includes(s));
   }, [networks, search]);
 
-  const nameOk = NETWORK_NAME_RE.test(createName.trim());
-
-  const doCreate = async () => {
-    if (!nameOk) return;
-    const name = createName.trim();
-    setCreating(true);
-    try {
-      await api.networkCreate(hostId, { name, driver: createDriver, internal: createInternal });
-      toast.success(tr(networksDict, "toast.createdTitle"), name);
-      setCreateOpen(false);
-      setCreateName("");
-      setCreateDriver("bridge");
-      setCreateInternal(false);
-      queryClient.invalidateQueries({ queryKey: ["networks", hostId] });
-    } catch (err) {
-      toastError(tr(networksDict, "toast.createFailed"), err);
-    } finally {
-      setCreating(false);
-    }
-  };
+  const invalidateNetworks = () => queryClient.invalidateQueries({ queryKey: qk.networks(hostId) });
 
   const doPrune = async () => {
     try {
@@ -92,7 +69,7 @@ export function Networks() {
         tr(networksDict, "toast.prunedTitle", { count: res.removed.length }),
         tr(networksDict, "toast.prunedBody", { size: formatBytes(res.spaceReclaimed) }),
       );
-      queryClient.invalidateQueries({ queryKey: ["networks", hostId] });
+      invalidateNetworks();
     } catch (err) {
       toastError(tr(networksDict, "toast.pruneFailed"), err);
       throw err;
@@ -104,7 +81,8 @@ export function Networks() {
     try {
       await api.networkDelete(hostId, removeTarget.id);
       toast.success(tr(networksDict, "toast.removedTitle"), removeTarget.name);
-      queryClient.invalidateQueries({ queryKey: ["networks", hostId] });
+      if (detailId === removeTarget.id) setDetailId(null);
+      invalidateNetworks();
     } catch (err) {
       toastError(tr(networksDict, "toast.removeFailed"), err);
       throw err;
@@ -117,21 +95,47 @@ export function Networks() {
       header: t("col.name"),
       sortValue: (n) => n.name,
       cell: (n) => (
-        <div className="row" style={{ gap: "var(--sp-2)" }}>
-          <span style={{ fontWeight: 600 }}>{n.name}</span>
-          {SYSTEM_NETWORKS.has(n.name) ? <span className="chip text-xs">{t("badge.system")}</span> : null}
+        <div className="col" style={{ gap: 2 }}>
+          <div className="row" style={{ gap: "var(--sp-2)" }}>
+            <span style={{ fontWeight: 600 }}>{n.name}</span>
+            {SYSTEM_NETWORKS.has(n.name) ? <span className="chip text-xs">{t("badge.system")}</span> : null}
+          </div>
+          <span className="mono text-xs muted">{shortId(n.id)}</span>
         </div>
       ),
     },
-    { key: "id", header: t("col.id"), sortValue: (n) => n.id, cell: (n) => <span className="mono text-xs muted">{shortId(n.id)}</span> },
     { key: "driver", header: t("col.driver"), sortValue: (n) => n.driver, cell: (n) => <span className="chip">{n.driver}</span> },
-    { key: "scope", header: t("col.scope"), sortValue: (n) => n.scope, cell: (n) => <span className="text-sm secondary">{n.scope}</span> },
+    {
+      key: "subnets",
+      header: t("col.subnets"),
+      sortValue: (n) => n.subnets.join(" "),
+      cell: (n) =>
+        n.subnets.length === 0 ? (
+          <span className="muted">—</span>
+        ) : (
+          <div className="row-wrap" style={{ gap: "var(--sp-1)" }}>
+            {n.subnets.map((s) => (
+              <span key={s} className="chip chip-mono">
+                {s}
+              </span>
+            ))}
+          </div>
+        ),
+    },
+    {
+      key: "containers",
+      header: t("col.containers"),
+      align: "right",
+      sortValue: (n) => n.containerCount,
+      cell: (n) => <span className="mono">{n.containerCount}</span>,
+    },
     {
       key: "internal",
       header: t("col.internal"),
       sortValue: (n) => (n.internal ? 1 : 0),
       cell: (n) => (n.internal ? <span className="pill" style={{ color: "var(--accent)", borderColor: "var(--accent)" }}>{t("badge.internal")}</span> : <span className="muted">—</span>),
     },
+    { key: "scope", header: t("col.scope"), sortValue: (n) => n.scope, cell: (n) => <span className="text-sm secondary">{n.scope}</span> },
     {
       key: "actions",
       header: "",
@@ -154,7 +158,11 @@ export function Networks() {
                 disabled={!allowed}
                 tooltip={allowed ? t("action.remove") : why}
                 aria-label={t("action.remove")}
-                onClick={() => setRemoveTarget(n)}
+                onClick={(e) => {
+                  // Keep the row click (open detail) from firing.
+                  e.stopPropagation();
+                  setRemoveTarget(n);
+                }}
                 style={allowed ? { color: "var(--danger)" } : undefined}
               >
                 <IconTrash size={15} />
@@ -216,8 +224,8 @@ export function Networks() {
       {query.isLoading ? (
         <LoadingFill label={t("list.loading")} />
       ) : networks.length === 0 ? (
-        // No networks visible on the host: open the existing create modal
-        // directly (only when the caller may create).
+        // No networks visible on the host: open the create form directly (only
+        // when the caller may create).
         <div className="card">
           <EmptyState
             icon={<IconNetworks size={40} />}
@@ -239,50 +247,24 @@ export function Networks() {
           rows={filtered}
           rowKey={(n) => n.id}
           defaultSortKey="name"
+          onRowClick={(n) => setDetailId(n.id)}
           emptyIcon={<IconNetworks size={40} />}
           emptyTitle={t("empty.title")}
         />
       )}
 
-      <Modal
-        open={createOpen}
-        title={t("form.title")}
-        busy={creating}
-        onClose={() => setCreateOpen(false)}
-        footer={
-          <>
-            <button className="btn" onClick={() => setCreateOpen(false)} disabled={creating}>
-              {tc("cancel")}
-            </button>
-            <ActionButton variant="primary" loading={creating} disabled={!nameOk} onClick={doCreate}>
-              {t("form.create")}
-            </ActionButton>
-          </>
-        }
-      >
-        <div className="col" style={{ gap: "var(--sp-3)" }}>
-          <TextField
-            label={t("form.name")}
-            mono
-            autoFocus
-            placeholder={t("form.namePlaceholder")}
-            value={createName}
-            onChange={(e) => setCreateName(e.target.value)}
-            error={createName && !nameOk ? t("form.nameError") : undefined}
-          />
-          <SelectField label={t("form.driver")} value={createDriver} onChange={(e) => setCreateDriver(e.target.value)}>
-            {NETWORK_DRIVERS.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </SelectField>
-          <label className="checkbox-row">
-            <input type="checkbox" checked={createInternal} onChange={(e) => setCreateInternal(e.target.checked)} />
-            <span>{t("form.internal")}</span>
-          </label>
-        </div>
-      </Modal>
+      {createOpen ? (
+        <CreateNetworkModal
+          hostId={hostId}
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => {
+            setCreateOpen(false);
+            invalidateNetworks();
+          }}
+        />
+      ) : null}
+
+      {detailId ? <NetworkDetailModal hostId={hostId} networkId={detailId} onClose={() => setDetailId(null)} /> : null}
 
       <ConfirmDestructiveDialog
         open={pruneOpen}

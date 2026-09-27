@@ -30,6 +30,8 @@ import type {
   DeployResponse,
   DockerImage,
   DockerNetwork,
+  DockerNetworkDetail,
+  DockerNetworkInfo,
   DockerVolume,
   GroupRoleMapping,
   HealthzResponse,
@@ -73,6 +75,8 @@ import type {
   LoginResponse,
   MeResponse,
   CatalogInput,
+  NetworkConnectRequest,
+  NetworkDisconnectRequest,
   NotificationChannel,
   NotificationChannelInput,
   ProviderInfo,
@@ -424,10 +428,22 @@ export const api = {
   imageDelete: (hostId: string, id: string, force = false) =>
     del<void>(`/hosts/${encId(hostId)}/images/${encId(id)}${qs({ force })}`),
   networks: (hostId: string) => get<DockerNetwork[]>(`/hosts/${encId(hostId)}/networks`),
+  // Live inspect of one network by id or name: IPAM pools, driver options and
+  // the attached containers with their addresses (docker.network.read).
+  networkInspect: (hostId: string, id: string) =>
+    get<DockerNetworkDetail>(`/hosts/${encId(hostId)}/networks/${encId(id)}`),
+  // Create returns the daemon's summary of the new network (id, scope, and the
+  // subnet it picked when ipam was omitted); no containerCount on this shape.
   networkCreate: (hostId: string, body: CreateNetworkRequest) =>
-    post<DockerNetwork>(`/hosts/${encId(hostId)}/networks`, body),
+    post<DockerNetworkInfo>(`/hosts/${encId(hostId)}/networks`, body),
   networkDelete: (hostId: string, id: string) =>
     del<void>(`/hosts/${encId(hostId)}/networks/${encId(id)}`),
+  // Attach / detach a container (id or name) on a network (docker.network.
+  // connect / .disconnect). Castor's own and protected containers are refused.
+  networkConnect: (hostId: string, id: string, body: NetworkConnectRequest) =>
+    post<ActionResult>(`/hosts/${encId(hostId)}/networks/${encId(id)}/connect`, body),
+  networkDisconnect: (hostId: string, id: string, body: NetworkDisconnectRequest) =>
+    post<ActionResult>(`/hosts/${encId(hostId)}/networks/${encId(id)}/disconnect`, body),
   volumes: (hostId: string) => get<DockerVolume[]>(`/hosts/${encId(hostId)}/volumes`),
   volumeCreate: (hostId: string, body: CreateVolumeRequest) =>
     post<DockerVolume>(`/hosts/${encId(hostId)}/volumes`, body),

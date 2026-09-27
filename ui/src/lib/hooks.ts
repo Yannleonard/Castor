@@ -10,6 +10,7 @@ import type {
   Backup,
   Capability,
   DashboardMetrics,
+  DockerNetworkDetail,
   GroupRoleMapping,
   K8sCronJob,
   K8sDaemonSet,
@@ -65,6 +66,9 @@ export const qk = {
   workload: (host: string, id: string) => ["workload", host, id] as const,
   images: (host: string) => ["images", host] as const,
   networks: (host: string) => ["networks", host] as const,
+  // Nested under networks(host): invalidating the list (which every network
+  // mutation already does) also refreshes every open detail.
+  network: (host: string, id: string) => ["networks", host, id] as const,
   volumes: (host: string) => ["volumes", host] as const,
   swarmServices: (host: string) => ["swarm", "services", host] as const,
   swarmTasks: (host: string) => ["swarm", "tasks", host] as const,
@@ -199,6 +203,15 @@ export function useImages(hostId: string) {
 }
 export function useNetworks(hostId: string) {
   return useQuery({ queryKey: qk.networks(hostId), queryFn: () => api.networks(hostId), refetchInterval: POLL });
+}
+/** One network's live inspect view (IPAM, options, attached containers). */
+export function useNetwork(hostId: string, id: string, enabled = true) {
+  return useQuery<DockerNetworkDetail>({
+    queryKey: qk.network(hostId, id),
+    queryFn: () => api.networkInspect(hostId, id),
+    enabled: enabled && !!id,
+    refetchInterval: POLL,
+  });
 }
 export function useVolumes(hostId: string) {
   return useQuery({ queryKey: qk.volumes(hostId), queryFn: () => api.volumes(hostId), refetchInterval: POLL });

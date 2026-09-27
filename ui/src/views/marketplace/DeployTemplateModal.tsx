@@ -2,8 +2,9 @@
 //
 // Guided one-click deploy for a marketplace template. Seeds the container name
 // from the slug and the ports / env / volume rows from the template defaults,
-// lets the operator tweak them, validates required env, then POSTs
-// /hosts/{hostID}/templates/deploy and routes to /workloads on success.
+// lets the operator tweak them and attach the container to existing host
+// networks (static IPv4 / aliases), validates required env and addresses, then
+// POSTs /hosts/{hostID}/templates/deploy and routes to /workloads on success.
 
 import { useMemo, useState } from "react";
 import { api } from "../../lib/api";
@@ -20,20 +21,29 @@ import {
   type DockerSwarmResourcesDraft,
 } from "../../components/ResourceFields";
 import { toast, toastError } from "../../lib/toast";
+import { useNetworks } from "../../lib/hooks";
 import { useT, t as tr } from "../../i18n";
 import { mktDeployTemplateDict } from "../../i18n/locales/mktDeployTemplate";
-import type { DeployPortMap, DeployVolMount, Template } from "../../lib/types";
+import type { DeployNetworkAttach, DeployPortMap, DeployVolMount, DockerNetwork, Template } from "../../lib/types";
 import { TemplateLogo } from "./TemplateLogo";
 import {
   EnvRowsEditor,
+  NetRowsEditor,
   PortRowsEditor,
   VolRowsEditor,
+  isIPv4,
   type EnvRow,
+  type NetRow,
   type PortRow,
   type VolRow,
 } from "./RowEditors";
 
 const CONTAINER_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
+
+// Networks a container cannot join alongside others: "host" shares the host
+// stack and "none" (driver "null") has no stack at all.
+const UNATTACHABLE_NETWORKS = new Set(["host", "none"]);
+const EMPTY_NETWORKS: DockerNetwork[] = [];
 
 interface Props {
   template: Template;
@@ -56,6 +66,8 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
   const [resources, setResources] = useState<DockerSwarmResourcesDraft>(() =>
     draftFromResources(undefined),
   );
+  // Network attachments start empty: no row means the default bridge.
+  const [netRows, setNetRows] = useState<NetRow[]>([]);
   const [allowHostMounts, setAllowHostMounts] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -63,11 +75,41 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
   const { can } = useAuth();
   const isSuperuser = can("*");
 
+  const networksQ = useNetworks(hostId);
+  const hostNetworks = networksQ.data ?? EMPTY_NETWORKS;
+  // Selectable networks: drop host/none (by name and by driver) and sort so
+  // the list stays stable across polls.
+  const attachableNetworks = useMemo(
+    () =>
+      hostNetworks
+        .filter((n) => !UNATTACHABLE_NETWORKS.has(n.name) && n.driver !== "host" && n.driver !== "null")
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [hostNetworks],
+  );
+
   const nameOk = name.trim() === "" || CONTAINER_NAME_RE.test(name.trim());
   const missingRequired = useMemo(
     () => env.filter((e) => e.required && e.value.trim() === "").map((e) => e.key),
     [env],
   );
+  // Static addresses are checked client-side for shape only; the daemon still
+  // rejects one outside the subnet or on the default bridge.
+  const badIPv4 = useMemo(
+    () => netRows.map((r) => r.ipv4.trim()).filter((ip) => ip !== "" && !isIPv4(ip)),
+    [netRows],
+  );
+  // The editor hides other rows' picks, but a stale list can still collide.
+  const duplicateNetworks = useMemo(() => {
+    const seen = new Set<string>();
+    const dups = new Set<string>();
+    for (const r of netRows) {
+      const n = r.name.trim();
+      if (n === "") continue;
+      if (seen.has(n)) dups.add(n);
+      seen.add(n);
+    }
+    return [...dups];
+  }, [netRows]);
 
   // Classify the volume sources into host binds (root-equivalent) so we can warn
   // before submit. The backend is the enforcer; this mirrors its policy for UX.
@@ -85,7 +127,12 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
     blockedBinds.length > 0 ||
     (optInBinds.length > 0 && (!isSuperuser || !allowHostMounts));
 
-  const valid = nameOk && missingRequired.length === 0 && !hostBindBlocksSubmit;
+  const valid =
+    nameOk &&
+    missingRequired.length === 0 &&
+    !hostBindBlocksSubmit &&
+    badIPv4.length === 0 &&
+    duplicateNetworks.length === 0;
 
   const submit = async () => {
     if (!valid || busy) return;
@@ -106,6 +153,22 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
       const volMounts: DeployVolMount[] = volumes
         .filter((v) => v.target.trim() !== "")
         .map((v) => ({ source: v.source.trim(), target: v.target.trim() }));
+      // Rows without a network are dropped; blank ipv4/aliases are omitted so
+      // the server only sees what the operator set.
+      const netAttach: DeployNetworkAttach[] = netRows
+        .filter((r) => r.name.trim() !== "")
+        .map((r) => {
+          const ipv4 = r.ipv4.trim();
+          const aliases = r.aliases
+            .split(",")
+            .map((a) => a.trim())
+            .filter((a) => a !== "");
+          return {
+            name: r.name.trim(),
+            ...(ipv4 ? { ipv4 } : {}),
+            ...(aliases.length ? { aliases } : {}),
+          };
+        });
       const rsc = resourcesFromDraft(resources);
 
       const res = await api.templateDeploy(hostId, {
@@ -114,6 +177,8 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
         ports: portMaps,
         env: envMap,
         volumes: volMounts,
+        // Only sent when a network was attached; omitted => default bridge.
+        networks: netAttach.length ? netAttach : undefined,
         // Resource limits/reservations (0 => left unset server-side).
         cpuLimit: rsc.cpuLimit || undefined,
         memoryLimitBytes: rsc.memoryLimitBytes || undefined,
@@ -174,7 +239,11 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
                       ? t("tooltip.needAdmin")
                       : optInBinds.length && !allowHostMounts
                         ? t("tooltip.tickAllow")
-                        : undefined
+                        : badIPv4.length
+                          ? t("tooltip.fixIPv4")
+                          : duplicateNetworks.length
+                            ? t("tooltip.dedupeNetworks")
+                            : undefined
             }
             onClick={submit}
           >
@@ -265,6 +334,25 @@ export function DeployTemplateModal({ template, hostId, onClose, onDeployed }: P
               </div>
             )
           ) : null}
+        </div>
+
+        <div className="col" style={{ gap: "var(--sp-2)" }}>
+          <span className="mkt-section-label">{t("section.networks")}</span>
+          <NetRowsEditor
+            rows={netRows}
+            onChange={setNetRows}
+            networks={attachableNetworks}
+            loading={networksQ.isLoading}
+          />
+          {badIPv4.length ? (
+            <span className="field-error">{t("form.networksIPv4Error", { values: badIPv4.join(", ") })}</span>
+          ) : duplicateNetworks.length ? (
+            <span className="field-error">
+              {t("form.networksDuplicateError", { names: duplicateNetworks.join(", ") })}
+            </span>
+          ) : (
+            <span className="field-hint">{t("hint.networks")}</span>
+          )}
         </div>
 
         <div className="col" style={{ gap: "var(--sp-2)" }}>

@@ -55,9 +55,31 @@ export interface Workload {
   createdAt: string; // RFC3339
   group?: string;
   protected: boolean;
+  // Docker only. networkNames lists the networks the container is attached to
+  // (sorted); ipAddress is its first IPv4 across them, absent in host/none
+  // network mode. The per-network detail is WorkloadDetail.networks.
+  networkNames?: string[];
+  ipAddress?: string;
+}
+
+// WorkloadNetwork is one network a workload is attached to, with the addresses
+// that network gave it. aliases are the extra DNS names registered for it on
+// that network (compose service names, user-added aliases). Mirrors
+// provider.WorkloadNetwork.
+export interface WorkloadNetwork {
+  name: string;
+  networkId?: string;
+  ipv4?: string;
+  ipv6?: string;
+  gateway?: string;
+  mac?: string;
+  aliases?: string[];
 }
 
 export interface WorkloadDetail extends Workload {
+  // Per-network attachment detail (inspect only; list rows carry networkNames
+  // and ipAddress instead). Docker only.
+  networks?: WorkloadNetwork[];
   // engine-specific inspect document, masked for secret env unless caller has
   // docker.container.inspect.secrets. Opaque JSON.
   raw: unknown;
@@ -278,12 +300,71 @@ export interface DockerImage {
   dangling: boolean;
 }
 
-export interface DockerNetwork {
+// One IPAM address pool of a network. subnet is CIDR notation; gateway and
+// ipRange must fall inside it; auxAddresses are named addresses the IPAM driver
+// leaves unallocated. Mirrors docker.IPAMConfig.
+export interface IPAMConfig {
+  subnet: string;
+  gateway?: string;
+  ipRange?: string;
+  auxAddresses?: Record<string, string>;
+}
+
+// A network's IP address management: the IPAM driver and its pools. Mirrors
+// docker.IPAMSpec as the inspect view reports it (config is never null).
+export interface NetworkIPAM {
+  driver: string;
+  config: IPAMConfig[];
+}
+
+// DockerNetworkInfo mirrors docker.NetworkInfo: the normalized summary the
+// create response returns and the list/inspect views build on. subnets
+// flattens the IPAM pools so the list can show addressing without an inspect.
+export interface DockerNetworkInfo {
   id: string;
   name: string;
   driver: string;
   scope: string;
   internal: boolean;
+  attachable: boolean;
+  enableIPv6: boolean;
+  created: string; // RFC3339
+  subnets: string[];
+  labels?: Record<string, string>;
+}
+
+// DockerNetwork mirrors api.networkView: one list row. containerCount is the
+// number of snapshot containers attached to it (stopped ones included).
+export interface DockerNetwork extends DockerNetworkInfo {
+  containerCount: number;
+}
+
+// One container attached to a network, with the addresses the network gave it
+// (plain IPs, no CIDR suffix). running is whether the daemon reports a live
+// endpoint for it: a stopped container configured on the network is listed
+// with running=false and the address the snapshot knows, if any. state is the
+// container's raw state; protected marks Castor itself or a protected-label
+// container, which the backend never rewires. Mirrors docker.NetworkEndpoint.
+export interface NetworkEndpoint {
+  containerId: string;
+  name: string;
+  ipv4?: string;
+  ipv6?: string;
+  mac?: string;
+  running: boolean;
+  state?: string;
+  protected: boolean;
+}
+
+// DockerNetworkDetail mirrors api.networkDetailView (docker.NetworkDetail +
+// containerCount): the live inspect view of GET /hosts/{hostID}/networks/{id}.
+// containers lists every container configured on the network, stopped ones
+// included, sorted by name (containerCount is its length); options are the
+// driver options.
+export interface DockerNetworkDetail extends DockerNetwork {
+  ipam: NetworkIPAM;
+  options: Record<string, string>;
+  containers: NetworkEndpoint[];
 }
 
 export interface DockerVolume {
@@ -293,12 +374,38 @@ export interface DockerVolume {
   createdAt: string;
 }
 
-// Body for POST /hosts/{hostID}/networks.
+// Body for POST /hosts/{hostID}/networks. Mirrors docker.NetworkSpec. driver
+// defaults to "bridge" (bridge | overlay | macvlan | ipvlan); macvlan/ipvlan
+// and a "parent" option bind to a host interface and are superuser-only. Omit
+// ipam to let the daemon pick a free subnet from its default pools. Returns
+// the created DockerNetworkInfo.
 export interface CreateNetworkRequest {
   name: string;
   driver?: string;
   internal?: boolean;
+  attachable?: boolean;
+  enableIPv6?: boolean;
+  options?: Record<string, string>;
+  ipam?: { driver?: string; config: IPAMConfig[] };
   labels?: Record<string, string>;
+}
+
+// Body for POST /hosts/{hostID}/networks/{id}/connect. containerId accepts an
+// id or a name. A static ipv4/ipv6 needs a user-defined network with a
+// configured subnet (409 static_ip_unsupported on the default bridge); aliases
+// are extra DNS names the other containers on that network can resolve.
+export interface NetworkConnectRequest {
+  containerId: string;
+  ipv4?: string;
+  ipv6?: string;
+  aliases?: string[];
+}
+
+// Body for POST /hosts/{hostID}/networks/{id}/disconnect. force also detaches
+// an endpoint the daemon still holds for a gone container.
+export interface NetworkDisconnectRequest {
+  containerId: string;
+  force?: boolean;
 }
 
 // Body for POST /hosts/{hostID}/volumes.
@@ -1436,6 +1543,15 @@ export interface DeployVolMount {
   target: string;
 }
 
+// DeployNetworkAttach is one network the deployed container joins: the network
+// (name or id), an optional static IPv4 (user-defined networks with a subnet
+// only) and extra DNS aliases. Mirrors docker.NetworkAttach.
+export interface DeployNetworkAttach {
+  name: string;
+  ipv4?: string;
+  aliases?: string[];
+}
+
 // DeployRequest is the POST /hosts/{hostID}/templates/deploy body. Supply either
 // templateSlug (resolved against built-in + custom catalogs) or an inline image.
 // ports/env/volumes override the template defaults when provided.
@@ -1448,6 +1564,11 @@ export interface DeployRequest {
   volumes?: DeployVolMount[];
   labels?: Record<string, string>;
   restartPolicy?: string; // "" | "no" | "always" | "on-failure" | "unless-stopped"
+
+  // Existing networks the container joins, in order: the first is its primary
+  // network (default gateway), the rest are connected before start. Omit or
+  // send [] to leave the container on the default bridge.
+  networks?: DeployNetworkAttach[];
 
   // Optional resource limits/reservations (<=0 / omitted means "unset"). cpu*
   // are CPU cores (like `docker run --cpus`); memory* are bytes. cpuReservation

@@ -24,6 +24,8 @@ export const mktDeployTemplateDict = defineDict({
     "tooltip.removeProtected": "Remove the protected host path mount to deploy",
     "tooltip.needAdmin": "Host path mounts require an administrator",
     "tooltip.tickAllow": "Tick “Allow host path mounts” to deploy with a host bind",
+    "tooltip.fixIPv4": "Fix the static IPv4 address to deploy",
+    "tooltip.dedupeNetworks": "Attach each network only once to deploy",
 
     // Container name field
     "form.nameLabel": "Container name",
@@ -34,6 +36,7 @@ export const mktDeployTemplateDict = defineDict({
     "section.ports": "Port mappings",
     "section.env": "Environment",
     "section.volumes": "Volumes",
+    "section.networks": "Networks",
     "section.resources": "Resources",
 
     // Section hints / errors
@@ -42,6 +45,10 @@ export const mktDeployTemplateDict = defineDict({
     "form.envRequiredError": "Required variables need a value: {fields}.",
     "hint.volumes":
       "Source is a named volume (auto-created) or an absolute host path; target is the in-container path.",
+    "hint.networks":
+      "No row: the container stays on the default bridge. The first network is the primary one (default gateway); a static IPv4 needs a user-defined network with a subnet.",
+    "form.networksIPv4Error": "Invalid static IPv4: {values}.",
+    "form.networksDuplicateError": "A network can be attached only once: {names}.",
 
     // Blocked host-bind banner
     "banner.protectedTitle": "Protected host path.",
@@ -80,6 +87,8 @@ export const mktDeployTemplateDict = defineDict({
     "tooltip.removeProtected": "Retirez le montage de chemin hôte protégé pour déployer",
     "tooltip.needAdmin": "Les montages de chemin hôte nécessitent un administrateur",
     "tooltip.tickAllow": "Cochez « Autoriser les montages de chemin hôte » pour déployer avec un bind hôte",
+    "tooltip.fixIPv4": "Corrigez l'adresse IPv4 statique pour déployer",
+    "tooltip.dedupeNetworks": "Rattachez chaque réseau une seule fois pour déployer",
 
     // Champ nom du conteneur
     "form.nameLabel": "Nom du conteneur",
@@ -90,6 +99,7 @@ export const mktDeployTemplateDict = defineDict({
     "section.ports": "Mappages de ports",
     "section.env": "Environnement",
     "section.volumes": "Volumes",
+    "section.networks": "Réseaux",
     "section.resources": "Ressources",
 
     // Indications / erreurs de section
@@ -98,6 +108,10 @@ export const mktDeployTemplateDict = defineDict({
     "form.envRequiredError": "Les variables requises ont besoin d'une valeur : {fields}.",
     "hint.volumes":
       "La source est un volume nommé (créé automatiquement) ou un chemin hôte absolu ; la cible est le chemin dans le conteneur.",
+    "hint.networks":
+      "Aucune ligne : le conteneur reste sur le bridge par défaut. Le premier réseau est le principal (passerelle par défaut) ; une IPv4 statique nécessite un réseau utilisateur avec un sous-réseau.",
+    "form.networksIPv4Error": "IPv4 statique invalide : {values}.",
+    "form.networksDuplicateError": "Un réseau ne peut être rattaché qu'une seule fois : {names}.",
 
     // Bannière de bind hôte bloqué
     "banner.protectedTitle": "Chemin hôte protégé.",
