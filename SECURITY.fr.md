@@ -34,7 +34,7 @@ délai de 72 heures.
 ## Hygiène des dépendances
 
 Nous maintenons la chaîne d'outils Go et les dépendances à jour afin d'absorber les
-correctifs amont. À la date de la dernière version, cela inclut Go 1.25.11 (correctifs
+correctifs amont. À la date de la dernière version, cela inclut Go 1.26.8 (correctifs
 de CVE de la bibliothèque standard), Helm v3.18.5, containerd v1.7.29 et
 moby/spdystream v0.5.1 — résolvant collectivement chaque résultat actionnable de
 `govulncheck`.

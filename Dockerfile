@@ -23,7 +23,7 @@ RUN npm run build \
     || (echo "FATAL: vite build did not emit /server/web/dist/index.html — check vite.config.ts build.outDir (must be ../server/web/dist)"; exit 1)
 
 # --- Stage 2: Go build (static, CGO-free, embeds the UI) ---------------------
-FROM --platform=$BUILDPLATFORM golang:1.25.11-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.26.8-alpine AS build
 WORKDIR /src
 
 RUN apk add --no-cache git ca-certificates tzdata

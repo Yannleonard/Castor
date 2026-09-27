@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.25.11"
+  GO_VERSION: "1.26.8"
   NODE_VERSION: "24"
 
 jobs:
@@ -101,10 +101,10 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          # Pin a release built with Go >= 1.25 (the module's targeted version).
+          # Pin a release built with Go >= 1.26 (the module's targeted version).
           # An older golangci-lint refuses to load with "Go language version
-          # (go1.24) ... lower than the targeted Go version (1.25.0)".
-          version: v2.5.0
+          # (go1.25) ... lower than the targeted Go version (1.26.0)".
+          version: v2.14.0
           args: --timeout=5m
 
       - name: Test (race)

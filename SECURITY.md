@@ -29,7 +29,7 @@ public issue. We aim to acknowledge reports within 72 hours.
 ## Dependency hygiene
 
 We keep the Go toolchain and dependencies current to absorb upstream fixes.
-As of the latest release this includes Go 1.25.11 (standard-library CVE fixes),
+As of the latest release this includes Go 1.26.8 (standard-library CVE fixes),
 Helm v3.18.5, containerd v1.7.29, and moby/spdystream v0.5.1 — collectively
 resolving every actionable `govulncheck` finding.
 

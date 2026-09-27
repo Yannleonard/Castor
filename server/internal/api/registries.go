@@ -219,7 +219,6 @@ func (s *Server) TestRegistry(w http.ResponseWriter, r *http.Request) {
 		Username:      rg.Username,
 		Password:      string(secret),
 		ServerAddress: registryServerAddress(rg),
-		Email:         rg.Email,
 	}
 
 	tctx, cancel := contextWithTimeout(r, registryTestTimeout)

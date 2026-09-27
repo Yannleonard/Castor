@@ -60,7 +60,7 @@ modifiez l'un des trois, modifiez les trois.
 ## Mise en place du développement
 
 Il vous faut **Docker** (avec Compose). Pour le dev backend/UI en local (hors Docker), il vous faut en
-plus **Go 1.25+** et **Node 24+**.
+plus **Go 1.26+** et **Node 24+**.
 
 ```bash
 git clone https://github.com/Yannleonard/Castor.git
@@ -94,7 +94,7 @@ Cibles `make` (Unix, toolchain local) :
 
 **Go**
 
-- Cibler **Go 1.25**, `CGO_ENABLED=0` toujours. **`modernc.org/sqlite`** uniquement —
+- Cibler **Go 1.26**, `CGO_ENABLED=0` toujours. **`modernc.org/sqlite`** uniquement —
   `mattn/go-sqlite3` (cgo) est **interdit** (il casse l'étape finale distroless/scratch et la
   compilation croisée arm64).
 - `gofmt`/`goimports` propres ; `golangci-lint run ./...` doit passer ; le nouveau code est testé.
