@@ -29,7 +29,7 @@ server/   Go backend (single static binary). Module: github.com/gtek-it/castor
   internal/...       config, provider (docker/swarm/kube), cache, store, authz, api, version
 ui/       React + Vite + TypeScript. Built to ../server/web/dist and embedded in the binary.
 deploy/   docker-compose.yml (+ kube overlay) and env.example — the 1-command deploy.
-docs/     ADRs + runbooks (install, security).
+docs/     ADRs + runbooks (install, security, local sync).
 Dockerfile .dockerignore Makefile build.sh build.ps1 .github/workflows/  — packaging & CI.
 ```
 
@@ -71,6 +71,9 @@ export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
 ./build.sh dev
 #   -> Go backend on :8080, vite dev server on :5173 (proxies /api and /ws to :8080)
 ```
+
+On Windows, to keep a local copy (e.g. `D:\Castor`) automatically up to date with GitHub, see
+[`docs/runbooks/local-sync.md`](docs/runbooks/local-sync.md) (`scripts/sync.ps1`).
 
 `make` targets (Unix, local toolchain):
 
