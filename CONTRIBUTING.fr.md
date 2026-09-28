@@ -31,7 +31,7 @@ server/   Backend Go (binaire statique unique). Module : github.com/gtek-it/cast
   internal/...       config, provider (docker/swarm/kube), cache, store, authz, api, version
 ui/       React + Vite + TypeScript. Construit vers ../server/web/dist et embarqué dans le binaire.
 deploy/   docker-compose.yml (+ overlay kube) et env.example — le déploiement en 1 commande.
-docs/     ADR + runbooks (install, sécurité).
+docs/     ADR + runbooks (install, sécurité, synchro locale).
 Dockerfile .dockerignore Makefile build.sh build.ps1 .github/workflows/  — packaging & CI.
 ```
 
@@ -74,6 +74,9 @@ export CASTOR_SECRET_KEY=$(openssl rand -hex 32)
 ./build.sh dev
 #   -> backend Go sur :8080, serveur de dev vite sur :5173 (proxifie /api et /ws vers :8080)
 ```
+
+Sous Windows, pour garder une copie locale (ex. `D:\Castor`) automatiquement à jour avec GitHub, voir
+[`docs/runbooks/local-sync.fr.md`](docs/runbooks/local-sync.fr.md) (`scripts/sync.ps1`).
 
 Cibles `make` (Unix, toolchain local) :
 
