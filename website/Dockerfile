@@ -31,8 +31,8 @@ COPY nginx.conf /etc/nginx/conf.d/castor.conf
 
 # --- Static site -> web root -------------------------------------------------
 # Copy ONLY the served assets so the image stays minimal and the root matches
-# the HTML's absolute paths. (public/, .claude/, CONTENT.md, Docker files, etc.
-# are excluded here and in .dockerignore.)
+# the HTML's absolute paths. (public/, local tooling metadata, CONTENT.md, Docker
+# files, etc. are excluded here and in .dockerignore.)
 COPY index.html 404.html /usr/share/nginx/html/
 COPY css/    /usr/share/nginx/html/css/
 COPY js/     /usr/share/nginx/html/js/
