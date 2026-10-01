@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/Roles.tsx
 //
 // Role editor (admin). Lists roles with permission counts; create/edit/delete

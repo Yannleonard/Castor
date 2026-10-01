@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package provider defines the single, engine-agnostic seam the Castor API and
 // in-memory cache talk to, regardless of which orchestrator is behind it
 // (Docker, Swarm, Kubernetes). See ADR-CASTOR-002.

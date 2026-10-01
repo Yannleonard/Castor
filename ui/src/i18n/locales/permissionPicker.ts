@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/permissionPicker.ts
 //
 // Locale dictionary for the PermissionPicker component

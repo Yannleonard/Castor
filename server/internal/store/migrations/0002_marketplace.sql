@@ -1,3 +1,4 @@
+-- Castor by IT Leonard
 -- Castor marketplace / app-templates schema (migration 0002).
 -- Conventions inherited from 0001_init.sql:
 --   * TEXT ids are UUIDv4 (store.NewUUID()), PRIMARY KEY.

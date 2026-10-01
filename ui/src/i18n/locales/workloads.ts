@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/workloads.ts
 //
 // Locale dictionary for the Workloads view (ui/src/views/Workloads.tsx). Follows

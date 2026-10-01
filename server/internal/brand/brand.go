@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package brand holds Castor's brand identity and a startup integrity check
 // for the embedded UI.
 //

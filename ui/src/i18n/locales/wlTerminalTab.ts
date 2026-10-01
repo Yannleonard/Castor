@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/wlTerminalTab.ts
 //
 // Locale dictionary for the workload Terminal tab

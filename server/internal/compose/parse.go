@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package compose parses and plans Docker Compose YAML into the SDK-agnostic
 // docker.DeploySpec slice that the Docker provider can create+start. It is PURE
 // Go (no docker CLI, no daemon access) per ADR-CASTOR-002: the distroless image

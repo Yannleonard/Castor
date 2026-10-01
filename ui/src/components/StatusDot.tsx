@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/StatusDot.tsx
 import clsx from "clsx";
 import type { WorkloadState, HostStatus } from "../lib/types";

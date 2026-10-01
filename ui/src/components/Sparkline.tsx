@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/Sparkline.tsx
 // Minimal inline-SVG sparkline (no chart library). Renders a smooth-ish path
 // over a fixed-width viewport with an area fill.

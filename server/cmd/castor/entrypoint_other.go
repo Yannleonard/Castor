@@ -1,5 +1,6 @@
 //go:build !linux
 
+// Castor by IT Leonard
 // entrypoint_other.go — non-Linux fallback for `castor entrypoint`. These builds
 // exist only for local development and tests (the shipped container is always
 // Linux); there is no privilege-dropping to do, so we just run the server.

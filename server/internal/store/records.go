@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 package store
 
 // records.go holds the typed row structs for the store package. Sensitive

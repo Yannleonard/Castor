@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/workload/InspectTab.tsx
 //
 // Inspect tab: pretty-printed engine-native inspect JSON (detail.raw). Secret env

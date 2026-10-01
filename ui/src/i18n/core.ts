@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/core.ts
 //
 // Minimal, dependency-free i18n primitives for Castor.

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package kube implements a Provider for Kubernetes via client-go, loading a
 // mounted kubeconfig. The generic container-style Provider mutations (Start/
 // Stop/Restart/Remove/Exec) return provider.ErrUnsupported via the embedded

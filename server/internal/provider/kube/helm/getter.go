@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package helm implements Castor's Helm management surface on top of the Helm
 // Go SDK (helm.sh/helm/v3). It builds an action.Configuration from the same
 // *rest.Config that backs the Kubernetes provider's typed clientset, using the

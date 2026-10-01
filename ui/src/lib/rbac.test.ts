@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/rbac.test.ts
 import { describe, it, expect } from "vitest";
 import {

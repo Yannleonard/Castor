@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/mktRowEditors.ts
 //
 // Locale dictionary for the reusable repeating-row editors shared by the deploy

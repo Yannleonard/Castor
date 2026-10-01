@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/totpChallenge.ts
 //
 // Locale dictionary for the TOTP challenge view (ui/src/views/TotpChallenge.tsx).

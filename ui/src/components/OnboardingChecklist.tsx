@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/OnboardingChecklist.tsx
 //
 // "Getting started" card shown at the top of the Dashboard until every step

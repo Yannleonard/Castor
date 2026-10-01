@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/K8sWorkloads.tsx
 //
 // Kubernetes (read + gated writes): pods, deployments, statefulsets, daemonsets,

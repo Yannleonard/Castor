@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/settings.ts — Instance settings (security, HTTPS) help card.
 import type { HelpCard } from "../types";
 

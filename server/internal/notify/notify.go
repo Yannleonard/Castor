@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package notify delivers outbound webhook notifications (Discord, Slack,
 // ntfy, generic JSON webhooks). The webhook URL embeds a secret token, so no
 // error or log line produced here ever contains the URL — errors are redacted

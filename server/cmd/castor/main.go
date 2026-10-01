@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Command castor is the single-binary Castor server: it serves the JSON API and
 // the embedded React UI, talking to the local Docker engine over the mounted
 // socket and (optionally) Swarm and a mounted kubeconfig.

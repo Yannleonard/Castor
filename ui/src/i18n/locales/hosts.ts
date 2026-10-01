@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/hosts.ts
 //
 // Locale dictionary for the Hosts view (ui/src/views/Hosts.tsx). Follows the

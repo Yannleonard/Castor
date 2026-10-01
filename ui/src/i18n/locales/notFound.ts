@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/notFound.ts
 //
 // Locale dictionary for the NotFound view (ui/src/views/NotFound.tsx).

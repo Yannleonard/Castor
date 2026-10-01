@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/marketplace.ts — Marketplace (1-click deploy) help card.
 import type { HelpCard } from "../types";
 

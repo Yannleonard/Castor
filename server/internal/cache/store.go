@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package cache holds the in-memory state model (ADR-CASTOR-001): per-host
 // snapshots fed by pollers and an event watcher, read by the REST API (never
 // inline daemon calls), plus the per-session stream registry that enforces the

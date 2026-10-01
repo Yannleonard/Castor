@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/rbac.ts
 // Client-side permission + capability gating helpers.
 // The permission vocabulary here MUST mirror the backend authz vocabulary

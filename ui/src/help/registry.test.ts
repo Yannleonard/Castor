@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/registry.test.ts
 //
 // Integrity contract for the data-driven help system. If a card is added,

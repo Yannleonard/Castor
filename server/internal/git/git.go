@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package git is Castor's minimal GitOps client for stack deployments. It wraps
 // go-git/v5 (pure Go, so it links into the CGO-free distroless image with no git
 // binary) to clone/fetch a repository into a per-stack working directory and read

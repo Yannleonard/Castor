@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/workloadActions.ts
 //
 // Locale dictionary for the shared workload lifecycle actions hook

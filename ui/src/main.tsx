@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/main.tsx — entrypoint. Mounts <App> into #root after loading styles.
 import React from "react";
 import ReactDOM from "react-dom/client";

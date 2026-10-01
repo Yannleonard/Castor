@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/types.ts
 // TypeScript mirrors of the Castor REST + WS contract.
 // Field names are EXACT (camelCase) and match ADR-002 struct json tags and the

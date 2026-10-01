@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 package kube
 
 // kinds.go extends the read surface of the Kubernetes provider with the

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/hostStore.ts
 // Selected-host store (V1 always "local", but the switcher is multi-host-ready).
 import { create } from "zustand";

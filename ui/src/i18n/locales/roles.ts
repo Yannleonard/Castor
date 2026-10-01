@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/roles.ts
 //
 // Locale dictionary for the Roles view (ui/src/views/Roles.tsx). Follows the

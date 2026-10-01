@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/profile.ts — Profile page & two-factor authentication help card.
 import type { HelpCard } from "../types";
 

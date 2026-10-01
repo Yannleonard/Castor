@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/bootstrap.ts
 //
 // Locale dictionary for the first-run setup view (ui/src/views/Bootstrap.tsx).

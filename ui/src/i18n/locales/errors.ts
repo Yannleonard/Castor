@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/errors.ts
 //
 // Localized, actionable messages for machine-readable API error codes. toastError

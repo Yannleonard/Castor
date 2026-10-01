@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/dashboard.ts
 //
 // Locale dictionary for the Dashboard view (ui/src/views/Dashboard.tsx). Follows

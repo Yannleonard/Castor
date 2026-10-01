@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/routes.tsx
 // Central route table. Public auth routes sit outside the AppShell; everything
 // else is wrapped in RequireAuth + AppShell, and admin sections additionally in

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/HelpPanel.tsx
 //
 // Generic, data-driven in-app help. A HelpPanel renders any HelpCard from the

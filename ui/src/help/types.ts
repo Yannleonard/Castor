@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/types.ts
 //
 // Data model for Castor's in-app help system. Each feature has a bilingual

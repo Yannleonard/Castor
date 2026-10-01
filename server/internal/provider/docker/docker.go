@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package docker implements the FULL read+write Provider for a standalone
 // Docker engine, talking to the daemon over the mounted unix socket via the
 // official github.com/docker/docker/client. See ADR-CASTOR-002.

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/users.ts
 //
 // Locale dictionary for the Users view (ui/src/views/Users.tsx): RBAC user

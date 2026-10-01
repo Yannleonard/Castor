@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/marketplace.ts
 //
 // Locale dictionary for the Marketplace view (ui/src/views/Marketplace.tsx).

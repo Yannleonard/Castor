@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/networks.ts
 //
 // Locale dictionary for the Networks view (ui/src/views/Networks.tsx) and its

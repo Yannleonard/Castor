@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/PageHeader.tsx — consistent page title + actions row.
 import type { ReactNode } from "react";
 

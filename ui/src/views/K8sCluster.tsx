@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/K8sCluster.tsx
 //
 // Kubernetes core cluster objects (read + gated HPA/Namespace writes):

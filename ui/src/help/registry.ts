@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/registry.ts
 //
 // Central registry of every in-app help card. Views reference a card by its

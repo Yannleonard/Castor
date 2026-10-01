@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 package kube
 
 // kinds_test.go exercises the controller-kind read mappings and the CronJob

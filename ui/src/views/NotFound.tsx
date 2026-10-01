@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/NotFound.tsx
 import { useNavigate } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";

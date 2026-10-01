@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/logViewer.ts
 //
 // Locale dictionary for the LogViewer component (ui/src/components/LogViewer.tsx),

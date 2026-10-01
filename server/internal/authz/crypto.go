@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package authz is Castor's single security choke point: authentication
 // (sessions + TOTP), authorization (RBAC), the destructive-action guard, the
 // security middleware chain, and audit logging. See ADR-CASTOR-003 §6/§7.

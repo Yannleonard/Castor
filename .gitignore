@@ -69,7 +69,7 @@ Thumbs.db
 *.orig
 workflow-output.json
 
-# --- Claude Code session/internal files (never publish) ----------------------
+# --- Local assistant session/internal files (never publish) -------------------
 .claude/
 
 # Working-copy screenshot at repo root (the committed one lives in docs/screenshots/)

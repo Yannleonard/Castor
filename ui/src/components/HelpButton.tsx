@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/HelpButton.tsx
 //
 // Drop-in "? Help" button for any view header. It owns its open/closed state and

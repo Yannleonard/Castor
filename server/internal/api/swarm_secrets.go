@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 package api
 
 // swarm_secrets.go holds the Swarm SECRET and CONFIG management surface. Like

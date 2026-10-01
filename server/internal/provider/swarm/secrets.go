@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // This file adds Swarm SECRET and CONFIG management on top of the read-only
 // provider, reusing the shared Docker client against a manager socket (Swarm
 // Engine API). Secrets and configs are cluster-level objects, not containers,

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package ldap performs LDAP/LDAPS authentication for Castor's enterprise SSO.
 //
 // The flow (see Authenticate):

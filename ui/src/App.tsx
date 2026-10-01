@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/App.tsx
 // Root app: query client + auth provider + router + global toasts + error boundary.
 

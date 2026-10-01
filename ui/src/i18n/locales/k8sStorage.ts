@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/k8sStorage.ts
 //
 // Locale dictionary for the Kubernetes Storage view (ui/src/views/K8sStorage.tsx):

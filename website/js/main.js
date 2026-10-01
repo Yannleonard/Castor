@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 /* ==========================================================================
    Castor — marketing site interactions (vanilla JS, no framework)
    - announcement dismiss (persisted)

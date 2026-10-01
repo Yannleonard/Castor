@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/kubernetes.ts — Kubernetes setup & usage help card.
 import type { HelpCard } from "../types";
 

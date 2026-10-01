@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/format.ts — small formatting helpers (no deps).
 
 /** Human-readable bytes (binary, 1024-based). */

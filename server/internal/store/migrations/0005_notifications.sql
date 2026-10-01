@@ -1,3 +1,4 @@
+-- Castor by IT Leonard
 -- Castor outbound notification channels (migration 0005).
 -- Conventions inherited from 0001: TEXT ids, *_at columns are unix epoch
 -- seconds (UTC) as INTEGER, foreign_keys=ON at connect time.

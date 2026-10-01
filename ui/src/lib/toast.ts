@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/toast.ts — tiny zustand toast store.
 import { create } from "zustand";
 import { ApiError } from "./api";

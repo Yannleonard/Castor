@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/swarmServices.ts
 //
 // Locale dictionary for the Swarm view (ui/src/views/SwarmServices.tsx) and its

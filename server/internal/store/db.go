@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package store is the SQLite persistence layer (users, sessions, roles,
 // bindings, audit, settings, hosts, recovery codes). It uses database/sql with
 // the pure-Go modernc.org/sqlite driver (CGo-free) per ADR-CASTOR-003 §3.3.

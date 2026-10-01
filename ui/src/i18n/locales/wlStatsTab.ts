@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/wlStatsTab.ts
 //
 // Locale dictionary for the workload Stats tab (ui/src/views/workload/StatsTab.tsx).

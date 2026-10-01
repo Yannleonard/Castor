@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/rbac.ts — Users, roles & permissions (RBAC) help card.
 import type { HelpCard } from "../types";
 
