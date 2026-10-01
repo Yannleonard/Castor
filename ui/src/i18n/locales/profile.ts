@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/profile.ts
 //
 // Locale dictionary for the Profile & security view (ui/src/views/Profile.tsx):

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/Bootstrap.tsx
 //
 // First-run setup. Only reachable in bootstrap mode (GET /bootstrap/status →

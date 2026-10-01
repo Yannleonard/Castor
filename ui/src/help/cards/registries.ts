@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/registries.ts — Image registries & remote catalogs help card.
 import type { HelpCard } from "../types";
 

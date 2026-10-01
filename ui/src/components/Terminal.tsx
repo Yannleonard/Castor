@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/Terminal.tsx
 //
 // xterm.js terminal wired to the WS `exec` channel (Docker only). The parent

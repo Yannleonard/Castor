@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package updates detects newer images for running containers WITHOUT pulling:
 // it compares the digest recorded locally for a container's image (RepoDigests)
 // against the digest the registry currently advertises for the same tag, via

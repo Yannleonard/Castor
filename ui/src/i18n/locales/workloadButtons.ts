@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/workloadButtons.ts
 //
 // Locale dictionary for the WorkloadActionButtons component

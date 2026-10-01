@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/WorkloadDetail.tsx
 //
 // Tabbed workload detail: Overview | Logs(WS) | Stats(WS) | Terminal(WS exec) |

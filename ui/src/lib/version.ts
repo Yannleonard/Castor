@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/version.ts
 //
 // The version shown in the UI comes from the SERVER (`/api/v1/healthz`), which

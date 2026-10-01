@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/index.ts
 //
 // Public entrypoint for Castor's i18n. Views and components should import from

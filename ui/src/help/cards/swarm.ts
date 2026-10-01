@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/swarm.ts — Docker Swarm setup & usage help card.
 import type { HelpCard } from "../types";
 

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/hooks.ts
 // TanStack Query hooks wrapping the API client + small shared lookups.
 // Centralizes query keys and stale times so views stay declarative.

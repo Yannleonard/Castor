@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/stacks.ts — Compose stacks (deploy a group of containers together) help card.
 import type { HelpCard } from "../types";
 

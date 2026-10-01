@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/authentication.ts
 //
 // Locale dictionary for the Authentication view (ui/src/views/Authentication.tsx):

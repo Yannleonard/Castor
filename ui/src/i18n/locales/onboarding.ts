@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/onboarding.ts
 //
 // Locale dictionary for the "Getting started" onboarding checklist

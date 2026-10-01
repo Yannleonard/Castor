@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/catalogs.ts
 //
 // Locale dictionary for the Catalogs view (ui/src/views/Catalogs.tsx) — remote

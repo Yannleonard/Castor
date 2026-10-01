@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/StatCard.tsx — dashboard metric tile.
 import type { ReactNode } from "react";
 

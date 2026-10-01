@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/workload/LogsTab.tsx
 //
 // Logs tab: opens a WS `logs` subscription (follow), demuxed into the LogViewer.

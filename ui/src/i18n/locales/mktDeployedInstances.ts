@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/mktDeployedInstances.ts
 //
 // Locale dictionary for the marketplace "Deployed instances" affordance

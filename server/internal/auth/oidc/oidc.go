@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package oidc wraps github.com/coreos/go-oidc/v3 + golang.org/x/oauth2 into the
 // small surface Castor's SSO layer needs: OIDC discovery, building the
 // Authorization-Code+PKCE redirect URL, exchanging the code, and verifying the

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/mktDeployTemplate.ts
 //
 // Locale dictionary for the marketplace one-click deploy modal

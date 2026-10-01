@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/api.ts
 // Typed fetch wrapper for the Castor REST contract.
 // - credentials: 'include' (session cookie castor_session is HttpOnly).

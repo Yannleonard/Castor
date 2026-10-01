@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/brand.ts
 //
 // Single source of truth for the Castor brand identity shown in the UI: the

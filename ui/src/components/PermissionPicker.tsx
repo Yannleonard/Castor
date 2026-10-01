@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/PermissionPicker.tsx
 //
 // Groups the flat permission catalog by domain (docker / swarm / k8s / rbac /

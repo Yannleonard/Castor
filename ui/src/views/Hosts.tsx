@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/Hosts.tsx
 //
 // Registered hosts list with status + capability chips. V1 has a single "local"

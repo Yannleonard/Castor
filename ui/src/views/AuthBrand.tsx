@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/AuthBrand.tsx — shared brand header for auth screens
 // (login, bootstrap, TOTP challenge).
 import { BeaverMascot } from "../components/icons";

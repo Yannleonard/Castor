@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/audit.ts
 //
 // Locale dictionary for the Audit view (ui/src/views/Audit.tsx). This file is

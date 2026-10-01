@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/backups.ts
 //
 // Locale dictionary for the Backups view (ui/src/views/Backups.tsx). Follows the

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/icons.tsx
 // Hand-rolled inline-SVG icon set (no icon library dependency).
 // All icons inherit currentColor and accept size via props.

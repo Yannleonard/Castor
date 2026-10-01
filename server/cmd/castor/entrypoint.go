@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // entrypoint.go — the container entrypoint that makes Castor "just work" when the
 // Docker socket is mounted, WITHOUT requiring the operator to pass
 // `--group-add <docker-gid>`, while still running the server as a NON-ROOT user.

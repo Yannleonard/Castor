@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/wlInspectTab.ts
 //
 // Locale dictionary for the workload Inspect tab

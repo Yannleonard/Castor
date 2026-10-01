@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/Settings.tsx
 //
 // Instance settings (admin; settings.read / settings.update). Toggles for

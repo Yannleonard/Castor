@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 import type React from "react";
 // ui/src/components/BrandLock.test.tsx
 // The brand mark must survive the usual runtime tampering: hidden through an

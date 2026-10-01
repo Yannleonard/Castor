@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/marketplace/TemplateLogo.tsx
 //
 // Renders a template's COLOR logo on a subtle light tile so brand colors pop on

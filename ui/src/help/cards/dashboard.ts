@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/dashboard.ts — Dashboard (host analytics) help card.
 import type { HelpCard } from "../types";
 

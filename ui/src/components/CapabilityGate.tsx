@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/CapabilityGate.tsx
 //
 // The single component implementing ADR-002's grey-out-before-click rule.

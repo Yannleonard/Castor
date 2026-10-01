@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/settings.ts
 //
 // Locale dictionary for the Settings view (ui/src/views/Settings.tsx). Covers the

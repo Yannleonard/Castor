@@ -1,3 +1,4 @@
+-- Castor by IT Leonard
 -- Castor SSO / external identity schema (migration 0003).
 -- Adds LDAP/LDAPS + Microsoft Entra ID (OIDC) authentication on top of the
 -- local password auth from 0001. Conventions inherited from 0001/0002:

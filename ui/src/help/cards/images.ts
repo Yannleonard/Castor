@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/images.ts — Docker images (list / pull / prune / delete) help card.
 import type { HelpCard } from "../types";
 

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/BrandLock.tsx
 //
 // Non-removable brand mark: the Castor logo + "Castor by IT Leonard".

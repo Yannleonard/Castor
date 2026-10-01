@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/LogViewer.tsx
 //
 // Virtualized log viewer. Holds a ring buffer of lines (stdout/stderr colored),

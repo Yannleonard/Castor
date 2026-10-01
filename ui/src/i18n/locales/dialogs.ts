@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/dialogs.ts
 //
 // Shared dictionary for the generic dialog/placeholder components:

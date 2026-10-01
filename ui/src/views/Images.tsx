@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/Images.tsx
 //
 // Docker images: read + gated writes. Pull opens a modal accepting an image ref

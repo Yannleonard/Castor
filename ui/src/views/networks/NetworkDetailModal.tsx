@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/networks/NetworkDetailModal.tsx
 //
 // Live inspect panel for one network: header facts and flags, the IPAM pools,

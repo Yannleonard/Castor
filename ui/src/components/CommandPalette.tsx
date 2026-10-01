@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/CommandPalette.tsx
 //
 // Command palette (Cmd/Ctrl-K). A portalised overlay with a search box and a

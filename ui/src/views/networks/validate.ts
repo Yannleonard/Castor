@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/networks/validate.ts
 //
 // Client-side mirror of the backend network validation (server/internal/api/

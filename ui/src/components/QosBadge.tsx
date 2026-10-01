@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/QosBadge.tsx
 //
 // Small pill rendering a Kubernetes QoS class with a token color:

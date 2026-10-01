@@ -1,5 +1,6 @@
 //go:build linux
 
+// Castor by IT Leonard
 // entrypoint_linux.go — Linux privilege-drop entrypoint (the gosu/su-exec pattern
 // in pure Go). See entrypoint.go for the rationale.
 package main

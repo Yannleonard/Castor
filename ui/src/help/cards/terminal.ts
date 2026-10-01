@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/terminal.ts — In-browser terminal (exec) & live logs help card.
 import type { HelpCard } from "../types";
 

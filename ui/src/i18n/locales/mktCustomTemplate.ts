@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/mktCustomTemplate.ts
 //
 // Locale dictionary for the custom marketplace template editor

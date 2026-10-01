@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/k8sCluster.ts
 //
 // Locale dictionary for the Kubernetes cluster view (ui/src/views/K8sCluster.tsx).

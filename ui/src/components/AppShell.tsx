@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/AppShell.tsx
 //
 // The authenticated layout: sidebar + topbar + routed <Outlet>. Also hosts the

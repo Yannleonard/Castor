@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/common.ts
 //
 // Shared "common" dictionary: the small set of generic labels used across many

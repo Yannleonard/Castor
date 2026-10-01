@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/Marketplace.tsx
 //
 // The marketplace centerpiece: a searchable, category-filtered grid of app

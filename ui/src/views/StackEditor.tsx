@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/StackEditor.tsx
 //
 // Two-tab compose stack editor:

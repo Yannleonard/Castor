@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/ErrorBoundary.tsx
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { IconAlert } from "./icons";

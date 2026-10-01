@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/workload/StatsTab.tsx
 //
 // Stats tab: opens EXACTLY ONE live WS `stats` subscription. The server enforces

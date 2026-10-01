@@ -1,3 +1,4 @@
+-- Castor by IT Leonard
 -- Castor GitOps for compose stacks (migration 0006).
 -- Conventions inherited from 0001: TEXT ids, *_at columns are unix epoch
 -- seconds (UTC) as INTEGER, booleans are INTEGER 0/1, foreign_keys=ON.

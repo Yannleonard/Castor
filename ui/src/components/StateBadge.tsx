@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/StateBadge.tsx
 import type { WorkloadState } from "../lib/types";
 import { StatusDot } from "./StatusDot";

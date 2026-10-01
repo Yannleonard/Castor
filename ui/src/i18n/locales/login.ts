@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/login.ts
 //
 // Locale dictionary for the Login view (ui/src/views/Login.tsx). Follows the

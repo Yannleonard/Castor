@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/Modal.tsx
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";

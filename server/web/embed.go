@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package web embeds the built React UI (Vite output copied to dist/) and
 // serves it with SPA fallback. The Docker node stage populates dist/; a
 // placeholder dist/index.html is committed so go:embed never fails before a UI

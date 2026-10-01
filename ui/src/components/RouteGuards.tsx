@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/RouteGuards.tsx
 //
 // Route protection. RequireAuth enforces a fully authenticated session

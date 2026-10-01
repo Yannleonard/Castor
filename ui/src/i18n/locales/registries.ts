@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/registries.ts
 //
 // Locale dictionary for the Registries view (ui/src/views/Registries.tsx):

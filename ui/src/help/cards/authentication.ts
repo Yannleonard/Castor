@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/authentication.ts — Single sign-on (LDAP & OIDC) help card.
 import type { HelpCard } from "../types";
 

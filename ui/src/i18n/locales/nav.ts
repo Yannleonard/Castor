@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/nav.ts
 //
 // Navigation dictionary: sidebar group labels + item labels, TopBar page titles,

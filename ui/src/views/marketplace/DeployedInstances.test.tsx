@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/marketplace/DeployedInstances.test.tsx
 // Unit + render coverage for the marketplace "deployed instances" affordance:
 //   • groupBySlug — the pure page-level grouping used to count per template.

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/k8sWorkloads.ts
 //
 // Locale dictionary for the Kubernetes workloads view (ui/src/views/K8sWorkloads.tsx):

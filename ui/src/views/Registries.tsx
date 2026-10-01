@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/Registries.tsx
 //
 // Marketplace admin: image registry credentials (private/public pull auth).

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/Catalogs.tsx
 //
 // Marketplace admin: remote template catalogs. Register external catalog URLs

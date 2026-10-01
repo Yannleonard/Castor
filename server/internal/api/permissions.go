@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 package api
 
 import "github.com/gtek-it/castor/server/internal/authz"

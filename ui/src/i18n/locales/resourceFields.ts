@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/resourceFields.ts
 //
 // Locale dictionary for the shared resource-limit inputs

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/ws.ts
 // Single WebSocket client per browser tab implementing the ADR-001 envelope.
 //

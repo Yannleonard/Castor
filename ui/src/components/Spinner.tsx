@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/Spinner.tsx
 import clsx from "clsx";
 

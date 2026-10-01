@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/help/cards/helm.ts — Helm (Kubernetes package manager) help card.
 import type { HelpCard } from "../types";
 

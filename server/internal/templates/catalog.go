@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package templates exposes the built-in app-template catalog. The 50-entry
 // catalog.json is embedded into the binary at build time (//go:embed) so the
 // marketplace works with zero external dependencies. Operator-authored custom

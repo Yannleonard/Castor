@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/TopBar.tsx
 //
 // Top bar: breadcrumb-ish page title, host switcher, degraded indicator, live

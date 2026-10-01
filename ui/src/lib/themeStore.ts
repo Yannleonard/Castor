@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/themeStore.ts
 // Theme preference store (same pattern as hostStore). The stored preference is
 // "light" | "dark" | "system"; the *resolved* theme is what actually gets

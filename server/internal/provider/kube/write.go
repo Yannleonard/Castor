@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 package kube
 
 // write.go adds the mutating surface of the Kubernetes provider: scale a

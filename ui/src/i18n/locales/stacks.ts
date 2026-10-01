@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/stacks.ts
 //
 // Locale dictionary for the Stacks view (ui/src/views/Stacks.tsx). Follows the

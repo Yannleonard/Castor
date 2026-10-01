@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/views/Authentication.tsx
 //
 // Enterprise SSO admin (superuser-gated): manage external identity providers —

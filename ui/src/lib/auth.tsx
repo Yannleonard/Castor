@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/auth.tsx
 // AuthProvider + useAuth/useMe hooks + CSRF token wiring.
 //

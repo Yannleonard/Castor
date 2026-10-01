@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package swarm implements a Provider for Docker Swarm, reusing the Docker SDK
 // against a manager socket (services / tasks / nodes). Reads cover services,
 // tasks and nodes. Service/node lifecycle WRITES (create/scale/update/restart/

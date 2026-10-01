@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package config loads and validates Castor runtime configuration from the
 // environment. See ADR-CASTOR-001 (intervals) and ADR-CASTOR-003 (stack/auth).
 package config

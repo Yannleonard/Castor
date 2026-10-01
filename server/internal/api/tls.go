@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 package api
 
 // tls.go is the Settings > HTTPS surface: it reports the certificate Castor

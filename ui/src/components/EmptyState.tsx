@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/EmptyState.tsx
 import type { ReactNode } from "react";
 import { useT } from "../i18n";

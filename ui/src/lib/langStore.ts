@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/lib/langStore.ts
 // Language preference store (same pattern as themeStore). The stored preference
 // is "en" | "fr"; it drives which side of every view's { en, fr } dictionary is

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package api wires the chi router and the REST/WebSocket handlers. Handlers
 // here NEVER import the docker/k8s SDKs directly — reads come from the cache
 // snapshot and mutations go through the provider.Registry / cache.Manager.

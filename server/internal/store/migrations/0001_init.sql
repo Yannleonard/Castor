@@ -1,3 +1,4 @@
+-- Castor by IT Leonard
 -- Castor initial schema (ADR-CASTOR-003 §4).
 -- All *_at columns are unix epoch seconds (UTC). TEXT ids are UUIDv4.
 -- Booleans are INTEGER 0/1. PRAGMA foreign_keys=ON is set at connect time.

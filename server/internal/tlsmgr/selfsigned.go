@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // Package tlsmgr owns Castor's TLS material: the persisted self-signed fallback
 // certificate, an operator-imported certificate (DigiCert, Thawte, an internal
 // CA, ...) and ACME (Let's Encrypt) issuance through autocert. One Manager

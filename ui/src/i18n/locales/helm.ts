@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/helm.ts
 //
 // Locale dictionary for the Helm view (ui/src/views/Helm.tsx): chart

@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/DataTable.tsx
 //
 // A sortable table with a sticky header. Rows beyond a threshold are virtualized

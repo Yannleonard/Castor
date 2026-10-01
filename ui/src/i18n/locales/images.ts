@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/i18n/locales/images.ts
 //
 // Locale dictionary for the Images view (ui/src/views/Images.tsx). Follows the

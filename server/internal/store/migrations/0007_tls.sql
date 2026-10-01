@@ -1,3 +1,4 @@
+-- Castor by IT Leonard
 -- Castor TLS certificates (migration 0007).
 -- Conventions inherited from 0001: TEXT ids, *_at / not_* columns are unix epoch
 -- seconds (UTC) as INTEGER, foreign_keys=ON at connect time.

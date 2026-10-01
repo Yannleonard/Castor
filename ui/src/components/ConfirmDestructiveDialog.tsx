@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/ConfirmDestructiveDialog.tsx
 //
 // Confirmation dialog for destructive lifecycle actions (stop/restart/remove).

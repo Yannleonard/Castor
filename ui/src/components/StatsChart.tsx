@@ -1,3 +1,4 @@
+// Castor by IT Leonard
 // ui/src/components/StatsChart.tsx
 // A live line chart drawn on <canvas> (no chart lib). Re-renders on each new
 // sample. Used for the WS-driven CPU/Memory streams in WorkloadDetail.
