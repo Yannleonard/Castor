@@ -1,8 +1,6 @@
 <div align="center">
 
-🇬🇧 **English** · <a href="README.fr.md">🇫🇷 Français</a>
-
-<img src="docs/brand/castor-logo.jpg" alt="Castor" width="300" height="300" />
+<img src="docs/brand/castor-logo.jpg" alt="Castor — beaver mascot" width="180" height="180" />
 
 # Castor
 
@@ -12,10 +10,12 @@ Open-source, self-hosted container orchestration platform — **Docker · Docker
 
 By **IT Leonard** (LEONARD-IT / GTEK-IT) · Apache-2.0 · ships as a single small Docker image (amd64 + arm64).
 
+🇬🇧 **English** · <a href="README.fr.md">🇫🇷 Français</a>
+
 </div>
 
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Castor dashboard — live KPI cards, container-state donut, top-by-CPU/memory charts, orchestrators panel and recent-activity feed" width="100%" />
+  <img src="docs/screenshots/dashboard.png" alt="Castor dashboard — live KPI cards, container-state donut, top-by-CPU/memory charts, orchestrators panel and recent-activity feed" width="92%" />
 </p>
 
 ---

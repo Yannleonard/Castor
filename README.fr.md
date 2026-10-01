@@ -1,8 +1,6 @@
 <div align="center">
 
-<a href="README.md">🇬🇧 English</a> · 🇫🇷 **Français**
-
-<img src="docs/brand/castor-logo.jpg" alt="Castor" width="300" height="300" />
+<img src="docs/brand/castor-logo.jpg" alt="Castor — mascotte castor" width="180" height="180" />
 
 # Castor
 
@@ -12,10 +10,12 @@ Plateforme open-source et auto-hébergée d'orchestration de conteneurs — **Do
 
 Par **IT Leonard** (LEONARD-IT / GTEK-IT) · Apache-2.0 · distribué sous forme d'une unique petite image Docker (amd64 + arm64).
 
+<a href="README.md">🇬🇧 English</a> · 🇫🇷 **Français**
+
 </div>
 
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Tableau de bord Castor — cartes d'indicateurs en direct, anneau d'états des conteneurs, graphiques top CPU/mémoire, panneau des orchestrateurs et journal d'activité récente" width="100%" />
+  <img src="docs/screenshots/dashboard.png" alt="Tableau de bord Castor — cartes d'indicateurs en direct, anneau d'états des conteneurs, graphiques top CPU/mémoire, panneau des orchestrateurs et journal d'activité récente" width="92%" />
 </p>
 
 ---
