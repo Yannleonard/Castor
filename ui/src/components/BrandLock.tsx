@@ -7,7 +7,8 @@
 //   <BrandLock>  the sidebar footer flavour: BrandMark + build version.
 //
 // The mark is the project's required attribution (NOTICE, Apache-2.0 section
-// 4(d); TRADEMARKS.md). It is rendered with inline !important visibility styles
+// 4(d); docs/community/TRADEMARKS.md). It is rendered with inline !important
+// visibility styles
 // AND guarded at runtime: a MutationObserver plus a 1 s tick re-assert those
 // styles, put the node back if it is detached, recreate the logo if it is
 // removed or re-pointed, and rewrite the attribution text if it is edited. The

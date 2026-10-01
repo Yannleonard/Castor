@@ -6,8 +6,8 @@
 // These strings are intentionally NOT routed through i18n. The attribution is
 // the project's legal notice (Apache-2.0 section 4(d), see NOTICE at the
 // repository root), not user-facing copy, so it must read the same in every
-// locale. TRADEMARKS.md states what may and may not be changed in a
-// redistributed or derived build; the runtime guard in
+// locale. docs/community/TRADEMARKS.md states what may and may not be changed
+// in a redistributed or derived build; the runtime guard in
 // components/BrandLock.tsx reads these values and keeps the mark intact.
 
 export const BRAND = Object.freeze({

@@ -1,6 +1,11 @@
 <div align="center">
 
-<img src="docs/brand/castor-logo.jpg" alt="Castor — beaver mascot" width="180" height="180" />
+<table>
+  <tr>
+    <td width="180" valign="top"><img src="docs/brand/castor-logo.webp" alt="Castor beaver mascot" width="170" /></td>
+    <td valign="top"><img src="docs/screenshots/dashboard.png" alt="Castor dashboard — container management, metrics and orchestrators" width="100%" /></td>
+  </tr>
+</table>
 
 # Castor
 
@@ -13,10 +18,6 @@ By **IT Leonard** (LEONARD-IT / GTEK-IT) · Apache-2.0 · ships as a single smal
 🇬🇧 **English** · <a href="README.fr.md">🇫🇷 Français</a>
 
 </div>
-
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Castor dashboard — live KPI cards, container-state donut, top-by-CPU/memory charts, orchestrators panel and recent-activity feed" width="92%" />
-</p>
 
 ---
 
@@ -204,4 +205,4 @@ Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 [Apache-2.0](LICENSE) © 2026 LEONARD-IT/GTEK-IT.
 
-Castor by IT Leonard — the Castor name, logo and in-app attribution are trademarks; see [NOTICE](NOTICE) and [TRADEMARKS.md](TRADEMARKS.md).
+Castor by IT Leonard — the Castor name, logo and in-app attribution are trademarks; see [NOTICE](NOTICE) and [trademark policy](docs/community/TRADEMARKS.md).

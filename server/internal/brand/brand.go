@@ -3,13 +3,14 @@
 //
 // Castor is Apache-2.0 licensed: anyone may fork it, rebuild it and ship the
 // result under their own name, within the limits set by NOTICE and
-// TRADEMARKS.md. This package does not try to prevent that, and cannot. Its
+// docs/community/TRADEMARKS.md. This package does not try to prevent that, and
+// cannot. Its
 // scope is narrower: it makes tampering with the brand inside a distributed
 // Castor image detectable and blocking. Verify hashes the embedded logo and
 // checks that the UI bundle still carries the attribution literal, so a binary
 // whose embedded dist/ was edited after the fact (logo swapped, attribution
 // stripped from the JS) refuses to start. A modified recompilation is out of
-// scope here and is governed by NOTICE and TRADEMARKS.md.
+// scope here and is governed by NOTICE and docs/community/TRADEMARKS.md.
 package brand
 
 import (

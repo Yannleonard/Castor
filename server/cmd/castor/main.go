@@ -84,8 +84,8 @@ func main() {
 // verifyBrand runs brand.Verify against the embedded UI and aborts startup
 // when the logo or the attribution has been altered inside a distributed
 // binary. Castor is Apache-2.0: this does not prevent a modified recompilation
-// (NOTICE and TRADEMARKS.md cover that case); it only makes tampering with the
-// brand inside a shipped image detectable. A binary built without the UI
+// (NOTICE and docs/community/TRADEMARKS.md cover that case); it only makes
+// tampering with the brand inside a shipped image detectable. A binary built without the UI
 // bundle (dev builds, `go build` without a prior UI build) logs a warning and
 // continues, since there is nothing to check.
 func verifyBrand() {
@@ -96,7 +96,7 @@ func verifyBrand() {
 	case errors.Is(err, brand.ErrNoUIBundle):
 		log.Printf("castor: brand: UI bundle absent, brand check skipped")
 	default:
-		log.Fatalf("castor: brand integrity check failed: %v — see NOTICE and TRADEMARKS.md", err)
+		log.Fatalf("castor: brand integrity check failed: %v — see NOTICE and docs/community/TRADEMARKS.md", err)
 	}
 }
 

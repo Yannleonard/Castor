@@ -1,4 +1,4 @@
-> 🇬🇧 **English** · [🇫🇷 Français](CONTRIBUTING.fr.md)
+> 🇬🇧 **English** · [🇫🇷 Français](docs/community/CONTRIBUTING.fr.md)
 
 # Contributing to Castor
 

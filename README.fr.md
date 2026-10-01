@@ -1,6 +1,11 @@
 <div align="center">
 
-<img src="docs/brand/castor-logo.jpg" alt="Castor — mascotte castor" width="180" height="180" />
+<table>
+  <tr>
+    <td width="180" valign="top"><img src="docs/brand/castor-logo.webp" alt="Mascotte castor de Castor" width="170" /></td>
+    <td valign="top"><img src="docs/screenshots/dashboard.png" alt="Tableau de bord Castor — gestion des conteneurs, métriques et orchestrateurs" width="100%" /></td>
+  </tr>
+</table>
 
 # Castor
 
@@ -13,10 +18,6 @@ Par **IT Leonard** (LEONARD-IT / GTEK-IT) · Apache-2.0 · distribué sous forme
 <a href="README.md">🇬🇧 English</a> · 🇫🇷 **Français**
 
 </div>
-
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Tableau de bord Castor — cartes d'indicateurs en direct, anneau d'états des conteneurs, graphiques top CPU/mémoire, panneau des orchestrateurs et journal d'activité récente" width="92%" />
-</p>
 
 ---
 
@@ -205,4 +206,4 @@ Les contributions sont les bienvenues — voir [`CONTRIBUTING.md`](CONTRIBUTING.
 
 [Apache-2.0](LICENSE) © 2026 LEONARD-IT/GTEK-IT.
 
-Castor by IT Leonard — le nom Castor, le logo et l'attribution affichée dans l'application sont des marques ; voir [NOTICE](NOTICE) et [TRADEMARKS.md](TRADEMARKS.md).
+Castor by IT Leonard — le nom Castor, le logo et l'attribution affichée dans l'application sont des marques ; voir [NOTICE](NOTICE) et la [politique des marques](docs/community/TRADEMARKS.md).

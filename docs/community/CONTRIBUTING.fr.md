@@ -1,4 +1,4 @@
-> [🇬🇧 English](CONTRIBUTING.md) · 🇫🇷 **Français**
+> [🇬🇧 English](../../CONTRIBUTING.md) · 🇫🇷 **Français**
 
 # Contribuer à Castor
 
@@ -13,12 +13,12 @@ garder ainsi : n'introduisez aucune dépendance vers une base de code propriéta
 
 ## Règles de base
 
-- **Licence :** en contribuant, vous acceptez que votre travail soit sous licence [Apache-2.0](LICENSE).
+- **Licence :** en contribuant, vous acceptez que votre travail soit sous licence [Apache-2.0](../../LICENSE).
 - **Sécurité d'abord :** Castor contrôle le socket Docker, qui est équivalent à root sur l'hôte. Tout
   changement touchant l'authentification, le RBAC, le journal d'audit, le garde-fou des ressources
   protégées, les providers Docker/K8s, ou le durcissement Dockerfile/compose fait l'objet d'un examen
   renforcé. En cas de doute, ouvrez d'abord une issue.
-- **Aucun secret dans le code, les logs ou le journal d'audit.** Jamais. (Voir [`docs/runbooks/security.md`](docs/runbooks/security.md).)
+- **Aucun secret dans le code, les logs ou le journal d'audit.** Jamais. (Voir [`docs/runbooks/security.md`](../runbooks/security.md).)
 
 ---
 
@@ -121,7 +121,7 @@ Cibles `make` (Unix, toolchain local) :
 
 1. Forkez & créez une branche depuis `main` (ex. `feat/...`, `fix/...`, `docs/...`).
 2. Gardez des PR ciblées ; décrivez le changement et sa justification ; liez l'issue éventuelle.
-3. Faites passer la CI au vert : le workflow [`ci`](.github/workflows/ci.yml) exécute `golangci-lint`,
+3. Faites passer la CI au vert : le workflow [`ci`](../../.github/workflows/ci.yml) exécute `golangci-lint`,
    `go test -race`, le build UI + `vitest`, `govulncheck`, **et** un build d'image complet.
 4. Mettez à jour docs/ADR quand vous changez un comportement, la config ou le modèle de sécurité.
 5. Le sign-off est bienvenu ; soyez bienveillant en revue.
@@ -138,7 +138,7 @@ Des sujets conventionnels et à l'impératif sont appréciés (`feat:`, `fix:`, 
 **N'ouvrez pas d'issue publique pour les vulnérabilités.** Écrivez au contact sécurité de
 LEONARD-IT/GTEK-IT (voir le `SECURITY.md` du dépôt / le profil de l'organisation) avec les détails et
 une reproduction. Nous coordonnerons un correctif et la divulgation. Voir le modèle de menaces dans
-[`docs/runbooks/security.md`](docs/runbooks/security.md).
+[`docs/runbooks/security.md`](../runbooks/security.md).
 
 ---
 

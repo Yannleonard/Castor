@@ -1,4 +1,4 @@
-> [🇬🇧 English](SECURITY.md) · 🇫🇷 **Français**
+> [🇬🇧 English](../../SECURITY.md) · 🇫🇷 **Français**
 
 # Politique de sécurité
 
@@ -25,7 +25,7 @@ délai de 72 heures.
 - La CI exécute `govulncheck` à chaque push et **fait échouer le build pour toute
   vulnérabilité**, à l'exception des avis explicitement justifiés et non applicables
   listés ci-dessous. Le garde-fou est implémenté dans
-  [`scripts/govulncheck-gate.sh`](scripts/govulncheck-gate.sh) :
+  [`scripts/govulncheck-gate.sh`](../../scripts/govulncheck-gate.sh) :
   il analyse la sortie JSON de govulncheck et fait de nouveau échouer le build pour
   **tout** ce qui ne figure pas sur la liste d'autorisation, de sorte qu'une
   vulnérabilité nouvellement introduite ou nouvellement divulguée casse toujours

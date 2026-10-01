@@ -22,6 +22,7 @@ which the Apache License (Section 4(d)) requires every redistribution to keep.
 
 ## Forks and derivative products
 
+the Castor brand, rebrand your fork **completely** (new name and logo) and keep
 You may fork Castor and ship a derivative product. If you do not want to carry
 the Castor brand, rebrand your fork **completely** (new name and logo) and keep
 this NOTICE stating that your product is derived from Castor by IT Leonard. What
