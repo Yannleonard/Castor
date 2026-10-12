@@ -60,13 +60,14 @@ RUN install -d -o 65532 -g 65532 -m 0750 /data
 
 # --- Stage 3: runtime (distroless, non-root, no shell) -----------------------
 FROM gcr.io/distroless/static:nonroot AS final
+ARG VERSION=dev
 
 LABEL org.opencontainers.image.title="Castor by IT Leonard" \
       org.opencontainers.image.description="Castor by IT Leonard — multi-host container orchestration platform (Docker, Swarm, Kubernetes)." \
       org.opencontainers.image.vendor="IT Leonard" \
       org.opencontainers.image.authors="LEONARD-IT" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.version="1.0.2" \
+      org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.source="https://github.com/Yannleonard/Castor" \
       org.opencontainers.image.url="https://github.com/Yannleonard/Castor" \
       org.opencontainers.image.documentation="https://github.com/Yannleonard/Castor#readme"

@@ -7,6 +7,17 @@
 
 export type OrchestratorKind = "docker" | "swarm" | "kubernetes";
 
+export interface Announcement {
+  id: string;
+  kind: "info" | "update" | "commercial";
+  title: string;
+  message: string;
+  link?: string;
+  imageData?: string;
+  imageType?: string;
+  updatedAt: string;
+}
+
 export type WorkloadState =
   | "running"
   | "stopped"

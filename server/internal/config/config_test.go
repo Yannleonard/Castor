@@ -26,9 +26,24 @@ func TestValidateRejectsMissingSecret(t *testing.T) {
 	}
 }
 
+func TestValidateAnnouncementsURL(t *testing.T) {
+	base := func() *Config {
+		return &Config{SecretKey: make([]byte, 32), TLSMode: TLSModeOff, HTTPAddr: ":8080", HTTPSAddr: ":8443"}
+	}
+	c := base()
+	c.AnnouncementsURL = "http://communications:8099"
+	if err := c.Validate(); err != nil { t.Fatalf("private HTTP service URL rejected: %v", err) }
+	for _, invalid := range []string{"javascript:alert(1)", "https://user:pass@example.com", "https://example.com?token=x", "https://example.com#fragment", "//example.com/path"} {
+		c = base()
+		c.AnnouncementsURL = invalid
+		if err := c.Validate(); err == nil { t.Errorf("accepted unsafe CASTOR_ANNOUNCEMENTS_URL %q", invalid) }
+	}
+}
+
 func TestLoadDefaults(t *testing.T) {
 	t.Setenv("CASTOR_HTTP_ADDR", "")
 	t.Setenv("CASTOR_DB_PATH", "")
+	t.Setenv("CASTOR_ANNOUNCEMENTS_URL", "")
 	c := Load()
 	if c.HTTPAddr != ":8080" {
 		t.Errorf("default HTTPAddr = %q want :8080", c.HTTPAddr)

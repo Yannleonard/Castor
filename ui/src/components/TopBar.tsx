@@ -15,6 +15,7 @@ import { navDict } from "../i18n/locales/nav";
 import { wsClient } from "../lib/ws";
 import { toast, toastError } from "../lib/toast";
 import { StatusDot } from "./StatusDot";
+import { AnnouncementTicker } from "./AnnouncementTicker";
 import { usePaletteStore } from "./CommandPalette";
 import {
   IconChevronDown,
@@ -164,7 +165,7 @@ export function TopBar({ sidebarOpen = false, onToggleSidebar }: TopBarProps) {
         <kbd className="cmdk-trigger-kbd">⌘K</kbd>
       </button>
 
-      <span className="spacer" />
+      <AnnouncementTicker />
 
       {anyDegraded ? (
         <span className="degraded-pill" title={t("topbar.degradedTitle")}>

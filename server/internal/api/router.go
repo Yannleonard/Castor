@@ -65,6 +65,7 @@ func (s *Server) Router() http.Handler {
 			// auth surfaces (SessionAuth only; AAL handled per-route where needed)
 			pr.Post("/auth/logout", s.audited("auth.logout", http.HandlerFunc(s.Logout)))
 			pr.Get("/auth/me", s.Me)
+			pr.Get("/announcements/current", s.CurrentAnnouncement)
 			pr.Post("/auth/totp/verify", s.audited("auth.totp.verify", http.HandlerFunc(s.TOTPVerify)))
 			pr.Post("/auth/totp/enroll", s.audited("auth.totp.enroll", http.HandlerFunc(s.TOTPEnroll)))
 			pr.Post("/auth/totp/confirm", s.audited("auth.totp.confirm", http.HandlerFunc(s.TOTPConfirm)))

@@ -8,6 +8,7 @@
 
 import type {
   ActionResult,
+  Announcement,
   ApiErrorEnvelope,
   APIToken,
   AuditPage,
@@ -336,6 +337,7 @@ export const api = {
 
   /* ---- public ---- */
   healthz: () => get<HealthzResponse>("/healthz", { noAuthRedirect: true }),
+  currentAnnouncement: () => get<Announcement | null>("/announcements/current").then((value) => value ?? null),
   bootstrapStatus: () => get<BootstrapStatus>("/bootstrap/status", { noAuthRedirect: true }),
   bootstrap: (body: { username: string; password: string; email?: string; bootstrapToken?: string }) =>
     post<BootstrapResponse>("/bootstrap", body, { noAuthRedirect: true }),
