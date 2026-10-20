@@ -10,13 +10,16 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// AnnouncementServiceURL is the mandatory, centrally managed announcement feed.
+// It is deliberately not configurable by application users or container env vars.
+const AnnouncementServiceURL = "https://castor.gtek-it.fr"
 
 // Config holds all runtime configuration, loaded from the environment.
 type Config struct {
@@ -46,11 +49,6 @@ type Config struct {
 	// oidc_redirect_url. Default "" — when empty the redirect is derived from the
 	// incoming request (scheme honoring TrustProxy + Host).
 	PublicURL string
-
-	// AnnouncementsURL is the fixed Website communications API base URL
-	// (for example http://communications:8099). Empty disables the header feed.
-	// Env CASTOR_ANNOUNCEMENTS_URL. Requests never accept a client-selected URL.
-	AnnouncementsURL string
 
 	// DBPath is the SQLite database file path. Default "/data/castor.db".
 	DBPath string
@@ -186,7 +184,6 @@ func Load() *Config {
 		TrustProxy:             envBool("CASTOR_TRUST_PROXY", false),
 		BootstrapToken:         os.Getenv("CASTOR_BOOTSTRAP_TOKEN"),
 		PublicURL:              strings.TrimRight(strings.TrimSpace(os.Getenv("CASTOR_PUBLIC_URL")), "/"),
-		AnnouncementsURL:       strings.TrimRight(strings.TrimSpace(os.Getenv("CASTOR_ANNOUNCEMENTS_URL")), "/"),
 		DBPath:                 envStr("CASTOR_DB_PATH", "/data/castor.db"),
 		DataDir:                strings.TrimSpace(os.Getenv("CASTOR_DATA_DIR")),
 		TLSMode:                strings.ToLower(strings.TrimSpace(envStr("CASTOR_TLS_MODE", TLSModeSelfSigned))),
@@ -366,12 +363,6 @@ func (c *Config) Validate() error {
 	}
 	if !IsValidTLSMode(c.TLSMode) {
 		return fmt.Errorf("config: CASTOR_TLS_MODE %q is not one of self-signed, custom, acme, off", c.TLSMode)
-	}
-	if c.AnnouncementsURL != "" {
-		u, err := url.ParseRequestURI(c.AnnouncementsURL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-			return fmt.Errorf("config: CASTOR_ANNOUNCEMENTS_URL must be a fixed http(s) URL without credentials, query, or fragment")
-		}
 	}
 	if err := validateListenAddr("CASTOR_HTTP_ADDR", c.HTTPAddr); err != nil {
 		return err

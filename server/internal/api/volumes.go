@@ -40,7 +40,12 @@ func (s *Server) CreateVolume(w http.ResponseWriter, r *http.Request) {
 	}
 	authz.SetAuditTarget(r, "volume", spec.Name, spec.Name)
 
-	info, err := s.manager.Docker().CreateVolume(r.Context(), spec)
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
+	info, err := dp.CreateVolume(r.Context(), spec)
 	if err != nil {
 		writeMapped(w, r, err)
 		return
@@ -57,7 +62,12 @@ func (s *Server) DeleteVolume(w http.ResponseWriter, r *http.Request) {
 	authz.SetAuditTarget(r, "volume", name, name)
 
 	// Determine whether this volume holds Castor's /data (self-protection).
-	mountpoint := s.manager.Docker().VolumeMountpoint(r.Context(), name)
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
+	mountpoint := dp.VolumeMountpoint(r.Context(), name)
 	isDataVolume := volumeHoldsData(mountpoint) || nameLooksLikeData(name)
 
 	ref := authz.ContainerRef{
@@ -71,7 +81,7 @@ func (s *Server) DeleteVolume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.manager.Docker().DeleteVolume(r.Context(), name, force); err != nil {
+	if err := dp.DeleteVolume(r.Context(), name, force); err != nil {
 		writeMapped(w, r, err)
 		return
 	}

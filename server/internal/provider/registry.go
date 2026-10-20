@@ -32,6 +32,18 @@ func (r *Registry) Get(id string) (Provider, bool) {
 	return p, ok
 }
 
+// Unregister removes and returns the provider with id. The caller owns closing
+// it after removal so no registry lock is held during I/O cleanup.
+func (r *Registry) Unregister(id string) (Provider, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.byID[id]
+	if ok {
+		delete(r.byID, id)
+	}
+	return p, ok
+}
+
 // List returns all registered providers (order is unspecified).
 func (r *Registry) List() []Provider {
 	r.mu.RLock()

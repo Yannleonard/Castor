@@ -26,10 +26,10 @@ func TestCapabilityHas(t *testing.T) {
 func TestCapabilityStringsDeterministicOrder(t *testing.T) {
 	// Docker full set.
 	docker := CapList | CapInspect | CapLogs | CapStats | CapStart | CapStop |
-		CapRestart | CapRemove | CapExec | CapEvents | CapImages | CapNetworks | CapVolumes
+		CapRestart | CapRemove | CapExec | CapEvents | CapImages | CapNetworks | CapVolumes | CapPortUpdate
 	got := docker.Strings()
 	want := []string{"list", "inspect", "logs", "stats", "start", "stop",
-		"restart", "remove", "exec", "events", "images", "networks", "volumes"}
+		"restart", "remove", "exec", "events", "images", "networks", "volumes", "port-update"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("docker caps =\n  %v\nwant\n  %v", got, want)
 	}

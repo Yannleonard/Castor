@@ -218,7 +218,7 @@ type deployResponse struct {
 // local Docker host in V1.
 func (s *Server) DeployTemplate(w http.ResponseWriter, r *http.Request) {
 	hostID := chi.URLParam(r, "hostID")
-	if _, ok := s.manager.Store().Get(hostID); !ok {
+	if _, err := s.store.GetHost(r.Context(), hostID); err != nil {
 		authz.WriteError(w, r, authz.ErrNotFound)
 		return
 	}
@@ -236,7 +236,12 @@ func (s *Server) DeployTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 	authz.SetAuditTarget(r, "container", spec.Name, spec.Name)
 
-	id, err := s.manager.Docker().ContainerCreateAndStart(r.Context(), spec)
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
+	id, err := dp.ContainerCreateAndStart(r.Context(), spec)
 	if err != nil {
 		writeMapped(w, r, err)
 		return

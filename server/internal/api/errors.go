@@ -91,12 +91,16 @@ func mapError(err error) error {
 	case errors.Is(err, provider.ErrInvalidNetworkConfig):
 		// 422 carrying the daemon's cleaned explanation when the wrap has one.
 		return authz.Errorf(authz.ErrInvalidNetworkConfig, invalidNetworkConfigMsg(err))
+	case errors.Is(err, provider.ErrInvalidMountConfig):
+		return authz.Errorf(authz.ErrVolumeMount, withSentinelDetail(authz.ErrVolumeMount.Message, err, provider.ErrInvalidMountConfig))
 	case errors.Is(err, provider.ErrForbidden):
 		// Server-side policy denial (e.g. a host bind mount from a non-admin).
 		// Preserve the specific message so the UI can explain why.
 		return authz.Errorf(authz.ErrForbidden, err.Error())
 	case errors.Is(err, store.ErrNotFound):
 		return authz.ErrNotFound
+	case errors.Is(err, store.ErrLocalHost):
+		return authz.ErrConflict
 	case errors.Is(err, tlsmgr.ErrInvalidCertificate):
 		return tlsCertificateError(err)
 	case errors.Is(err, tlsmgr.ErrInvalidACMEConfig):

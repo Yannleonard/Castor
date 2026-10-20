@@ -268,6 +268,7 @@ func run() error {
 	// 7. API server + router (REST + WS + embedded UI).
 	apiServer := api.NewServer(cfg, st, azDeps, guard, mgr, reg)
 	apiServer.SetTLSManager(tlsMgr)
+	defer apiServer.CloseAgentConnections()
 	handler := apiServer.Router()
 
 	// 8. HTTP server(s) with sane timeouts.

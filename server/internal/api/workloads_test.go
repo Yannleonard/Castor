@@ -23,6 +23,10 @@ type fakeDockerProvider struct {
 	removeErr  error
 	lastRemove provider.RemoveOptions
 	removeSeen bool
+	portErr    error
+	portID     string
+	lastPorts  []provider.Port
+	portsSeen  bool
 }
 
 var _ provider.Provider = (*fakeDockerProvider)(nil)
@@ -31,7 +35,7 @@ func (*fakeDockerProvider) Kind() provider.OrchestratorKind { return provider.Ki
 func (*fakeDockerProvider) ID() string                      { return "local-docker" }
 func (*fakeDockerProvider) Capabilities() provider.Capability {
 	return provider.CapList | provider.CapInspect | provider.CapStart | provider.CapStop |
-		provider.CapRestart | provider.CapRemove
+		provider.CapRestart | provider.CapRemove | provider.CapPortUpdate
 }
 func (*fakeDockerProvider) Ping(context.Context) error { return nil }
 func (*fakeDockerProvider) Close() error               { return nil }
@@ -55,6 +59,17 @@ func (f *fakeDockerProvider) Remove(_ context.Context, _ string, opts provider.R
 	f.lastRemove = opts
 	f.removeSeen = true
 	return f.removeErr
+}
+
+func (f *fakeDockerProvider) RecreateWithPorts(_ context.Context, _ string, ports []provider.Port) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastPorts = append([]provider.Port(nil), ports...)
+	f.portsSeen = true
+	if f.portID == "" {
+		f.portID = "replacement-id"
+	}
+	return f.portID, f.portErr
 }
 
 // adminSession bootstraps + logs in an admin (perm "*") and returns its cookies
@@ -160,5 +175,44 @@ func TestRemoveWorkloadGenericConflict(t *testing.T) {
 	}
 	if errObj := decodeBody(t, rec)["error"].(map[string]any); errObj["code"] != "conflict" {
 		t.Errorf("error code = %v want conflict", errObj["code"])
+	}
+}
+
+func TestValidateWorkloadPorts(t *testing.T) {
+	if err := validateWorkloadPorts([]provider.Port{{Private: 8080, Public: 8081, Protocol: "tcp", HostIP: "127.0.0.1"}}); err != nil {
+		t.Fatalf("valid mapping rejected: %v", err)
+	}
+	for _, ports := range [][]provider.Port{
+		{{Private: 0, Protocol: "tcp"}},
+		{{Private: 80, Protocol: "icmp"}},
+		{{Private: 80, Protocol: "tcp", HostIP: "not-an-ip"}},
+		{{Private: 80, Protocol: "tcp"}, {Private: 80, Protocol: "tcp"}},
+	} {
+		if err := validateWorkloadPorts(ports); err == nil {
+			t.Errorf("validateWorkloadPorts(%#v) expected error", ports)
+		}
+	}
+}
+
+func TestUpdateWorkloadPortsReturnsReplacementID(t *testing.T) {
+	e := newTestEnv(t)
+	fake := &fakeDockerProvider{portID: "replacement-id"}
+	e.srv.reg.Register(fake)
+	seedWorkload(e)
+	cookies, csrf := adminSession(t, e)
+
+	rec := e.do(t, http.MethodPut, "/api/v1/hosts/local/workloads/c1/ports", map[string]any{
+		"ports": []map[string]any{{"private": 8080, "public": 8081, "protocol": "tcp", "hostIp": "127.0.0.1"}},
+	}, cookies, csrf)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("port update = %d want 200 (%s)", rec.Code, rec.Body.String())
+	}
+	if got := decodeBody(t, rec)["id"]; got != "replacement-id" {
+		t.Fatalf("replacement id = %v", got)
+	}
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if !fake.portsSeen || len(fake.lastPorts) != 1 || fake.lastPorts[0].Public != 8081 {
+		t.Fatalf("port mappings not passed to provider: %#v", fake.lastPorts)
 	}
 }

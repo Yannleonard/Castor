@@ -653,6 +653,92 @@ li { list-style: none; }
   gap: var(--sp-2);
 }
 
+/* Published-port editor rows in the workload detail modal. */
+.port-editor-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: var(--radius-lg);
+  font-size: var(--fs-sm);
+}
+.port-editor-warning-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+}
+.port-editor-head,
+.port-editor-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) minmax(90px, .72fr) minmax(140px, 1.2fr) 36px;
+  align-items: end;
+  gap: var(--sp-3);
+}
+.port-editor-head {
+  padding: 0 var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+}
+.port-editor-row {
+  padding: var(--sp-3);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.port-editor-row:focus-within {
+  background: var(--bg-surface);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+.port-editor-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+.port-editor-remove:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 22%, transparent);
+}
+.port-editor-add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 36px;
+  padding: 0 var(--sp-3);
+  color: var(--text-link);
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+.port-editor-add:hover {
+  background: var(--bg-surface-2);
+  border-color: var(--accent);
+}
+@media (max-width: 700px) {
+  .port-editor-head { display: none; }
+  .port-editor-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .port-editor-row > :last-child { justify-self: end; }
+}
+
 /* =====================================================================
    Help panel — bilingual Swarm / Kubernetes setup guide (HelpPanel.tsx).
    ===================================================================== */

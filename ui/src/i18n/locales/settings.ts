@@ -61,6 +61,21 @@ export const settingsDict = defineDict({
     "inst.bootstrapCompleted": "Completed",
     "inst.bootstrapPending": "Pending",
 
+    // Optional customer account association / activation key
+    "activation.title": "Customer account",
+    "activation.privacy": "Optional account association for support and commercial requests. Activation sends only the key and this instance’s random ID to castor.gtek-it.fr for validation; no hosts, containers, configuration, secrets, or inventory are shared. Castor remains usable without activation.",
+    "activation.loading": "Loading activation status…",
+    "activation.active": "Account associated",
+    "activation.hostName": "Host: {name}",
+    "activation.inactive": "This instance is not associated with a customer account.",
+    "activation.activatedAt": "Associated on {date}",
+    "activation.keyLabel": "Activation key",
+    "activation.keyHint": "Paste the key generated in your Castor customer account.",
+    "activation.button": "Verify and associate",
+    "activation.loadFailed": "Could not load activation status",
+    "activation.success": "Castor instance associated",
+    "activation.failed": "Activation failed",
+
     // HTTPS & certificates card
     "tls.title": "HTTPS & certificates",
     "tls.intro":
@@ -314,6 +329,21 @@ export const settingsDict = defineDict({
     "inst.bootstrap": "Amorçage",
     "inst.bootstrapCompleted": "Terminé",
     "inst.bootstrapPending": "En attente",
+
+    // Association facultative du compte et clé d’activation
+    "activation.title": "Compte client",
+    "activation.privacy": "Activation de votre compte pour les demandes de support et les échanges commerciaux. L’activation transmet uniquement la clé et l’identifiant aléatoire de cette instance à castor.gtek-it.fr pour que vous obteniez les mises à jour et les dernières évolutions. Aucune donnée ou information ne sont collectées.",
+    "activation.loading": "Chargement de l’état d’activation…",
+    "activation.active": "Compte associé",
+    "activation.hostName": "Hôte : {name}",
+    "activation.inactive": "Cette instance n’est associée à aucun compte client.",
+    "activation.activatedAt": "Association le {date}",
+    "activation.keyLabel": "Clé d’activation",
+    "activation.keyHint": "Collez la clé générée depuis votre espace client Castor.",
+    "activation.button": "Vérifier et associer",
+    "activation.loadFailed": "Impossible de charger l’état d’activation",
+    "activation.success": "Instance Castor associée",
+    "activation.failed": "Échec de l’activation",
 
     // Carte HTTPS & certificats
     "tls.title": "HTTPS & certificats",

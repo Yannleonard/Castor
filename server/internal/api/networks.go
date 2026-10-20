@@ -134,7 +134,11 @@ func (s *Server) NetworkDetail(w http.ResponseWriter, r *http.Request) {
 		authz.WriteError(w, r, authz.ErrNotFound)
 		return
 	}
-	dp := s.manager.Docker()
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
 	if dp == nil {
 		authz.WriteError(w, r, authz.ErrInternal)
 		return
@@ -266,7 +270,11 @@ func (s *Server) CreateNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dp := s.manager.Docker()
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
 	if dp == nil {
 		authz.WriteError(w, r, authz.ErrInternal)
 		return
@@ -285,7 +293,11 @@ func (s *Server) DeleteNetwork(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	authz.SetAuditTarget(r, "network", id, id)
 
-	dp := s.manager.Docker()
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
 	if dp == nil {
 		authz.WriteError(w, r, authz.ErrInternal)
 		return
@@ -346,7 +358,11 @@ func (s *Server) ConnectNetwork(w http.ResponseWriter, r *http.Request) {
 		authz.WriteError(w, r, err)
 		return
 	}
-	dp := s.manager.Docker()
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
 	if dp == nil {
 		authz.WriteError(w, r, authz.ErrInternal)
 		return
@@ -388,7 +404,11 @@ func (s *Server) DisconnectNetwork(w http.ResponseWriter, r *http.Request) {
 	if req.Force {
 		authz.AddAuditDetail(r, "force", true)
 	}
-	dp := s.manager.Docker()
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
 	if dp == nil {
 		authz.WriteError(w, r, authz.ErrInternal)
 		return

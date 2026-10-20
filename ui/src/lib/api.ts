@@ -63,6 +63,7 @@ import type {
   PVInfo,
   PVCInfo,
   PVCCreateRequest,
+  Port,
   StorageClassInfo,
   HelmRepo,
   HelmChart,
@@ -94,6 +95,7 @@ import type {
   RoleRecord,
   SettingsPatch,
   SettingsResponse,
+  ActivationStatus,
   Stack,
   StackCreateResponse,
   StackDetail,
@@ -378,6 +380,14 @@ export const api = {
   providers: () => get<ProviderInfo[]>("/providers"),
   hosts: () => get<HostSummaryEntry[]>("/hosts"),
   host: (hostId: string) => get<HostDetail>(`/hosts/${encId(hostId)}`),
+  createAgentHost: (name: string) =>
+    post<{ hostId: string; name: string; enrollmentToken: string; expiresInSeconds: number }>("/hosts/agent", { name }),
+  revokeAgentHost: (hostId: string) => del<void>(`/hosts/${encId(hostId)}/agent`),
+  downloadAgent: async (arch: "amd64" | "arm64"): Promise<Blob> => {
+    const res = await fetch(`${API_BASE}/agent/download/${arch}`, { credentials: "include", cache: "no-store" });
+    if (!res.ok) throw new ApiError(res.status, `http_${res.status}`, "Agent download failed.", res.headers.get("x-request-id") || "");
+    return res.blob();
+  },
   // Aggregated BI-dashboard metrics for a host (snapshot counts + a bounded live
   // CPU/RAM sample of running containers).
   dashboardMetrics: (hostId: string) =>
@@ -400,6 +410,8 @@ export const api = {
     post<ActionResult | void>(`/hosts/${encId(hostId)}/workloads/${encId(id)}/stop`, { timeoutSeconds }),
   workloadRestart: (hostId: string, id: string, timeoutSeconds?: number) =>
     post<ActionResult | void>(`/hosts/${encId(hostId)}/workloads/${encId(id)}/restart`, { timeoutSeconds }),
+  workloadPortsUpdate: (hostId: string, id: string, ports: Port[]) =>
+    put<{ id: string }>(`/hosts/${encId(hostId)}/workloads/${encId(id)}/ports`, { ports }),
   workloadRemove: (
     hostId: string,
     id: string,
@@ -773,6 +785,8 @@ export const api = {
   /* ---- settings ---- */
   settings: () => get<SettingsResponse>("/settings"),
   settingsUpdate: (body: SettingsPatch) => put<SettingsResponse>("/settings", body),
+  activationStatus: () => get<ActivationStatus>("/settings/activation"),
+  activateInstance: (key: string) => post<ActivationStatus>("/settings/activation", { key }),
 
   /* ---- settings: HTTPS / TLS (settings.read / settings.update) ---- */
   // Every call answers the full TlsStatus (public certificate metadata only).

@@ -202,6 +202,7 @@ func mapSummaryPorts(ports []container.Port) []provider.Port {
 			Private:  pt.PrivatePort,
 			Public:   pt.PublicPort,
 			Protocol: pt.Type,
+			HostIP:   pt.IP,
 		})
 	}
 	return out
@@ -225,6 +226,7 @@ func mapInspectPorts(cj *container.InspectResponse) []provider.Port {
 				Private:  priv,
 				Public:   parsePort(b.HostPort),
 				Protocol: proto,
+				HostIP:   b.HostIP,
 			})
 		}
 	}

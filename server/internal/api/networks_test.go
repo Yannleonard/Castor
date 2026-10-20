@@ -102,6 +102,23 @@ func TestMapErrorInvalidNetworkConfig(t *testing.T) {
 	}
 }
 
+func TestMapErrorInvalidMountConfig(t *testing.T) {
+	wrapped := fmt.Errorf("docker: create container: %w", fmt.Errorf(
+		"%w: error while mounting volume '/assistant/home' to '/config': no such file or directory",
+		provider.ErrInvalidMountConfig,
+	))
+	var ae *authz.APIError
+	if !errors.As(mapError(wrapped), &ae) {
+		t.Fatal("not an APIError")
+	}
+	if ae.Code != "volume_mount_invalid" || ae.Status != 422 {
+		t.Fatalf("code/status = %s/%d, want volume_mount_invalid/422", ae.Code, ae.Status)
+	}
+	if !strings.Contains(ae.Message, "/assistant/home") || !strings.Contains(ae.Message, "/config") {
+		t.Errorf("mount detail missing from user-facing message: %q", ae.Message)
+	}
+}
+
 // TestNetworkViewsContainerCount covers the list enrichment: containerCount is
 // the number of docker workloads attached (by name) to each network, computed
 // from the snapshot alone, and an empty snapshot yields an empty array.

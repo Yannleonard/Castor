@@ -60,6 +60,7 @@ export const wlOverviewTabDict = defineDict({
     // Networks card actions
     "action.connect": "Connect to network…",
     "action.disconnect": "Disconnect",
+    "action.editPorts": "Edit ports",
 
     // Disabled-button reasons
     "gate.noNetworks": "This provider does not manage networks.",
@@ -86,6 +87,20 @@ export const wlOverviewTabDict = defineDict({
     "connect.aliasesError": "Aliases may only contain letters, digits, dots, dashes and underscores.",
     "connect.submit": "Connect",
 
+    // Published port editing (Docker recreates the container)
+    "empty.ports": "No exposed or published ports.",
+    "gate.needPortUpdate": "Requires the docker.container.update permission.",
+    "ports.title": "Edit port mappings",
+    "ports.recreateWarning": "Applying this change recreates the container and briefly interrupts service. Its container ID will change; volumes and network attachments are preserved.",
+    "ports.containerPort": "Container port",
+    "ports.hostPort": "Host port",
+    "ports.ephemeralHint": "Leave empty to expose only inside Docker",
+    "ports.protocol": "Protocol",
+    "ports.hostIp": "Host IP (optional)",
+    "ports.add": "Add mapping",
+    "ports.remove": "Remove",
+    "ports.submit": "Apply and recreate",
+
     // Disconnect confirmation
     "disconnect.title": "Disconnect from network",
     "disconnect.confirm": "Disconnect",
@@ -98,6 +113,8 @@ export const wlOverviewTabDict = defineDict({
     "toast.connectFailed": "Connect failed",
     "toast.disconnectedTitle": "Disconnected from network",
     "toast.disconnectFailed": "Disconnect failed",
+    "toast.portsUpdated": "Port mappings updated",
+    "toast.portsUpdateFailed": "Could not update port mappings",
   },
   fr: {
     // Titres / légendes de cartes
@@ -137,6 +154,7 @@ export const wlOverviewTabDict = defineDict({
     // Actions de la carte Réseaux
     "action.connect": "Connecter à un réseau…",
     "action.disconnect": "Déconnecter",
+    "action.editPorts": "Modifier les ports",
 
     // Raisons de désactivation des boutons
     "gate.noNetworks": "Ce fournisseur ne gère pas les réseaux.",
@@ -163,6 +181,20 @@ export const wlOverviewTabDict = defineDict({
     "connect.aliasesError": "Un alias ne peut contenir que des lettres, chiffres, points, tirets et tirets bas.",
     "connect.submit": "Connecter",
 
+    // Modification des ports publiés (Docker recrée le conteneur)
+    "empty.ports": "Aucun port exposé ou publié.",
+    "gate.needPortUpdate": "Nécessite la permission docker.container.update.",
+    "ports.title": "Modifier les mappages de ports",
+    "ports.recreateWarning": "Cette modification recrée le conteneur et interrompt brièvement le service. Son ID changera ; les volumes et les réseaux rattachés sont préservés.",
+    "ports.containerPort": "Port du conteneur",
+    "ports.hostPort": "Port de l’hôte",
+    "ports.ephemeralHint": "Laisser vide pour exposer uniquement dans Docker",
+    "ports.protocol": "Protocole",
+    "ports.hostIp": "IP de l’hôte (facultatif)",
+    "ports.add": "Ajouter un mappage",
+    "ports.remove": "Supprimer",
+    "ports.submit": "Appliquer et recréer",
+
     // Confirmation de déconnexion
     "disconnect.title": "Déconnecter du réseau",
     "disconnect.confirm": "Déconnecter",
@@ -175,5 +207,7 @@ export const wlOverviewTabDict = defineDict({
     "toast.connectFailed": "Échec de la connexion",
     "toast.disconnectedTitle": "Déconnecté du réseau",
     "toast.disconnectFailed": "Échec de la déconnexion",
+    "toast.portsUpdated": "Mappages de ports mis à jour",
+    "toast.portsUpdateFailed": "Impossible de modifier les mappages de ports",
   },
 });

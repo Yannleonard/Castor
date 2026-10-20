@@ -161,6 +161,13 @@ func (wc *wsConn) handleSubscribe(env wsEnvelope) {
 	if hostID == "" {
 		hostID = cache.HostID
 	}
+	if hostID != cache.HostID {
+		h, err := wc.srv.store.GetHost(wc.ctx, hostID)
+		if err != nil || (h.Connection == "remote-agent" && (!wc.srv.agentHostLive(hostID) || !wc.srv.hasHostProvider(hostID))) {
+			wc.sendError(env.Channel, env.SubID, wsErrUnavailable, "This host has no available authenticated provider.")
+			return
+		}
+	}
 
 	switch env.Channel {
 	case wsChannelStats:
@@ -174,6 +181,11 @@ func (wc *wsConn) handleSubscribe(env wsEnvelope) {
 	default:
 		wc.sendError(env.Channel, env.SubID, wsErrBadRequest, "Unknown channel.")
 	}
+}
+
+func (s *Server) hasHostProvider(hostID string) bool {
+	_, ok := s.reg.Get(hostID)
+	return ok
 }
 
 // handleUnsubscribe cancels the named subscription. subId is authoritative.

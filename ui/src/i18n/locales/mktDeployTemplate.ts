@@ -44,7 +44,7 @@ export const mktDeployTemplateDict = defineDict({
     "hint.envMasked": "Values for KEY/TOKEN/SECRET/PASSWORD names are masked.",
     "form.envRequiredError": "Required variables need a value: {fields}.",
     "hint.volumes":
-      "Source is a named volume (auto-created) or an absolute host path; target is the in-container path.",
+      "Left: enter a volume name without / (created automatically), or an existing absolute host folder. Right: enter the path inside the container.",
     "hint.networks":
       "No row: the container stays on the default bridge. The first network is the primary one (default gateway); a static IPv4 needs a user-defined network with a subnet.",
     "form.networksIPv4Error": "Invalid static IPv4: {values}.",
@@ -107,7 +107,7 @@ export const mktDeployTemplateDict = defineDict({
     "hint.envMasked": "Les valeurs des noms KEY/TOKEN/SECRET/PASSWORD sont masquées.",
     "form.envRequiredError": "Les variables requises ont besoin d'une valeur : {fields}.",
     "hint.volumes":
-      "La source est un volume nommé (créé automatiquement) ou un chemin hôte absolu ; la cible est le chemin dans le conteneur.",
+      "À gauche : nom de volume sans / (créé automatiquement), ou dossier absolu déjà existant sur l’hôte. À droite : chemin dans le conteneur.",
     "hint.networks":
       "Aucune ligne : le conteneur reste sur le bridge par défaut. Le premier réseau est le principal (passerelle par défaut) ; une IPv4 statique nécessite un réseau utilisateur avec un sous-réseau.",
     "form.networksIPv4Error": "IPv4 statique invalide : {values}.",

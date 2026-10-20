@@ -13,6 +13,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/gtek-it/castor/server/internal/config"
 )
 
 const announcementResponseLimit = 900 << 10
@@ -31,11 +33,11 @@ type announcementResponse struct {
 // CurrentAnnouncement returns the active Website announcement via a fixed
 // server-side URL. The Website remains the sole source of truth.
 func (s *Server) CurrentAnnouncement(w http.ResponseWriter, r *http.Request) {
-	if s.cfg.AnnouncementsURL == "" {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	u, err := url.Parse(s.cfg.AnnouncementsURL + "/api/announcements/current")
+	proxyCurrentAnnouncement(w, r, config.AnnouncementServiceURL)
+}
+
+func proxyCurrentAnnouncement(w http.ResponseWriter, r *http.Request, baseURL string) {
+	u, err := url.Parse(baseURL + "/api/announcements/current")
 	if err != nil {
 		http.Error(w, "announcement service unavailable", http.StatusBadGateway)
 		return

@@ -55,6 +55,9 @@ func (s *Server) Router() http.Handler {
 		api.Get("/auth/oidc/start", s.audited("auth.oidc.start", s.bootstrapGate(http.HandlerFunc(s.OIDCStart))))
 		api.Get("/auth/oidc/callback", s.audited("auth.oidc.callback", s.bootstrapGate(http.HandlerFunc(s.OIDCCallback))))
 		api.Post("/auth/ldap/login", s.audited("auth.ldap.login", s.bootstrapGate(http.HandlerFunc(s.LDAPLogin))))
+		// Agent machine authentication is independent of browser sessions, CSRF,
+		// and Origin. AgentConnect independently requires a direct TLS connection.
+		api.Get("/agent/ws", s.AgentConnect)
 
 		// ---- protected routes (SessionAuth required) ----
 		api.Group(func(pr chi.Router) {
@@ -92,24 +95,41 @@ func (s *Server) Router() http.Handler {
 			// providers / hosts
 			pr.Get("/providers", s.Providers)
 			pr.Get("/hosts", s.Hosts)
+			g := authz.GlobalScope
+			pr.With(az.AuditWrap("agent.host.enrollment.create"), az.RequireAAL, az.RequirePermission("settings.update", g)).
+				Post("/hosts/agent", s.CreateAgentHost)
+			pr.With(az.AuditWrap("agent.host.revoke"), az.RequireAAL, az.RequirePermission("settings.update", g)).
+				Delete("/hosts/{hostID}/agent", s.RevokeAgentHost)
 			pr.Get("/hosts/{hostID}", s.HostDetail)
+			pr.Get("/agent/download/{arch}", s.DownloadAgent)
 
 			// WebSocket (single socket; SessionAuth ran above, Origin re-checked
 			// inside HandleWS before Accept).
 			pr.Get("/ws", s.HandleWS)
+			// Host-scoped Docker APIs pass only for an active local or authenticated
+			// remote provider. The middleware never substitutes the local daemon.
+			pr.Group(func(remoteGuard chi.Router) {
+				remoteGuard.Use(s.requireActiveHostDockerProvider)
+				s.mountWorkloadRoutes(remoteGuard)
+				s.mountResourceRoutes(remoteGuard)
+				s.mountBackupRoutes(remoteGuard)
+			})
+			// These surfaces are currently backed by local Swarm/Kubernetes and
+			// stack-manager state, not by the Docker-over-agent provider. Keep them
+			// explicitly local until they have host-scoped implementations.
+			pr.Group(func(localOnly chi.Router) {
+				localOnly.Use(s.requireLocalHost)
+				s.mountSwarmK8sRoutes(localOnly)
+				s.mountK8sStorageRoutes(localOnly)
+				s.mountHelmRoutes(localOnly)
+				s.mountK8sClusterRoutes(localOnly)
+				s.mountStackRoutes(localOnly)
+			})
 
-			s.mountWorkloadRoutes(pr)
-			s.mountResourceRoutes(pr)
-			s.mountBackupRoutes(pr)
-			s.mountSwarmK8sRoutes(pr)
-			s.mountK8sStorageRoutes(pr)
-			s.mountHelmRoutes(pr)
-			s.mountK8sClusterRoutes(pr)
 			s.mountAdminRoutes(pr)
 			s.mountAuthAdminRoutes(pr)
 			s.mountTemplateRoutes(pr)
 			s.mountMarketplaceConfigRoutes(pr)
-			s.mountStackRoutes(pr)
 			s.mountNotificationRoutes(pr)
 		})
 	})
@@ -140,7 +160,6 @@ func (s *Server) mountWorkloadRoutes(pr chi.Router) {
 		Get("/hosts/{hostID}/workloads", s.Workloads)
 	pr.With(az.RequirePermission("docker.container.read", scopeFromHost)).
 		Get("/hosts/{hostID}/workloads/{id}", s.WorkloadDetail)
-
 	// Aggregated BI-dashboard metrics for the host: snapshot counts plus a bounded
 	// live CPU/RAM sweep over running containers. A read; gated like the other
 	// host-scoped container reads (no audit row for reads).
@@ -185,6 +204,8 @@ func (s *Server) mountWorkloadRoutes(pr chi.Router) {
 		Post("/hosts/{hostID}/updates/check", s.CheckUpdates)
 	pr.With(az.AuditWrap("docker.container.update"), az.RequireAAL, az.RequirePermission("docker.container.update", scopeFromHost)).
 		Post("/hosts/{hostID}/workloads/{id}/update", s.UpdateWorkload)
+	pr.With(az.AuditWrap("docker.container.ports.update"), az.RequireAAL, az.RequirePermission("docker.container.update", scopeFromHost)).
+		Put("/hosts/{hostID}/workloads/{id}/ports", s.UpdateWorkloadPorts)
 }
 
 // mountResourceRoutes wires Docker images/networks/volumes (read + gated write).
@@ -514,6 +535,8 @@ func (s *Server) mountAdminRoutes(pr chi.Router) {
 
 	pr.With(az.RequirePermission("settings.read", g)).Get("/settings", s.GetSettings)
 	pr.With(az.AuditWrap("settings.update"), az.RequireAAL, az.RequirePermission("settings.update", g)).Put("/settings", s.UpdateSettings)
+	pr.With(az.RequirePermission("settings.read", g)).Get("/settings/activation", s.GetActivationStatus)
+	pr.With(az.AuditWrap("activation.key.apply"), az.RequireAAL, az.RequirePermission("settings.update", g)).Post("/settings/activation", s.ActivateInstance)
 
 	// TLS / HTTPS (tls.go). Reads (status, public certificate download) reuse
 	// settings.read; every change (mode switch, certificate import/removal, ACME
@@ -592,6 +615,7 @@ func (s *Server) mountTemplateRoutes(pr chi.Router) {
 
 	// One-click deploy: creates+starts a container (host-scoped permission).
 	pr.With(az.AuditWrap("docker.container.create"), az.RequireAAL, az.RequirePermission("docker.container.create", scopeFromHost)).
+		With(s.requireActiveHostDockerProvider).
 		Post("/hosts/{hostID}/templates/deploy", s.DeployTemplate)
 }
 

@@ -83,6 +83,40 @@ Use a self-contained kubeconfig (credentials embedded) whose server URL is reach
 
 To switch, edit the socket line in [`deploy/docker-compose.yml`](../../deploy/docker-compose.yml) and run `docker compose up -d`. To restrict Castor's access to the daemon, point `CASTOR_DOCKER_HOST` at a docker-socket-proxy.
 
+## Remote Linux Docker hosts
+
+An administrator can enroll a remote Linux Docker host from **Hosts → Add host**.
+Enrollment requires browser access to Castor over trusted HTTPS. The agent then
+opens an outbound WSS connection to Castor; do not expose the remote Docker API
+or open an inbound agent port. The agent accesses `/var/run/docker.sock` and is
+therefore root-equivalent on that machine. Install and run it as a dedicated
+privileged service account/root, and restrict who can enroll or revoke hosts.
+
+1. Create the host in Castor and select the target Linux architecture.
+2. Download the agent from the authenticated Castor UI onto the managed host
+  using a trusted transfer path. The UI shows the SHA-256 of those downloaded
+  bytes; this detects transfer corruption only and is **not** independent
+  signature verification. Do not use this as proof against a compromised
+  Castor server or release pipeline.
+3. Verify the displayed checksum against the copied file, install it as
+  `/usr/local/bin/castor-agent`, and run the shown command in a protected
+  terminal. The one-time enrollment credential is prompted without echo; do
+  not put it in shell history, a unit file, or process arguments.
+4. Keep the generated identity file private and persistent at the selected
+  state path. The agent reconnects using its Ed25519 identity; it does not
+  need the one-time credential again.
+5. Confirm **Connected** in Hosts. Revoke the host there before removing or
+  replacing its agent identity. Revocation disconnects the active tunnel and
+  removes its cached inventory.
+
+Remote standalone Docker workloads, images, networks, volumes, backups,
+dashboard data, and template deployments use that host's tunnel. Swarm,
+Kubernetes, Helm, Compose stacks, and image-update checks are currently local
+only. The UI disables workload navigation while the remote host is unavailable;
+API operations fail closed rather than using local Docker. Agent upgrades and
+automatic service-manager installation are not yet provided; replace the
+binary through a trusted administrative process and restart the agent service.
+
 ## Update
 
 ```bash

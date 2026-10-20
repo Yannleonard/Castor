@@ -94,6 +94,15 @@ func decodeBody(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
 	return m
 }
 
+func TestHostDockerProviderResolvesLocalHostToDockerProvider(t *testing.T) {
+	if got := dockerProviderIDForHost(cache.HostID); got != "local-docker" {
+		t.Fatalf("dockerProviderIDForHost(%q) = %q, want %q", cache.HostID, got, "local-docker")
+	}
+	if got := dockerProviderIDForHost("remote-host-id"); got != "remote-host-id" {
+		t.Fatalf("dockerProviderIDForHost(remote) = %q, want unchanged host id", got)
+	}
+}
+
 func TestHealthzAndBootstrapStatus(t *testing.T) {
 	e := newTestEnv(t)
 	rec := e.do(t, http.MethodGet, "/api/v1/healthz", nil, nil, "")

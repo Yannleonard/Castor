@@ -63,6 +63,7 @@ const DETAILED_CODES = new Set([
   "tls_key_mismatch",
   "tls_certificate_expired",
   "invalid_network_config",
+  "volume_mount_invalid",
 ]);
 
 /** Map an unknown error (likely ApiError) to a user-facing toast. Known error

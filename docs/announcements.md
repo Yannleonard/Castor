@@ -14,6 +14,10 @@ interface is at `/admin` and the public feed is at
 `https://castor.gtek-it.fr/api/announcements/current`. The admin API requires
 the bearer token and should only be used over HTTPS.
 
+The production website runs in one Docker container on apps-gtek. See the
+[apps-gtek operations runbook](runbooks/website-apps-gtek.fr.md) for its SSH
+alias, persistent data volume, health checks, and operational safeguards.
+
 For a separate Compose deployment, the API listens on port 8099 and stores its
 data in the `castor-website-announcements` Docker volume. Keep port 8099 private
 and put an HTTPS reverse proxy in front of the admin interface and public feed.
@@ -24,13 +28,12 @@ page; it is never embedded in client-side configuration. A token may instead be
 provided as `CASTOR_ANNOUNCEMENTS_ADMIN_TOKEN` (minimum 32 characters). Store
 that value in the deployment secret manager, not in source control.
 
-Set `CASTOR_ANNOUNCEMENTS_URL` on Castor to the API base URL, for example
-`https://castor.gtek-it.fr` when using the public Website host. If both
-containers share a private Docker network, use the communications service name
-and port instead. Leave it empty to disable the announcement slot. The Castor
-proxy only requests the fixed
+Every Castor container uses the fixed `https://castor.gtek-it.fr` feed; the URL
+is built into the server and is not configurable from the application UI or
+container environment. The proxy only requests the fixed
 `/api/announcements/current` endpoint, has a two-second timeout and rejects
-invalid or oversized responses.
+invalid or oversized responses. The Castor host must have outbound HTTPS access
+to `castor.gtek-it.fr` for announcements to load.
 
 ## Content limits
 

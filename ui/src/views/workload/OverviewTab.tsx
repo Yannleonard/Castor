@@ -34,6 +34,7 @@ import { gateStats } from "../../lib/rbac";
 import { useT } from "../../i18n";
 import { wlOverviewTabDict } from "../../i18n/locales/wlOverviewTab";
 import { commonDict } from "../../i18n/locales/common";
+import { PortsCard } from "./PortsCard";
 
 // host and none are exclusive network modes chosen at create time, not
 // endpoints a running container can be connected to.
@@ -117,23 +118,7 @@ export function OverviewTab({ hostId, detail, caps, permissions }: Props) {
         </div>
       </div>
 
-      {detail.ports && detail.ports.length ? (
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">{t("card.ports")}</span>
-          </div>
-          <div className="card-body">
-            <div className="row-wrap">
-              {detail.ports.map((p, i) => (
-                <span key={i} className="chip chip-mono">
-                  {p.public ? `${p.public} → ` : ""}
-                  {p.private}/{p.protocol}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {detail.kind === "docker" ? <PortsCard hostId={hostId} detail={detail} caps={caps} /> : null}
 
       <NetworksCard hostId={hostId} detail={detail} caps={caps} />
 

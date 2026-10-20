@@ -2,8 +2,11 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
+	"database/sql"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/gtek-it/castor/server/internal/config"
 )
@@ -81,6 +84,100 @@ func TestSeedRolesAndHost(t *testing.T) {
 	}
 	if host.Connection != "local-socket" {
 		t.Errorf("local host connection = %q", host.Connection)
+	}
+}
+
+func TestAgentHostEnrollmentPersistsOnlyDigestAndRevokesSafely(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	token := []byte("raw-enrollment-token-that-must-not-be-stored")
+	digest := sha256.Sum256(token)
+	hostID := NewUUID()
+	if err := st.CreateAgentHostEnrollment(ctx, hostID, "edge-linux", digest[:], time.Now().Add(15*time.Minute).Unix(), ""); err != nil {
+		t.Fatalf("CreateAgentHostEnrollment: %v", err)
+	}
+	var stored []byte
+	if err := st.DB().QueryRowContext(ctx, `SELECT token_hash FROM agent_enrollments WHERE host_id = ?`, hostID).Scan(&stored); err != nil {
+		t.Fatalf("read stored token hash: %v", err)
+	}
+	if string(stored) == string(token) || len(stored) != sha256.Size {
+		t.Fatal("raw token was persisted instead of a fixed-length digest")
+	}
+	redeemedHost, err := st.ConsumeAgentEnrollment(ctx, digest[:])
+	if err != nil || redeemedHost != hostID {
+		t.Fatalf("ConsumeAgentEnrollment = %q, %v", redeemedHost, err)
+	}
+	if _, err := st.ConsumeAgentEnrollment(ctx, digest[:]); err != ErrNotFound {
+		t.Fatalf("second credential redemption error = %v, want ErrNotFound", err)
+	}
+	host, err := st.GetHost(ctx, hostID)
+	if err != nil || host.Connection != "remote-agent" || host.Status != "pending" {
+		t.Fatalf("new host = %#v, err=%v", host, err)
+	}
+	if err := st.RevokeAgentHost(ctx, "local"); err != ErrLocalHost {
+		t.Fatalf("revoking local host error = %v, want ErrLocalHost", err)
+	}
+	if err := st.RevokeAgentHost(ctx, hostID); err != nil {
+		t.Fatalf("RevokeAgentHost: %v", err)
+	}
+	host, err = st.GetHost(ctx, hostID)
+	if err != nil || host.Status != "revoked" {
+		t.Fatalf("revoked host = %#v, err=%v", host, err)
+	}
+	var revoked sql.NullInt64
+	if err := st.DB().QueryRowContext(ctx, `SELECT revoked_at FROM agent_enrollments WHERE host_id = ?`, hostID).Scan(&revoked); err != nil || !revoked.Valid {
+		t.Fatalf("enrollment revocation timestamp valid=%v err=%v", revoked.Valid, err)
+	}
+}
+
+func TestExpiredAgentEnrollmentCannotBeConsumed(t *testing.T) {
+	st := newTestStore(t)
+	digest := sha256.Sum256([]byte("expired enrollment"))
+	hostID := NewUUID()
+	if err := st.CreateAgentHostEnrollment(context.Background(), hostID, "expired", digest[:], time.Now().Add(-time.Minute).Unix(), ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ConsumeAgentEnrollment(context.Background(), digest[:]); err != ErrNotFound {
+		t.Fatalf("expired credential redemption error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestAgentEnrollmentBindsEd25519IdentityAndAllowsReconnect(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	token := []byte("first use only")
+	digest := sha256.Sum256(token)
+	pub := make([]byte, 32)
+	for i := range pub {
+		pub[i] = byte(i + 1)
+	}
+	hostID := NewUUID()
+	if err := st.CreateAgentHostEnrollment(ctx, hostID, "edge", digest[:], time.Now().Add(time.Minute).Unix(), ""); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.RedeemAgentEnrollment(ctx, digest[:], pub)
+	if err != nil || got != hostID {
+		t.Fatalf("RedeemAgentEnrollment = %q, %v", got, err)
+	}
+	if _, err := st.RedeemAgentEnrollment(ctx, digest[:], pub); err != ErrNotFound {
+		t.Fatalf("replay redemption error=%v, want ErrNotFound", err)
+	}
+	bound, err := st.AgentPublicKey(ctx, hostID)
+	if err != nil || string(bound) != string(pub) {
+		t.Fatalf("AgentPublicKey=%x, %v", bound, err)
+	}
+	found, err := st.FindAgentHostByPublicKey(ctx, pub)
+	if err != nil || found != hostID {
+		t.Fatalf("FindAgentHostByPublicKey=%q, %v", found, err)
+	}
+	if err := st.SetAgentConnectionState(ctx, hostID, "connected"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.RevokeAgentHost(ctx, hostID); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetAgentConnectionState(ctx, hostID, "connected"); err != ErrNotFound {
+		t.Fatalf("revoked host reconnect state update error=%v, want ErrNotFound", err)
 	}
 }
 

@@ -28,6 +28,7 @@ type Port struct {
 	Private  uint16 `json:"private"`          // container/pod port
 	Public   uint16 `json:"public,omitempty"` // host/published port (0 if none)
 	Protocol string `json:"protocol"`         // "tcp" | "udp" | "sctp"
+	HostIP   string `json:"hostIp,omitempty"` // Docker host binding address; empty means all interfaces
 }
 
 // Workload is the unified, orchestrator-agnostic shape the API and UI consume.

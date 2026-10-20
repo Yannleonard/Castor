@@ -127,7 +127,15 @@ func (s *Server) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	bgCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), backupMaxDuration)
 	defer cancel()
 
-	n, berr := s.manager.Docker().BackupVolume(bgCtx, req.Target, f)
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		_ = f.Close()
+		_ = s.store.UpdateBackupResult(r.Context(), id, "failed", 0, "host unavailable")
+		_ = os.Remove(filePath)
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
+	n, berr := dp.BackupVolume(bgCtx, req.Target, f)
 	closeErr := f.Close()
 	if berr != nil {
 		msg := berr.Error()
@@ -243,7 +251,12 @@ func (s *Server) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	bgCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), backupMaxDuration)
 	defer cancel()
 
-	if err := s.manager.Docker().RestoreVolume(bgCtx, target, f); err != nil {
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
+	if err := dp.RestoreVolume(bgCtx, target, f); err != nil {
 		writeMapped(w, r, err)
 		return
 	}

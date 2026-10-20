@@ -50,7 +50,13 @@ func (s *Server) PullImage(w http.ResponseWriter, r *http.Request) {
 	// the pull after only a few bytes). A generous timeout caps a stuck pull.
 	pullCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Minute)
 
-	rc, err := s.manager.Docker().PullImage(pullCtx, req.Ref)
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		cancel()
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
+	rc, err := dp.PullImage(pullCtx, req.Ref)
 	if err != nil {
 		cancel()
 		writeMapped(w, r, err)
@@ -78,7 +84,12 @@ func (s *Server) DeleteImage(w http.ResponseWriter, r *http.Request) {
 	force := r.URL.Query().Get("force") == "true"
 	authz.SetAuditTarget(r, "image", id, id)
 
-	if err := s.manager.Docker().DeleteImage(r.Context(), id, force); err != nil {
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
+	if err := dp.DeleteImage(r.Context(), id, force); err != nil {
 		writeMapped(w, r, err)
 		return
 	}

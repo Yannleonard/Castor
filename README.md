@@ -32,7 +32,14 @@ TOTP 2FA, role-based access control and a hardened non-root image.
 | **Docker Swarm** | Services (create / scale / update / restart / remove), nodes (drain / activate), secrets & configs |
 | **Kubernetes** | Pods, deployments, statefulsets, daemonsets, jobs & cronjobs (scale / restart / delete / run), apply YAML, HPA, storage, metrics, exec & logs, Helm (repos, install / upgrade with preview / rollback) — via a mounted kubeconfig |
 
-Multi-host agents are planned for V2.
+**Remote Linux Docker hosts** can be enrolled by an administrator through the
+Hosts view. Each host runs a small Castor agent that initiates an outbound,
+authenticated TLS connection to the server; no inbound Docker API port is
+required. Castor can manage standalone workloads, images, networks and volumes
+across enrolled hosts from the same interface. Swarm, Kubernetes, Helm, Compose
+stacks and image-update checks remain local-only for now. See the
+[remote-host operations guide](docs/runbooks/install.md#remote-linux-docker-hosts)
+for the security model, enrollment steps and current limitations.
 
 ---
 
@@ -42,7 +49,16 @@ Multi-host agents are planned for V2.
 - **Outbound notifications** — Discord, Slack, [ntfy](https://ntfy.sh) or any webhook, on *container down* and *image update available* events.
 - **Personal Access Tokens + Prometheus metrics** — call the API with `Authorization: Bearer` tokens and scrape `/metrics`.
 - **Housekeeping built in** — pause/unpause containers, create networks and volumes, prune images / containers / volumes / networks from the UI.
+- **Multi-host Docker management** — enroll remote Linux hosts with an outbound agent connection and manage supported Docker resources from one interface.
 - **Polished UX** — dark mode (Light / Dark / System), a "Getting started" onboarding checklist, and bilingual (FR/EN) contextual help on every view.
+
+> **Remote-agent trust boundary:** an enrolled agent has root-equivalent access to
+> its host through the Docker socket. Enroll only hosts you administer, protect
+> the one-time credential and persistent agent identity, and revoke hosts when
+> access is no longer needed. The current UI checksum detects transfer
+> corruption; it is not an independent signature. Review the full
+> [remote-host security guidance](docs/runbooks/install.md#remote-linux-docker-hosts)
+> before enabling this feature.
 
 ---
 
@@ -195,6 +211,7 @@ With a local Go + Node toolchain, `make build`, `make docker-build` and `make ve
 - Security overview — [`docs/runbooks/security.md`](docs/runbooks/security.md)
 - Deployment files — [`deploy/`](deploy/)
 - Architecture decisions — [`docs/adr/`](docs/adr/)
+- Remote-host design — [`docs/adr/ADR-CASTOR-004-multi-host-agents.md`](docs/adr/ADR-CASTOR-004-multi-host-agents.md)
 - Contributing — [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ## 🤝 Contributing

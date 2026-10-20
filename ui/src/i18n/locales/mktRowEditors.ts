@@ -38,8 +38,8 @@ export const mktRowEditorsDict = defineDict({
     "env.add": "Add variable",
 
     // Volume mount row
-    "vol.sourcePlaceholder": "volume name or /host/path",
-    "vol.sourceLabel": "Volume source",
+    "vol.sourcePlaceholder": "named volume (no /) or existing /host/path",
+    "vol.sourceLabel": "Volume name or host path",
     "vol.targetPlaceholder": "/container/path",
     "vol.targetLabel": "Container path",
     "vol.remove": "Remove volume",
@@ -80,8 +80,8 @@ export const mktRowEditorsDict = defineDict({
     "env.add": "Ajouter une variable",
 
     // Ligne de montage de volume
-    "vol.sourcePlaceholder": "nom du volume ou /chemin/hôte",
-    "vol.sourceLabel": "Source du volume",
+    "vol.sourcePlaceholder": "volume nommé (sans /) ou /chemin/hôte existant",
+    "vol.sourceLabel": "Nom du volume ou chemin hôte",
     "vol.targetPlaceholder": "/chemin/conteneur",
     "vol.targetLabel": "Chemin du conteneur",
     "vol.remove": "Supprimer le volume",

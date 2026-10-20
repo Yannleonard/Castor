@@ -1,8 +1,11 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -25,6 +28,16 @@ type timeoutRequest struct {
 type removeRequest struct {
 	Confirm bool   `json:"confirm"`
 	Reason  string `json:"reason"`
+}
+
+type updateWorkloadPortsRequest struct {
+	Ports   []provider.Port `json:"ports"`
+	Confirm bool            `json:"confirm"`
+	Reason  string          `json:"reason"`
+}
+
+type workloadPortsUpdater interface {
+	RecreateWithPorts(context.Context, string, []provider.Port) (string, error)
 }
 
 // Workloads serves the unified workload list FROM CACHE (never an inline daemon
@@ -133,8 +146,8 @@ func (s *Server) resolveForMutation(w http.ResponseWriter, r *http.Request) (pro
 
 // StartWorkload starts a container (perm docker.container.start).
 func (s *Server) StartWorkload(w http.ResponseWriter, r *http.Request) {
-	p, wl, ok := s.resolveForMutation(w, r)
-	if !ok {
+	p, wl, resolved := s.resolveForMutation(w, r)
+	if !resolved {
 		return
 	}
 	if err := p.Start(r.Context(), wl.ID); err != nil {
@@ -236,6 +249,74 @@ func (s *Server) RemoveWorkload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok2(w)
+}
+
+// UpdateWorkloadPorts replaces a Docker container's published/exposed port
+// set. Docker requires container recreation; the API returns its replacement ID.
+func (s *Server) UpdateWorkloadPorts(w http.ResponseWriter, r *http.Request) {
+	p, wl, resolved := s.resolveForMutation(w, r)
+	if !resolved {
+		return
+	}
+	if wl.Kind != provider.KindDocker {
+		authz.WriteError(w, r, authz.Errorf(authz.ErrValidation, "Port mappings can only be changed for standalone Docker containers."))
+		return
+	}
+	if !p.Capabilities().Has(provider.CapPortUpdate) {
+		authz.WriteError(w, r, authz.ErrMethodNotAllowed)
+		return
+	}
+	updater, supportsPortUpdate := p.(workloadPortsUpdater)
+	if !supportsPortUpdate {
+		authz.WriteError(w, r, authz.ErrMethodNotAllowed)
+		return
+	}
+	var req updateWorkloadPortsRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	if err := validateWorkloadPorts(req.Ports); err != nil {
+		authz.WriteError(w, r, authz.Errorf(authz.ErrValidation, err.Error()))
+		return
+	}
+	if err := s.guardContainer(r, wl, req.Confirm, req.Reason); err != nil {
+		authz.WriteError(w, r, err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), recreateTimeout)
+	defer cancel()
+	newID, err := updater.RecreateWithPorts(ctx, wl.ID, req.Ports)
+	if err != nil {
+		writeMapped(w, r, err)
+		return
+	}
+	ok(w, map[string]string{"id": newID})
+}
+
+func validateWorkloadPorts(ports []provider.Port) error {
+	if ports == nil {
+		return fmt.Errorf("The ports field is required; use an empty array to remove all port mappings.")
+	}
+	if len(ports) > 128 {
+		return fmt.Errorf("At most 128 port mappings can be configured.")
+	}
+	seen := make(map[string]struct{}, len(ports))
+	for _, port := range ports {
+		proto := strings.ToLower(strings.TrimSpace(port.Protocol))
+		if port.Private == 0 || (proto != "tcp" && proto != "udp" && proto != "sctp") {
+			return fmt.Errorf("Each mapping needs a container port from 1 to 65535 and protocol tcp, udp, or sctp.")
+		}
+		if ip := strings.TrimSpace(port.HostIP); ip != "" && net.ParseIP(ip) == nil {
+			return fmt.Errorf("Host binding addresses must be valid IP addresses.")
+		}
+		key := fmt.Sprintf("%d/%s@%s:%d", port.Private, proto, strings.TrimSpace(port.HostIP), port.Public)
+		if _, exists := seen[key]; exists {
+			return fmt.Errorf("Duplicate port mappings are not allowed.")
+		}
+		seen[key] = struct{}{}
+	}
+	return nil
 }
 
 // guardContainer runs GuardDestructive for a workload target.

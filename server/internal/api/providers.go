@@ -8,6 +8,7 @@ import (
 	"github.com/gtek-it/castor/server/internal/authz"
 	"github.com/gtek-it/castor/server/internal/cache"
 	"github.com/gtek-it/castor/server/internal/provider/docker"
+	"github.com/gtek-it/castor/server/internal/store"
 )
 
 type providerView struct {
@@ -42,6 +43,21 @@ type hostView struct {
 	Engine      *docker.EngineInfo `json:"engine,omitempty"`
 }
 
+// hostStatusForAPI trusts remote-agent status only while a live authenticated
+// transport is registered. Persisted state alone can never claim connected.
+func hostStatusForAPI(h *store.Host) string {
+	if h.Connection == "remote-agent" {
+		if h.Status == "revoked" {
+			return "revoked"
+		}
+		if h.Status == "pending" {
+			return "pending"
+		}
+		return h.Status
+	}
+	return h.Status
+}
+
 // Hosts returns registered hosts with live status and the providers they own.
 func (s *Server) Hosts(w http.ResponseWriter, r *http.Request) {
 	hosts, err := s.store.ListHosts(r.Context())
@@ -49,17 +65,22 @@ func (s *Server) Hosts(w http.ResponseWriter, r *http.Request) {
 		writeMapped(w, r, err)
 		return
 	}
-	providerIDs := make([]string, 0)
-	for _, p := range s.reg.List() {
-		providerIDs = append(providerIDs, p.ID())
-	}
-
-	out := make([]hostView, 0, len(hosts))
+	visible := make([]*store.Host, 0, len(hosts))
 	for _, h := range hosts {
-		status := h.Status
+		if h.Status != "revoked" {
+			visible = append(visible, h)
+		}
+	}
+	out := make([]hostView, 0, len(hosts))
+	for _, h := range visible {
+		status := hostStatusForAPI(h)
 		degraded := false
 		var engine *docker.EngineInfo
+		providerIDs := make([]string, 0)
 		if h.ID == cache.HostID {
+			for _, p := range s.reg.List() {
+				providerIDs = append(providerIDs, p.ID())
+			}
 			degraded = s.manager.Store().IsDegraded(h.ID)
 			if degraded {
 				status = "down"
@@ -68,6 +89,25 @@ func (s *Server) Hosts(w http.ResponseWriter, r *http.Request) {
 			}
 			if snap, ok := s.manager.Store().Get(h.ID); ok {
 				engine = snap.Engine
+			}
+		}
+		if h.Connection != "remote-agent" && h.ID != cache.HostID {
+			status = "down"
+		}
+		if h.Connection == "remote-agent" {
+			degraded = s.manager.Store().IsDegraded(h.ID)
+			if s.agentHostLive(h.ID) && h.Status != "revoked" {
+				status = "connected"
+				if degraded {
+					status = "down"
+				}
+				if _, ok := s.reg.Get(h.ID); ok {
+					providerIDs = append(providerIDs, h.ID)
+				} else {
+					status = "down"
+				}
+			} else if h.Status != "pending" {
+				status = "down"
 			}
 		}
 		out = append(out, hostView{
@@ -92,6 +132,10 @@ func (s *Server) HostDetail(w http.ResponseWriter, r *http.Request) {
 		writeMapped(w, r, err)
 		return
 	}
+	if h.Status == "revoked" {
+		writeMapped(w, r, authz.ErrNotFound)
+		return
+	}
 
 	snap, _ := s.manager.Store().Get(hostID)
 	running := 0
@@ -111,8 +155,32 @@ func (s *Server) HostDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	providerIDs := make([]string, 0)
-	for _, p := range s.reg.List() {
-		providerIDs = append(providerIDs, p.ID())
+	if h.ID == cache.HostID {
+		for _, p := range s.reg.List() {
+			providerIDs = append(providerIDs, p.ID())
+		}
+	}
+	status := hostStatusForAPI(h)
+	if h.ID != cache.HostID && h.Connection != "remote-agent" {
+		status = "down"
+	}
+	if h.Connection == "remote-agent" {
+		if h.Status == "pending" {
+			status = "pending"
+		} else {
+			status = "down"
+		}
+		if s.agentHostLive(h.ID) && h.Status != "revoked" {
+			status = "connected"
+			if s.manager.Store().IsDegraded(h.ID) {
+				status = "down"
+			}
+			if _, ok := s.reg.Get(h.ID); ok {
+				providerIDs = append(providerIDs, h.ID)
+			} else {
+				status = "down"
+			}
+		}
 	}
 
 	authz.WriteJSON(w, http.StatusOK, map[string]any{
@@ -120,7 +188,7 @@ func (s *Server) HostDetail(w http.ResponseWriter, r *http.Request) {
 		"name":        h.Name,
 		"kind":        h.Kind,
 		"connection":  h.Connection,
-		"status":      h.Status,
+		"status":      status,
 		"providerIds": providerIDs,
 		"degraded":    s.manager.Store().IsDegraded(hostID),
 		"summary":     summary,

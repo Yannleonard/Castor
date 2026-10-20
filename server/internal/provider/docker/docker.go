@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -52,6 +54,36 @@ func New(ctx context.Context, cfg Config) (*DockerProvider, error) {
 	if info, err := cli.Info(ctx); err == nil {
 		p.daemonHost = info.Name
 	}
+	return p, nil
+}
+
+// NewRemote constructs a Docker provider whose SDK traffic is dialed through a
+// host-bound authenticated agent stream. The dial callback is fixed when the
+// provider is created and never receives browser-controlled destinations.
+func NewRemote(ctx context.Context, id string, cfg Config, dial func(context.Context, string, string) (net.Conn, error)) (*DockerProvider, error) {
+	if id == "" || id == ProviderID || dial == nil {
+		return nil, fmt.Errorf("docker: invalid remote provider configuration")
+	}
+	transport := &http.Transport{
+		Proxy:               nil,
+		DialContext:         dial,
+		MaxIdleConns:        8,
+		MaxIdleConnsPerHost: 8,
+		IdleConnTimeout:     30 * time.Second,
+	}
+	httpClient := &http.Client{Transport: transport}
+	cli, err := client.NewClientWithOpts(
+		client.WithHost("http://docker"),
+		client.WithHTTPClient(httpClient),
+		client.WithAPIVersionNegotiation(),
+	)
+	if err != nil {
+		transport.CloseIdleConnections()
+		return nil, fmt.Errorf("docker: new remote client: %w", err)
+	}
+	p := &DockerProvider{cli: cli, id: id, selfContainerID: cfg.SelfContainerID}
+	// The transport reader must be running before the first SDK call; leave
+	// daemonHost empty until the regular host snapshot poll retrieves Info.
 	return p, nil
 }
 
@@ -123,7 +155,7 @@ func (p *DockerProvider) Capabilities() provider.Capability {
 	return provider.CapList | provider.CapInspect | provider.CapLogs | provider.CapStats |
 		provider.CapStart | provider.CapStop | provider.CapRestart | provider.CapPause |
 		provider.CapRemove | provider.CapExec | provider.CapEvents | provider.CapImages |
-		provider.CapNetworks | provider.CapVolumes
+		provider.CapNetworks | provider.CapVolumes | provider.CapPortUpdate
 }
 
 // Ping verifies daemon connectivity.

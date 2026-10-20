@@ -50,6 +50,8 @@ dist/
 .env
 .env.*
 !deploy/env.example
+!website/apps-gtek.env.example
+website/apps-gtek.env
 *.pem
 *.key
 

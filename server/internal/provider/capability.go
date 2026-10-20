@@ -34,6 +34,8 @@ const (
 	CapNetworks
 	// CapVolumes — volume management (Docker V1 only).
 	CapVolumes
+	// CapPortUpdate — recreate a Docker container with updated port bindings.
+	CapPortUpdate
 	// CapReadOnly — marker: provider performs NO mutations.
 	CapReadOnly
 )
@@ -61,6 +63,7 @@ var capTokens = []struct {
 	{CapImages, "images"},
 	{CapNetworks, "networks"},
 	{CapVolumes, "volumes"},
+	{CapPortUpdate, "port-update"},
 	{CapReadOnly, "readonly"},
 }
 

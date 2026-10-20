@@ -133,7 +133,9 @@ func (s *Server) DashboardMetrics(w http.ResponseWriter, r *http.Request) {
 	out.Memory.TotalBytes = memTotal
 
 	// ---- live CPU/RAM sweep over running containers ----
-	samples := s.sampleRunning(r.Context(), running)
+	dp, _ := s.reg.Get(hostID)
+	dockerProvider, _ := dp.(*docker.DockerProvider)
+	samples := s.sampleRunning(r.Context(), running, dockerProvider)
 
 	var cpuSum float64
 	var memSum uint64
@@ -161,8 +163,7 @@ func (s *Server) DashboardMetrics(w http.ResponseWriter, r *http.Request) {
 // each, bounded by statsConcurrency and the overall dashboardBudget. The Docker
 // provider is the only one that supports per-container stats here; swarm/k8s
 // workloads are skipped. A failed or slow sample is dropped, not fatal.
-func (s *Server) sampleRunning(parent context.Context, running []provider.Workload) []containerStat {
-	dp := s.manager.Docker()
+func (s *Server) sampleRunning(parent context.Context, running []provider.Workload, dp *docker.DockerProvider) []containerStat {
 	if dp == nil || len(running) == 0 {
 		return nil
 	}

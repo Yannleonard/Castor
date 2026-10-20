@@ -39,6 +39,11 @@ func TestMapDeployCreateErr(t *testing.T) {
 			wantIs: provider.ErrInvalidNetworkConfig,
 		},
 		{
+			name:   "missing host bind source path",
+			in:     errors.New("Error response from daemon: error while mounting volume '/assistant/home' to rootfs at '/config': mount /assistant/home:/var/lib/docker/overlay2/abc/merged/config, flags: 0x5000: no such file or directory"),
+			wantIs: provider.ErrInvalidMountConfig,
+		},
+		{
 			name:   "unknown network stays not-found",
 			in:     fmt.Errorf("%w: network front not found", cerrdefs.ErrNotFound),
 			wantIs: provider.ErrNotFound,

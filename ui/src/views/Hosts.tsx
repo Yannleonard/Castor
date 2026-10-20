@@ -1,11 +1,12 @@
 // ui/src/views/Hosts.tsx
 //
-// Registered hosts list with status + capability chips. V1 has a single "local"
-// host exposing up to three providers (docker/swarm/kubernetes). Each card shows
-// status, the providers it owns, capability chips, and live summary counts.
+// Registered hosts list with status + capability chips. Each card shows
+// status, owned providers, capability chips, and live summary counts.
 
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useHosts, useProviders, useHost } from "../lib/hooks";
+import { api } from "../lib/api";
 import { useHostStore } from "../lib/hostStore";
 import { PageHeader } from "../components/PageHeader";
 import { StatusDot } from "../components/StatusDot";
@@ -23,6 +24,51 @@ export function Hosts() {
   const t = useT(hostsDict);
   const hostsQ = useHosts();
   const providersQ = useProviders();
+  const [creating, setCreating] = useState(false);
+  const [hostName, setHostName] = useState("");
+  const [enrollment, setEnrollment] = useState<{ hostId: string; hostName: string; enrollmentToken: string } | null>(null);
+  const [operationError, setOperationError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [downloadError, setDownloadError] = useState(false);
+  const [downloadedArch, setDownloadedArch] = useState<"amd64" | "arm64" | null>(null);
+  const [agentArch, setAgentArch] = useState<"amd64" | "arm64">("amd64");
+  const [agentChecksum, setAgentChecksum] = useState("");
+
+  const enroll = async () => {
+    setOperationError("");
+    try {
+      const result = await api.createAgentHost(hostName.trim());
+      setEnrollment({ hostId: result.hostId, hostName: result.name, enrollmentToken: result.enrollmentToken });
+      setHostName("");
+      setCreating(false);
+      await hostsQ.refetch();
+    } catch {
+      setOperationError(t("agent.error"));
+    }
+  };
+
+  const enrollmentCommand = enrollment
+    ? `${downloadedArch === agentArch && agentChecksum ? `echo '${agentChecksum}'  castor-agent-linux-${agentArch} | sha256sum -c -\n` : `# ${t("agent.downloadFirst")}\n`}sudo install -o root -g root -m 0750 ./castor-agent-linux-${agentArch} /usr/local/bin/castor-agent\nsudo install -d -o root -g root -m 0700 /var/lib/castor-agent\nsudo /usr/local/bin/castor-agent -server wss://${window.location.host}/api/v1/agent/ws -state /var/lib/castor-agent/identity.json`
+    : "";
+
+  const downloadAgent = async () => {
+    setDownloadError(false);
+    try {
+      const blob = await api.downloadAgent(agentArch);
+      const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+      setAgentChecksum(Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(""));
+      setDownloadedArch(agentArch);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `castor-agent-linux-${agentArch}`;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setDownloadError(false);
+    } catch {
+      setDownloadError(true);
+    }
+  };
 
   if (hostsQ.isLoading) return <LoadingFill label={t("header.loading")} />;
 
@@ -39,17 +85,70 @@ export function Hosts() {
             <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} aria-label={t("header.refresh")} onClick={() => hostsQ.refetch()}>
               <IconRefresh size={16} />
             </ActionButton>
+            <ActionButton onClick={() => { setCreating(true); setOperationError(""); }}>{t("agent.add")}</ActionButton>
             <HelpButton topic="dashboard" />
           </div>
         }
       />
+
+      {operationError ? <div className="card-body text-sm" role="alert" style={{ color: "var(--danger)" }}>{operationError}</div> : null}
+
+      {creating ? (
+        <section className="card" style={{ marginBottom: "var(--sp-4)" }} aria-label={t("agent.add")}>
+          <div className="card-body col">
+            <label className="col text-sm">{t("agent.name")}
+              <input value={hostName} maxLength={128} onChange={(event) => setHostName(event.target.value)} autoFocus />
+            </label>
+            <div className="row">
+              <ActionButton disabled={!hostName.trim()} onClick={() => void enroll()}>{t("agent.add")}</ActionButton>
+              <ActionButton variant="ghost" onClick={() => setCreating(false)}>{t("agent.close")}</ActionButton>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {enrollment ? (
+        <section className="card" style={{ marginBottom: "var(--sp-4)" }} aria-label={t("agent.enrollmentReady")}>
+          <div className="card-body col">
+            <strong>{t("agent.enrollmentReady")}</strong>
+            <span className="text-sm secondary">{t("agent.tokenWarning")}</span>
+            {downloadError ? <span className="text-sm" role="alert" style={{ color: "var(--danger)" }}>{t("agent.error")}</span> : null}
+            <div className="row">
+              <label className="text-sm">{t("agent.architecture")}
+                <select value={agentArch} onChange={(event) => setAgentArch(event.target.value as "amd64" | "arm64")}>
+                  <option value="amd64">Linux amd64</option>
+                  <option value="arm64">Linux arm64</option>
+                </select>
+              </label>
+              <ActionButton onClick={() => void downloadAgent()}>{t("agent.download")}</ActionButton>
+            </div>
+            <label className="col text-sm">{t("agent.token")}
+              <input type="password" readOnly value={enrollment.enrollmentToken} onFocus={(event) => event.currentTarget.select()} autoComplete="off" />
+            </label>
+            <label className="col text-sm">{t("agent.command")}
+              <textarea readOnly rows={4} value={enrollmentCommand} onFocus={(event) => event.currentTarget.select()} />
+            </label>
+            <div className="row">
+              <ActionButton onClick={() => {
+                void navigator.clipboard.writeText(enrollment.enrollmentToken)
+                  .then(() => setCopied(true))
+                  .catch(() => setOperationError(t("agent.error")));
+              }}>{copied ? t("agent.copied") : t("agent.copyToken")}</ActionButton>
+              <ActionButton onClick={() => {
+                void navigator.clipboard.writeText(enrollmentCommand).catch(() => setOperationError(t("agent.error")));
+              }}>{t("agent.copy")}</ActionButton>
+              <ActionButton variant="ghost" onClick={() => { setEnrollment(null); setCopied(false); }}>{t("agent.close")}</ActionButton>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {hosts.length === 0 ? (
         <EmptyState icon={<IconHosts size={40} />} title={t("empty.title")} />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: "var(--sp-4)" }}>
           {hosts.map((h) => (
-            <HostCard key={h.id} host={h} providers={providers} />
+            <HostCard key={h.id} host={h} providers={providers} onRevoked={() => hostsQ.refetch()} onError={() => setOperationError(t("agent.error"))} />
           ))}
         </div>
       )}
@@ -57,7 +156,7 @@ export function Hosts() {
   );
 }
 
-function HostCard({ host, providers }: { host: HostSummaryEntry; providers: ProviderInfo[] }) {
+function HostCard({ host, providers, onRevoked, onError }: { host: HostSummaryEntry; providers: ProviderInfo[]; onRevoked: () => void; onError: () => void }) {
   const t = useT(hostsDict);
   const navigate = useNavigate();
   const setSelectedHost = useHostStore((s) => s.setSelectedHost);
@@ -95,6 +194,11 @@ function HostCard({ host, providers }: { host: HostSummaryEntry; providers: Prov
         </span>
       </div>
       <div className="card-body col" style={{ gap: "var(--sp-4)" }}>
+        {host.connection === "remote-agent" ? (
+          <div className="text-sm secondary" role="note">
+            {t(host.status === "pending" ? "agent.pendingHost" : host.status === "connected" ? "agent.connectedHost" : "agent.offlineHost")}
+          </div>
+        ) : null}
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <span className="text-xs muted">{t("section.orchestrators")}</span>
           <div className="row-wrap">
@@ -146,6 +250,7 @@ function HostCard({ host, providers }: { host: HostSummaryEntry; providers: Prov
           <ActionButton
             variant="ghost"
             size="sm"
+            disabled={host.status !== "connected" || host.providerIds.length === 0}
             onClick={() => {
               setSelectedHost(host.id);
               navigate("/workloads");
@@ -154,6 +259,18 @@ function HostCard({ host, providers }: { host: HostSummaryEntry; providers: Prov
             <IconExternal size={14} />
             {t("action.openWorkloads")}
           </ActionButton>
+          {host.connection === "remote-agent" ? (
+            <ActionButton
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (!window.confirm(t("agent.revokeConfirm"))) return;
+                void api.revokeAgentHost(host.id).then(onRevoked).catch(onError);
+              }}
+            >
+              {t("agent.revoke")}
+            </ActionButton>
+          ) : null}
         </div>
       </div>
     </div>

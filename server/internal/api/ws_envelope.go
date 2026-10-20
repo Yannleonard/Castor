@@ -45,6 +45,7 @@ const (
 	wsErrUnsupported    = "unsupported"
 	wsErrSessionRevoked = "session_revoked"
 	wsErrBadRequest     = "bad_request"
+	wsErrUnavailable    = "host_unavailable"
 	// wsErrAALRequired mirrors the REST aal_required (403) error: the exec
 	// subscription needs TOTP step-up that the session has not satisfied.
 	wsErrAALRequired = "aal_required"

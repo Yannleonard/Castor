@@ -1,0 +1,38 @@
+# Website announcement authoring/API service.
+# Mount /admin behind the website's HTTPS proxy in production. Keep port 8099
+# private; Castor reads /api/announcements/current over the shared/private network.
+# Provide all required variables through the server's protected Compose .env file.
+services:
+  communications:
+    build:
+      context: ../..
+      dockerfile: website/communications/Dockerfile
+    image: castor-website-communications:local
+    container_name: castor-website-communications
+    restart: unless-stopped
+    environment:
+      CASTOR_ANNOUNCEMENTS_ADMIN_TOKEN: ${CASTOR_ANNOUNCEMENTS_ADMIN_TOKEN:?Configure the announcements admin token}
+      CASTOR_CUSTOMERS_ADMIN_USERNAME: ${CASTOR_CUSTOMERS_ADMIN_USERNAME:?Configure customer admin username}
+      CASTOR_CUSTOMERS_ADMIN_PASSWORD: ${CASTOR_CUSTOMERS_ADMIN_PASSWORD:?Configure a strong customer admin password}
+      CASTOR_CUSTOMER_NOTIFICATION_EMAIL: ${CASTOR_CUSTOMER_NOTIFICATION_EMAIL:-yleonard@gtek-it.fr}
+    ports:
+      - "127.0.0.1:8099:8099"
+    volumes:
+      - castor-website-announcements:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8099/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  castor-website-announcements:
+    name: castor-website-announcements

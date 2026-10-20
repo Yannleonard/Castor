@@ -82,10 +82,11 @@ export function Workloads() {
 
   const query = useWorkloads(hostId, { all: showAll, kind: kind || undefined });
   const workloads = query.data ?? EMPTY_WORKLOADS;
+  const isRemoteHost = hostId !== "local";
 
   // Cached image-update statuses (server-side periodic checks), keyed by
   // container id for O(1) badge lookups per row.
-  const updatesQuery = useUpdates(hostId);
+  const updatesQuery = useUpdates(hostId, { enabled: !isRemoteHost });
   const updatesById = useMemo(() => {
     const map = new Map<string, UpdateStatus>();
     for (const u of updatesQuery.data ?? []) map.set(u.containerId, u);
@@ -111,6 +112,7 @@ export function Workloads() {
   // On-demand registry sweep: the POST blocks until the server has re-checked
   // every image, so fresh statuses are ready as soon as it resolves.
   const runCheckUpdates = async () => {
+    if (isRemoteHost) return;
     setCheckingUpdates(true);
     toast.success(tr(workloadsDict, "toast.updateCheckStartedTitle"), tr(workloadsDict, "toast.updateCheckStartedBody"));
     try {
@@ -233,7 +235,7 @@ export function Workloads() {
                 {cleanName(w.name)}
               </span>
               {w.protected ? <ProtectedTag /> : null}
-              {upd?.updateAvailable ? (
+              {!isRemoteHost && upd?.updateAvailable ? (
                 <span
                   className="pill"
                   style={{ background: "var(--info-bg)", color: "var(--accent)" }}
@@ -364,7 +366,7 @@ export function Workloads() {
                 </ActionButton>
               )}
             </CapabilityGate>
-            <CapabilityGate
+            {!isRemoteHost ? <CapabilityGate
               allowed={can("docker.image.pull")}
               reason={t("gate.needImagePull")}
             >
@@ -380,7 +382,7 @@ export function Workloads() {
                   {t("header.checkUpdates")}
                 </ActionButton>
               )}
-            </CapabilityGate>
+            </CapabilityGate> : null}
             <ActionButton variant="ghost" iconOnly tooltip={t("header.refresh")} onClick={() => query.refetch()} aria-label={t("header.refresh")}>
               <IconRefresh size={16} />
             </ActionButton>

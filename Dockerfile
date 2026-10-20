@@ -34,16 +34,21 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY server/ ./server/
 
+# Build the Linux agent artifacts before compiling the server so go:embed can
+# package both supported remote-host architectures into the Castor binary.
+RUN --mount=type=cache,target=/go/pkg/mod \
+  --mount=type=cache,target=/root/.cache/go-build \
+  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o server/internal/api/agent-binaries/castor-agent-linux-amd64 ./server/cmd/castor-agent && \
+  CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o server/internal/api/agent-binaries/castor-agent-linux-arm64 ./server/cmd/castor-agent
+
 # go:embed (server/web/embed.go) reads server/web/dist; the UI must be in place before go build.
 COPY --from=ui /server/web/dist ./server/web/dist
 
 # Version stamping; buildx provides TARGETOS/TARGETARCH.
-ARG VERSION=dev
-ARG COMMIT=none
 ARG TARGETOS
 ARG TARGETARCH
 
-# Static, trimmed binary. Keep CGO_ENABLED=0 (modernc.org/sqlite is pure Go).
+# Static, trimmed binaries. Keep CGO_ENABLED=0 (modernc.org/sqlite is pure Go).
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
@@ -53,7 +58,13 @@ RUN --mount=type=cache,target=/go/pkg/mod \
         -X github.com/gtek-it/castor/server/internal/version.Commit=${COMMIT}" \
       -o /out/castor ./server/cmd/castor
 
-RUN test -s /out/castor
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
+    go build -trimpath -ldflags="-s -w" \
+      -o /out/castor-agent ./server/cmd/castor-agent
+
+RUN test -s /out/castor && test -s /out/castor-agent
 
 # Empty /data owned by the runtime uid:gid (65532), copied into the final image below.
 RUN install -d -o 65532 -g 65532 -m 0750 /data
@@ -73,6 +84,7 @@ LABEL org.opencontainers.image.title="Castor by IT Leonard" \
       org.opencontainers.image.documentation="https://github.com/Yannleonard/Castor#readme"
 
 COPY --from=build /out/castor /usr/local/bin/castor
+COPY --from=build /out/castor-agent /usr/local/bin/castor-agent
 
 # /data is owned by uid:gid 65532; a bind mount must be chowned to 65532 as well.
 COPY --from=build --chown=65532:65532 /data /data

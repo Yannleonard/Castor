@@ -7,15 +7,22 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/coder/websocket"
+	"github.com/go-chi/chi/v5"
+	"github.com/gtek-it/castor/server/internal/agent"
 	"github.com/gtek-it/castor/server/internal/authz"
 	"github.com/gtek-it/castor/server/internal/cache"
 	"github.com/gtek-it/castor/server/internal/config"
 	"github.com/gtek-it/castor/server/internal/provider"
+	"github.com/gtek-it/castor/server/internal/provider/docker"
 	"github.com/gtek-it/castor/server/internal/store"
 	"github.com/gtek-it/castor/server/internal/tlsmgr"
 	"github.com/gtek-it/castor/server/internal/updates"
@@ -40,6 +47,30 @@ type Server struct {
 	// (409) instead of racing on the working tree. Guarded by stackLocksMu.
 	stackLocksMu sync.Mutex
 	stackLocks   map[string]*sync.Mutex
+
+	agentMu    sync.Mutex
+	agentConns map[string]*agentConnection
+	agentLimit chan struct{}
+}
+
+func dockerProviderIDForHost(hostID string) string {
+	if hostID == cache.HostID {
+		return docker.ProviderID
+	}
+	return hostID
+}
+
+func (s *Server) hostDockerProvider(r *http.Request) (*docker.DockerProvider, bool) {
+	hostID := chi.URLParam(r, "hostID")
+	if hostID == "" {
+		return nil, false
+	}
+	p, ok := s.reg.Get(dockerProviderIDForHost(hostID))
+	if !ok {
+		return nil, false
+	}
+	dp, ok := p.(*docker.DockerProvider)
+	return dp, ok
 }
 
 // NewServer constructs the API server.
@@ -65,6 +96,90 @@ func NewServer(cfg *config.Config, st *store.Store, az *authz.Deps, guard *authz
 		manager:    mgr,
 		reg:        reg,
 		stackLocks: make(map[string]*sync.Mutex),
+		agentConns: make(map[string]*agentConnection),
+		agentLimit: make(chan struct{}, 128),
+	}
+}
+
+type agentConnection struct {
+	conn      *websocket.Conn
+	tunnel    *agent.Tunnel
+	done      chan struct{}
+	closeOnce sync.Once
+	lastSeen  atomic.Int64
+}
+
+func (s *Server) writeAgentJSON(ctx context.Context, id string, conn *websocket.Conn, v any) error {
+	s.agentMu.Lock()
+	state := s.agentConns[id]
+	var tunnel *agent.Tunnel
+	if state != nil {
+		tunnel = state.tunnel
+	}
+	s.agentMu.Unlock()
+	if state == nil || state.conn != conn || tunnel == nil {
+		return errors.New("agent unavailable")
+	}
+	payload, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return tunnel.SendText(ctx, payload)
+}
+
+func (s *Server) setAgentTunnel(id string, conn *websocket.Conn, tunnel *agent.Tunnel) {
+	s.agentMu.Lock()
+	if state := s.agentConns[id]; state != nil && state.conn == conn {
+		state.tunnel = tunnel
+	}
+	s.agentMu.Unlock()
+}
+
+// OpenAgentStream opens a stream to the Docker socket of one authenticated agent.
+func (s *Server) OpenAgentStream(ctx context.Context, id string) (net.Conn, error) {
+	s.agentMu.Lock()
+	state := s.agentConns[id]
+	var tunnel *agent.Tunnel
+	if state != nil {
+		tunnel = state.tunnel
+	}
+	s.agentMu.Unlock()
+	if tunnel == nil || !s.agentHostLive(id) {
+		return nil, errors.New("agent unavailable")
+	}
+	return tunnel.Open(ctx)
+}
+
+func (s *Server) registerAgentConnection(id string, conn *websocket.Conn) bool {
+	s.agentMu.Lock()
+	defer s.agentMu.Unlock()
+	if _, exists := s.agentConns[id]; exists {
+		return false
+	}
+	state := &agentConnection{conn: conn, done: make(chan struct{})}
+	state.lastSeen.Store(time.Now().UnixNano())
+	s.agentConns[id] = state
+	return true
+}
+
+func (s *Server) unregisterAgentConnection(id string, conn *websocket.Conn) {
+	s.agentMu.Lock()
+	state := s.agentConns[id]
+	if state != nil && state.conn == conn {
+		delete(s.agentConns, id)
+		state.closeOnce.Do(func() { close(state.done) })
+	}
+	s.agentMu.Unlock()
+	if state == nil || state.conn != conn {
+		return
+	}
+	if state.tunnel != nil {
+		state.tunnel.Close()
+	}
+	if p, ok := s.reg.Unregister(id); ok {
+		if closer, ok := p.(interface{ Close() error }); ok {
+			_ = closer.Close()
+		}
 	}
 }
 

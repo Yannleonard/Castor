@@ -406,7 +406,7 @@
   .app-content { padding: var(--sp-3); }
 
   /* Compact topbar: less side padding, smaller gaps so controls fit ~375px. */
-  .topbar { padding: 0 var(--sp-3); gap: var(--sp-2); }
+  .topbar { height: auto; min-height: var(--topbar-h); flex-wrap: wrap; padding: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
 }
 
 /* The hamburger toggle only exists on phones; hidden on wider viewports where

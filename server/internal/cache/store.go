@@ -89,6 +89,13 @@ func (s *Store) replaceDocker(hostID string, wls []provider.Workload, imgs []doc
 	snap.Degraded = false
 }
 
+// remove deletes one host's entire snapshot (called when its provider exits).
+func (s *Store) Remove(hostID string) {
+	s.mu.Lock()
+	delete(s.snapshots, hostID)
+	s.mu.Unlock()
+}
+
 // replaceSwarm atomically swaps the swarm portion of a host snapshot.
 func (s *Store) replaceSwarm(hostID string, tasks []provider.Workload, services []swarm.ServiceInfo, nodes []swarm.NodeInfo) {
 	s.mu.Lock()

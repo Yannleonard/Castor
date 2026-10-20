@@ -33,7 +33,15 @@ durcie non-root.
 | **Docker Swarm** | Services (créer / scaler / mettre à jour / redémarrer / supprimer), nœuds (drainer / réactiver), secrets & configs |
 | **Kubernetes** | Pods, deployments, statefulsets, daemonsets, jobs & cronjobs (scaler / redémarrer / supprimer / lancer), apply YAML, HPA, stockage, métriques, exec & logs, Helm (dépôts, installation / mise à jour avec aperçu / rollback) — via un kubeconfig monté |
 
-Les agents multi-hôtes sont prévus pour la V2.
+**Les hôtes Docker Linux distants** peuvent être enrôlés par un administrateur
+depuis la vue Hosts. Chaque hôte exécute un petit agent Castor qui ouvre une
+connexion TLS sortante et authentifiée vers le serveur : aucun port Docker
+entrant n'est nécessaire. Depuis une interface unique, Castor gère les
+workloads autonomes, images, réseaux et volumes pris en charge sur les hôtes
+enrôlés. Swarm, Kubernetes, Helm, les stacks Compose et la vérification des
+mises à jour d'images restent locaux pour le moment. Consultez le
+[guide d'exploitation des hôtes distants](docs/runbooks/install.fr.md#hôtes-docker-linux-distants)
+pour le modèle de sécurité, l'enrôlement et les limites actuelles.
 
 ---
 
@@ -43,7 +51,17 @@ Les agents multi-hôtes sont prévus pour la V2.
 - **Notifications sortantes** — Discord, Slack, [ntfy](https://ntfy.sh) ou n'importe quel webhook, sur les événements *conteneur down* et *mise à jour d'image disponible*.
 - **Personal Access Tokens + métriques Prometheus** — appelez l'API avec des jetons `Authorization: Bearer` et scrapez `/metrics`.
 - **Entretien intégré** — pause/reprise des conteneurs, création de réseaux et de volumes, prune des images / conteneurs / volumes / réseaux depuis l'UI.
+- **Gestion Docker multi-hôtes** — enrôlez des hôtes Linux distants via une connexion sortante d'agent et gérez les ressources Docker prises en charge depuis une interface unique.
 - **UX soignée** — mode sombre (Clair / Sombre / Système), une checklist d'onboarding « Getting started » et une aide contextuelle bilingue (FR/EN) sur chaque vue.
+
+> **Périmètre de confiance des agents distants :** un agent enrôlé dispose de
+> privilèges équivalents à root sur son hôte via le socket Docker. N'enrôlez que
+> des machines que vous administrez, protégez le secret à usage unique et
+> l'identité persistante de l'agent, et révoquez les hôtes dès que l'accès n'est
+> plus nécessaire. Le checksum affiché par l'interface détecte une corruption
+> de transfert, mais n'est pas une signature indépendante. Lisez les
+> [consignes de sécurité pour les hôtes distants](docs/runbooks/install.fr.md#hôtes-docker-linux-distants)
+> avant d'activer cette fonctionnalité.
 
 ---
 
@@ -196,6 +214,7 @@ Avec un toolchain Go + Node local, `make build`, `make docker-build` et `make ve
 - Vue d'ensemble sécurité — [`docs/runbooks/security.md`](docs/runbooks/security.md)
 - Fichiers de déploiement — [`deploy/`](deploy/)
 - Décisions d'architecture — [`docs/adr/`](docs/adr/)
+- Conception des hôtes distants — [`docs/adr/ADR-CASTOR-004-multi-host-agents.md`](docs/adr/ADR-CASTOR-004-multi-host-agents.md)
 - Contribuer — [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ## 🤝 Contribuer

@@ -38,6 +38,11 @@ func (s *Server) Prune(w http.ResponseWriter, r *http.Request) {
 	if req.Dangling != nil {
 		dangling = *req.Dangling
 	}
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
 
 	var (
 		rep *docker.PruneReport
@@ -45,13 +50,13 @@ func (s *Server) Prune(w http.ResponseWriter, r *http.Request) {
 	)
 	switch req.Target {
 	case "images":
-		rep, err = s.manager.Docker().PruneImages(r.Context(), dangling)
+		rep, err = dp.PruneImages(r.Context(), dangling)
 	case "containers":
-		rep, err = s.manager.Docker().PruneContainers(r.Context())
+		rep, err = dp.PruneContainers(r.Context())
 	case "volumes":
-		rep, err = s.manager.Docker().PruneVolumes(r.Context())
+		rep, err = dp.PruneVolumes(r.Context())
 	case "networks":
-		rep, err = s.manager.Docker().PruneNetworks(r.Context())
+		rep, err = dp.PruneNetworks(r.Context())
 	default:
 		authz.WriteError(w, r, authz.Errorf(authz.ErrValidation,
 			"Invalid prune target (want images|containers|volumes|networks)."))

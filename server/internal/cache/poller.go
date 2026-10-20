@@ -154,6 +154,47 @@ func (m *Manager) pollDocker(ctx context.Context) {
 	m.broker.Publish(StateEvent{HostID: HostID, Action: "snapshot.replaced", Kind: ""})
 }
 
+// RunRemoteDockerPoller owns the snapshot lifecycle for one remote Docker
+// provider. It returns when the authenticated agent connection is cancelled.
+func (m *Manager) RunRemoteDockerPoller(ctx context.Context, hostID string, remote *docker.DockerProvider) {
+	if hostID == "" || hostID == HostID || remote == nil {
+		return
+	}
+	poll := func() {
+		cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		defer cancel()
+		wls, err := remote.ListWorkloads(cctx, listAll())
+		if err != nil {
+			m.store.markDegraded(hostID)
+			return
+		}
+		imgs, _ := remote.ListImages(cctx)
+		nets, _ := remote.ListNetworks(cctx)
+		vols, _ := remote.ListVolumes(cctx)
+		m.store.replaceDocker(hostID, wls, imgs, nets, vols)
+		if info, err := remote.Info(cctx); err == nil {
+			m.store.setEngine(hostID, info)
+		}
+		m.broker.Publish(StateEvent{HostID: hostID, Action: "snapshot.replaced"})
+	}
+	poll()
+	interval := m.cfg.DockerSnapshotInterval
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			m.store.Remove(hostID)
+			return
+		case <-ticker.C:
+			poll()
+		}
+	}
+}
+
 func (m *Manager) runSwarmPoller(ctx context.Context) {
 	// Initial poll, then ticker.
 	m.pollSwarm(ctx)

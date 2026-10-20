@@ -160,6 +160,11 @@ const MsgNetworkModeUnjoinable = "A container using host/none/container network 
 // explanation. The API maps it to HTTP 422.
 var ErrInvalidNetworkConfig = errors.New("provider: invalid network configuration")
 
+// ErrInvalidMountConfig is returned when Docker rejects a volume/bind mount
+// during container creation or start (for example, a host bind source path does
+// not exist). The wrapped detail is cleaned before being shown to the user.
+var ErrInvalidMountConfig = errors.New("provider: invalid volume mount configuration")
+
 // ErrForbidden is returned when a request is rejected by a server-side security
 // policy (not by missing RBAC, which is enforced earlier at the middleware). The
 // canonical case is ErrHostMountDenied below. The API maps it to HTTP 403.

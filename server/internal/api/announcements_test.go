@@ -6,8 +6,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/gtek-it/castor/server/internal/config"
 )
 
 func TestCurrentAnnouncementProxiesActiveFeed(t *testing.T) {
@@ -17,19 +15,21 @@ func TestCurrentAnnouncementProxiesActiveFeed(t *testing.T) {
 		_, _ = w.Write([]byte(`{"id":"release-1","kind":"update","title":"Castor 2","message":"Now available","link":"https://example.com/releases"}`))
 	}))
 	defer upstream.Close()
-	s := &Server{cfg: &config.Config{AnnouncementsURL: upstream.URL}}
 	w := httptest.NewRecorder()
-	s.CurrentAnnouncement(w, httptest.NewRequest(http.MethodGet, "/api/v1/announcements/current", nil))
+	proxyCurrentAnnouncement(w, httptest.NewRequest(http.MethodGet, "/api/v1/announcements/current", nil), upstream.URL)
 	if w.Code != http.StatusOK { t.Fatalf("status = %d, body=%s", w.Code, w.Body.String()) }
 	var got announcementResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil { t.Fatal(err) }
 	if got.ID != "release-1" || got.Kind != "update" { t.Fatalf("announcement = %#v", got) }
 }
 
-func TestCurrentAnnouncementNoServiceReturnsNoContent(t *testing.T) {
-	s := &Server{cfg: &config.Config{}}
+func TestCurrentAnnouncementNoActiveMessageReturnsNoContent(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer upstream.Close()
 	w := httptest.NewRecorder()
-	s.CurrentAnnouncement(w, httptest.NewRequest(http.MethodGet, "/api/v1/announcements/current", nil))
+	proxyCurrentAnnouncement(w, httptest.NewRequest(http.MethodGet, "/api/v1/announcements/current", nil), upstream.URL)
 	if w.Code != http.StatusNoContent { t.Fatalf("status = %d, want 204", w.Code) }
 }
 
@@ -38,17 +38,15 @@ func TestCurrentAnnouncementRejectsInvalidUpstreamPayload(t *testing.T) {
 		_, _ = w.Write([]byte(`{"id":"x","kind":"info","title":"bad","message":"x","link":"javascript:alert(1)"}`))
 	}))
 	defer upstream.Close()
-	s := &Server{cfg: &config.Config{AnnouncementsURL: upstream.URL}}
 	w := httptest.NewRecorder()
-	s.CurrentAnnouncement(w, httptest.NewRequest(http.MethodGet, "/", nil))
+	proxyCurrentAnnouncement(w, httptest.NewRequest(http.MethodGet, "/", nil), upstream.URL)
 	if w.Code != http.StatusBadGateway { t.Fatalf("status = %d, want 502", w.Code) }
 }
 
 func TestCurrentAnnouncementBoundsUpstreamResponse(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(strings.Repeat("x", announcementResponseLimit+10))) }))
 	defer upstream.Close()
-	s := &Server{cfg: &config.Config{AnnouncementsURL: upstream.URL}}
 	w := httptest.NewRecorder()
-	s.CurrentAnnouncement(w, httptest.NewRequest(http.MethodGet, "/", nil))
+	proxyCurrentAnnouncement(w, httptest.NewRequest(http.MethodGet, "/", nil), upstream.URL)
 	if w.Code != http.StatusBadGateway { t.Fatalf("status = %d, want 502", w.Code) }
 }

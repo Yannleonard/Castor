@@ -224,7 +224,12 @@ func (s *Server) TestRegistry(w http.ResponseWriter, r *http.Request) {
 	tctx, cancel := contextWithTimeout(r, registryTestTimeout)
 	defer cancel()
 
-	body, err := s.manager.Docker().Client().RegistryLogin(tctx, auth)
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
+		return
+	}
+	body, err := dp.Client().RegistryLogin(tctx, auth)
 	if err != nil {
 		// A failed auth is a normal, non-error API outcome: return ok:false with the
 		// daemon's message so the operator can fix the credential, not a 5xx.

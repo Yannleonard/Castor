@@ -67,4 +67,6 @@ a.announcement-ticker:hover { border-color: var(--accent); background: var(--bg-
   .announcement-title { max-width: 125px; }
   .announcement-image { width: 48px; }
 }
-@media (max-width: 640px) { .announcement-slot { display: none; } }
+@media (max-width: 640px) {
+  .announcement-slot { display: flex; flex: 1 0 100%; order: 1; }
+}

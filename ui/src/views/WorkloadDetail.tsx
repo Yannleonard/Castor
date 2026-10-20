@@ -77,7 +77,7 @@ export function WorkloadDetail() {
   const actions = useWorkloadActions(hostId);
 
   // Image-update status for this workload (shared cached query with the list).
-  const updatesQuery = useUpdates(hostId);
+  const updatesQuery = useUpdates(hostId, { enabled: hostId === "local" });
   const [updateOpen, setUpdateOpen] = useState(false);
 
   const [tab, setTab] = useState<TabKey>("overview");

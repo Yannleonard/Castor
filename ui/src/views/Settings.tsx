@@ -29,6 +29,7 @@ import { toast, toastError } from "../lib/toast";
 import { useT } from "../i18n";
 import { settingsDict } from "../i18n/locales/settings";
 import { TlsCard } from "./settings/TlsCard";
+import { ActivationCard } from "./settings/ActivationCard";
 import type {
   NotificationChannel,
   NotificationChannelInput,
@@ -205,6 +206,8 @@ export function Settings() {
       </div>
 
       <TlsCard />
+
+      <ActivationCard />
 
       <NotificationsSection />
     </div>

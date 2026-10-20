@@ -83,6 +83,42 @@ Utilisez un kubeconfig autonome (identifiants embarqués) dont l'URL du serveur 
 
 Pour changer, éditez la ligne du socket dans [`deploy/docker-compose.yml`](../../deploy/docker-compose.yml) et lancez `docker compose up -d`. Pour restreindre l'accès de Castor au démon, faites pointer `CASTOR_DOCKER_HOST` vers un docker-socket-proxy.
 
+## Hôtes Docker Linux distants
+
+Un administrateur peut enrôler un hôte Linux distant depuis **Hosts → Add host**.
+L'enrôlement exige un accès navigateur à Castor via HTTPS de confiance. L'agent
+ouvre ensuite une connexion WSS sortante vers Castor : n'exposez pas l'API
+Docker distante et n'ouvrez aucun port entrant pour l'agent. Celui-ci accède à
+`/var/run/docker.sock` et dispose donc des privilèges équivalents à root sur
+cette machine. Réservez l'enrôlement et la révocation aux administrateurs.
+
+1. Créez l'hôte dans Castor et choisissez l'architecture Linux cible.
+2. Téléchargez l'agent depuis l'interface Castor authentifiée sur l'hôte géré,
+  via un canal de transfert de confiance. Le SHA-256 affiché par l'interface
+  correspond aux octets téléchargés et détecte une corruption de transfert,
+  mais ne constitue **pas** une signature indépendante ni une preuve contre
+  un serveur Castor ou une chaîne de publication compromis.
+3. Comparez le checksum affiché au fichier transféré, installez-le sous
+  `/usr/local/bin/castor-agent`, puis lancez la commande indiquée depuis un
+  terminal protégé. Le secret d'enrôlement à usage unique est demandé sans
+  écho ; ne le placez ni dans l'historique shell, ni dans une unité systemd,
+  ni dans les arguments d'un processus.
+4. Conservez le fichier d'identité généré, privé et persistant au chemin choisi.
+  Les reconnexions utilisent l'identité Ed25519 ; le secret initial n'est plus
+  nécessaire.
+5. Vérifiez l'état **Connected** dans Hosts. Révoquez l'hôte avant de supprimer
+  ou remplacer l'identité de l'agent. La révocation ferme le tunnel actif et
+  supprime son inventaire mis en cache.
+
+Les workloads Docker autonomes, images, réseaux, volumes, sauvegardes, données
+du tableau de bord et déploiements de templates distants utilisent le tunnel de
+l'hôte. Swarm, Kubernetes, Helm, les stacks Compose et la vérification des mises
+à jour d'images restent actuellement locaux. L'interface désactive la
+navigation workloads hors ligne et l'API échoue sans basculer vers Docker local.
+La mise à niveau de l'agent et l'installation automatique d'un service ne sont
+pas encore fournies : remplacez le binaire par une procédure d'administration
+de confiance et redémarrez le service agent.
+
 ## Mise à jour
 
 ```bash

@@ -42,12 +42,14 @@ export type Capability =
   | "images"
   | "networks"
   | "volumes"
+  | "port-update"
   | "readonly";
 
 export interface Port {
   private: number;
   public?: number;
   protocol: string; // "tcp" | "udp" | "sctp"
+  hostIp?: string;
 }
 
 export interface Workload {
@@ -1128,6 +1130,13 @@ export interface SettingsResponse {
   "security.totp_required_for_mutations": boolean;
   "session.ttl_seconds": number;
   "security.protected_labels": string[];
+}
+
+export interface ActivationStatus {
+  active: boolean;
+  owner?: string;
+  activatedAt?: string;
+  hostName?: string;
 }
 
 export type SettingsPatch = Partial<

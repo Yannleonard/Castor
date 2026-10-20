@@ -40,8 +40,13 @@ func (s *Server) ListUpdates(w http.ResponseWriter, r *http.Request) {
 // returns the fresh statuses.
 func (s *Server) CheckUpdates(w http.ResponseWriter, r *http.Request) {
 	hostID := chi.URLParam(r, "hostID")
-	if _, found := s.manager.Store().Get(hostID); !found {
+	_, found := s.manager.Store().Get(hostID)
+	if !found {
 		authz.WriteError(w, r, authz.ErrNotFound)
+		return
+	}
+	if hostID != cache.HostID {
+		ok(w, []updates.UpdateStatus{})
 		return
 	}
 	authz.SetAuditTarget(r, "host", hostID, hostID)
@@ -90,9 +95,9 @@ func (s *Server) UpdateWorkload(w http.ResponseWriter, r *http.Request) {
 		authz.WriteError(w, r, err)
 		return
 	}
-	dp := s.manager.Docker()
-	if dp == nil {
-		authz.WriteError(w, r, authz.ErrInternal)
+	dp, available := s.hostDockerProvider(r)
+	if !available {
+		authz.WriteError(w, r, authz.ErrUnavailable)
 		return
 	}
 

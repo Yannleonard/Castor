@@ -159,6 +159,9 @@ func mapDeployCreateErr(err error) error {
 		return nerr
 	}
 	msg := strings.ToLower(err.Error())
+	if isMountConfigErr(msg) {
+		return fmt.Errorf("%w: %s", provider.ErrInvalidMountConfig, cleanDockerError(err.Error()))
+	}
 	if cerrdefs.IsConflict(err) ||
 		(strings.Contains(msg, "container name") && strings.Contains(msg, "already in use")) {
 		return provider.ErrNameConflict
@@ -181,6 +184,9 @@ func mapDeployStartErr(err error) error {
 		return nil
 	}
 	msg := strings.ToLower(err.Error())
+	if isMountConfigErr(msg) {
+		return fmt.Errorf("%w: %s", provider.ErrInvalidMountConfig, cleanDockerError(err.Error()))
+	}
 	if strings.Contains(msg, "port is already allocated") ||
 		strings.Contains(msg, "external connectivity") ||
 		(strings.Contains(msg, "bind") && strings.Contains(msg, "in use")) ||
@@ -191,6 +197,24 @@ func mapDeployStartErr(err error) error {
 		return nerr
 	}
 	return mapNotFound(err)
+}
+
+func isMountConfigErr(msg string) bool {
+	return (strings.Contains(msg, "mount") || strings.Contains(msg, "volume")) &&
+		(strings.Contains(msg, "no such file or directory") ||
+			strings.Contains(msg, "not a directory") ||
+			strings.Contains(msg, "invalid mount") ||
+			strings.Contains(msg, "mount path") ||
+			strings.Contains(msg, "mounts denied") ||
+			strings.Contains(msg, "does not exist") ||
+			strings.Contains(msg, "not found") ||
+			strings.Contains(msg, "permission denied"))
+}
+
+func cleanDockerError(msg string) string {
+	msg = strings.TrimSpace(msg)
+	msg = strings.TrimPrefix(msg, "Error response from daemon: ")
+	return strings.Join(strings.Fields(msg), " ")
 }
 
 // buildNetworkingConfig splits the spec's networks into the primary endpoint,
