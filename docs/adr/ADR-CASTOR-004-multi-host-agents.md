@@ -76,8 +76,18 @@ behind firewalls and must not expose an inbound Docker or agent port.
 Implemented slices: (1) transport/authentication and embedded Linux agent
 artifacts, (2) persistent host/enrollment lifecycle and host-keyed
 provider/cache, (3) host-aware standalone Docker routes with local-only guards
-for unsupported orchestrators, and (4) UI enrollment/download/revocation.
-Remaining before advertising remote full management: independently signed
-release artifacts, end-user lifecycle documentation, UI behavior tests, and
-remote update-check support. Docker image distribution currently offers a
-SHA-256 for transfer-error detection only, not independent authenticity.
+for unsupported orchestrators, (4) UI enrollment/download/revocation, and
+(5) agent version reporting with a read-only advisory when the server embeds a
+newer agent. Release builds publish amd64/arm64 binaries with GitHub build
+provenance attestations; verify downloaded binaries with `gh attestation verify`.
+The authenticated UI download still exposes only a SHA-256 transfer-integrity
+check and is not a substitute for independently verifying an official release.
+The release includes a systemd unit; initial enrollment remains interactive,
+and upgrades remain an explicit administrator action. There is no silent or
+automatic replacement of an agent with root-equivalent Docker access.
+
+This is not yet a claim of full remote-orchestrator parity: image update checks,
+Swarm, Kubernetes, Helm, and Compose stacks remain local-only. The advisory
+compares an agent's reported version with the agent embedded in the currently
+running server; it does not discover a newer public release when the server
+itself has not been updated.

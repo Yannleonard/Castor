@@ -93,18 +93,38 @@ therefore root-equivalent on that machine. Install and run it as a dedicated
 privileged service account/root, and restrict who can enroll or revoke hosts.
 
 1. Create the host in Castor and select the target Linux architecture.
-2. Download the agent from the authenticated Castor UI onto the managed host
-  using a trusted transfer path. The UI shows the SHA-256 of those downloaded
-  bytes; this detects transfer corruption only and is **not** independent
-  signature verification. Do not use this as proof against a compromised
-  Castor server or release pipeline.
-3. Verify the displayed checksum against the copied file, install it as
-  `/usr/local/bin/castor-agent`, and run the shown command in a protected
-  terminal. The one-time enrollment credential is prompted without echo; do
-  not put it in shell history, a unit file, or process arguments.
-4. Keep the generated identity file private and persistent at the selected
-  state path. The agent reconnects using its Ed25519 identity; it does not
-  need the one-time credential again.
+2. Prefer the versioned Linux agent attached to the official Castor GitHub
+  release. Verify its GitHub build-provenance attestation before installation:
+
+   ```bash
+   gh attestation verify ./castor-agent-linux-amd64 --repo Yannleonard/Castor
+   ```
+
+   Use the matching `arm64` asset on ARM64 hosts. A binary downloaded from the
+   running UI can still be used for initial enrollment, but its displayed
+   SHA-256 detects transfer corruption only; it is not independent signature
+   verification.
+3. Install the verified binary as `/usr/local/bin/castor-agent` and run the
+  enrollment command from the UI in a protected terminal. The one-time
+  enrollment credential is prompted without echo; do not put it in shell
+  history, a unit file, or process arguments. Wait for **Connected**, then stop
+  this foreground enrollment process with Ctrl+C.
+4. Keep the generated identity file private and persistent at
+  `/var/lib/castor-agent/identity.json`. Download `castor-agent.service` from
+  the same official release, install it, and replace its example WSS URL with
+  the Castor server URL before enabling it:
+
+   ```bash
+   sudo install -o root -g root -m 0600 ./castor-agent.service /etc/systemd/system/castor-agent.service
+   sudoedit /etc/systemd/system/castor-agent.service
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now castor-agent
+   sudo systemctl status castor-agent
+   ```
+
+   The unit runs as root because access to the Docker socket is root-equivalent.
+   It uses the persistent Ed25519 identity for reconnects and does not store or
+   need the one-time enrollment credential.
 5. Confirm **Connected** in Hosts. Revoke the host there before removing or
   replacing its agent identity. Revocation disconnects the active tunnel and
   removes its cached inventory.
@@ -113,9 +133,23 @@ Remote standalone Docker workloads, images, networks, volumes, backups,
 dashboard data, and template deployments use that host's tunnel. Swarm,
 Kubernetes, Helm, Compose stacks, and image-update checks are currently local
 only. The UI disables workload navigation while the remote host is unavailable;
-API operations fail closed rather than using local Docker. Agent upgrades and
-automatic service-manager installation are not yet provided; replace the
-binary through a trusted administrative process and restart the agent service.
+API operations fail closed rather than using local Docker. Hosts reports the
+agent version and advises when the running Castor server embeds a newer agent.
+This is an advisory comparison, not an unattended update. To upgrade, download
+the matching agent asset from the newer official release, verify its attestation
+as above, then replace the binary and restart the service:
+
+```bash
+sudo systemctl stop castor-agent
+sudo install -o root -g root -m 0750 ./castor-agent-linux-amd64 /usr/local/bin/castor-agent
+sudo systemctl start castor-agent
+sudo systemctl status castor-agent
+```
+
+Check the installed build with `castor-agent -version` and confirm **Connected**
+in Hosts. Keep a copy of the previous verified binary for rollback. Never
+download and execute an agent update automatically from the manager: the agent
+has root-equivalent Docker access.
 
 ## Update
 

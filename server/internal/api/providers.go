@@ -3,12 +3,14 @@ package api
 import (
 	"net/http"
 
+	semver "github.com/Masterminds/semver/v3"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/gtek-it/castor/server/internal/authz"
 	"github.com/gtek-it/castor/server/internal/cache"
 	"github.com/gtek-it/castor/server/internal/provider/docker"
 	"github.com/gtek-it/castor/server/internal/store"
+	buildversion "github.com/gtek-it/castor/server/internal/version"
 )
 
 type providerView struct {
@@ -33,14 +35,29 @@ func (s *Server) Providers(w http.ResponseWriter, r *http.Request) {
 }
 
 type hostView struct {
-	ID          string             `json:"id"`
-	Name        string             `json:"name"`
-	Kind        string             `json:"kind"`
-	Connection  string             `json:"connection"`
-	Status      string             `json:"status"`
-	ProviderIDs []string           `json:"providerIds"`
-	Degraded    bool               `json:"degraded"`
-	Engine      *docker.EngineInfo `json:"engine,omitempty"`
+	ID                   string             `json:"id"`
+	Name                 string             `json:"name"`
+	Kind                 string             `json:"kind"`
+	Connection           string             `json:"connection"`
+	Status               string             `json:"status"`
+	ProviderIDs          []string           `json:"providerIds"`
+	Degraded             bool               `json:"degraded"`
+	Engine               *docker.EngineInfo `json:"engine,omitempty"`
+	AgentVersion         string             `json:"agentVersion,omitempty"`
+	CurrentAgentVersion  string             `json:"currentAgentVersion,omitempty"`
+	AgentUpdateAvailable bool               `json:"agentUpdateAvailable"`
+}
+
+func agentUpdateAvailable(reported string) bool {
+	if reported == "" || buildversion.Version == "" || buildversion.Version == "dev" {
+		return false
+	}
+	current, err := semver.NewVersion(buildversion.Version)
+	if err != nil {
+		return false
+	}
+	installed, err := semver.NewVersion(reported)
+	return err == nil && current.GreaterThan(installed)
 }
 
 // hostStatusForAPI trusts remote-agent status only while a live authenticated
@@ -111,14 +128,17 @@ func (s *Server) Hosts(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		out = append(out, hostView{
-			ID:          h.ID,
-			Name:        h.Name,
-			Kind:        h.Kind,
-			Connection:  h.Connection,
-			Status:      status,
-			ProviderIDs: providerIDs,
-			Degraded:    degraded,
-			Engine:      engine,
+			ID:                   h.ID,
+			Name:                 h.Name,
+			Kind:                 h.Kind,
+			Connection:           h.Connection,
+			Status:               status,
+			ProviderIDs:          providerIDs,
+			Degraded:             degraded,
+			Engine:               engine,
+			AgentVersion:         h.AgentVersion,
+			CurrentAgentVersion:  buildversion.Version,
+			AgentUpdateAvailable: h.Connection == "remote-agent" && agentUpdateAvailable(h.AgentVersion),
 		})
 	}
 	ok(w, out)
@@ -184,14 +204,17 @@ func (s *Server) HostDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	authz.WriteJSON(w, http.StatusOK, map[string]any{
-		"id":          h.ID,
-		"name":        h.Name,
-		"kind":        h.Kind,
-		"connection":  h.Connection,
-		"status":      status,
-		"providerIds": providerIDs,
-		"degraded":    s.manager.Store().IsDegraded(hostID),
-		"summary":     summary,
-		"engine":      snap.Engine,
+		"id":                   h.ID,
+		"name":                 h.Name,
+		"kind":                 h.Kind,
+		"connection":           h.Connection,
+		"status":               status,
+		"providerIds":          providerIDs,
+		"degraded":             s.manager.Store().IsDegraded(hostID),
+		"summary":              summary,
+		"engine":               snap.Engine,
+		"agentVersion":         h.AgentVersion,
+		"currentAgentVersion":  buildversion.Version,
+		"agentUpdateAvailable": h.Connection == "remote-agent" && agentUpdateAvailable(h.AgentVersion),
 	})
 }

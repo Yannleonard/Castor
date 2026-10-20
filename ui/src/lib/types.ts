@@ -138,6 +138,9 @@ export interface HostSummaryEntry {
   providerIds: string[];
   degraded: boolean;
   engine?: EngineInfo | null;
+  agentVersion?: string;
+  currentAgentVersion?: string;
+  agentUpdateAvailable?: boolean;
 }
 
 export interface HostSummaryCounts {

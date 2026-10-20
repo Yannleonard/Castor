@@ -95,6 +95,7 @@ const agentMaxTunnelFrame = 5 + 32<<10
 
 type agentFrame struct {
 	Type      string `json:"type"`
+	Version   string `json:"version,omitempty"`
 	HostID    string `json:"hostId,omitempty"`
 	Token     string `json:"token,omitempty"`
 	PublicKey string `json:"publicKey,omitempty"`
@@ -164,6 +165,10 @@ func (s *Server) AgentConnect(w http.ResponseWriter, r *http.Request) {
 		_ = conn.Close(websocket.StatusPolicyViolation, "invalid agent credential")
 		return
 	}
+	if !validAgentVersion(hello.Version) {
+		_ = conn.Close(websocket.StatusPolicyViolation, "invalid agent version")
+		return
+	}
 	if (hello.Token != "" && hello.HostID != "") || (hello.Token == "" && hello.HostID == "") {
 		_ = conn.Close(websocket.StatusPolicyViolation, "invalid agent identity")
 		return
@@ -202,6 +207,7 @@ func (s *Server) AgentConnect(w http.ResponseWriter, r *http.Request) {
 		_ = conn.Close(websocket.StatusPolicyViolation, "agent already connected")
 		return
 	}
+	defer s.setAgentDown(hostID)
 	defer s.unregisterAgentConnection(hostID, conn)
 	tunnel := agent.NewTunnel(r.Context(), conn)
 	s.setAgentTunnel(hostID, conn, tunnel)
@@ -223,7 +229,10 @@ func (s *Server) AgentConnect(w http.ResponseWriter, r *http.Request) {
 		_ = conn.Close(websocket.StatusPolicyViolation, "agent revoked")
 		return
 	}
-	defer s.setAgentDown(hostID)
+	if err := s.store.SetAgentVersion(r.Context(), hostID, hello.Version); err != nil {
+		_ = conn.Close(websocket.StatusInternalError, "agent metadata unavailable")
+		return
+	}
 	s.touchAgent(hostID, conn)
 	go s.heartbeatAgent(r.Context(), hostID, conn)
 	if err := s.writeAgentJSON(r.Context(), hostID, conn, map[string]string{"type": "ready", "hostId": hostID}); err != nil {
@@ -269,6 +278,19 @@ func (s *Server) AgentConnect(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func validAgentVersion(value string) bool {
+	if len(value) > 64 {
+		return false
+	}
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || strings.ContainsRune(".+_-", r) {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func newAgentChallenge() ([]byte, error) {

@@ -16,10 +16,16 @@ import (
 )
 
 func main() {
+	showVersion := flag.Bool("version", false, "print the agent version and exit")
+	serviceMode := flag.Bool("service", false, "run non-interactively using an existing enrolled identity")
 	serverURL := flag.String("server", "", "fixed Castor WSS URL (wss://host/api/v1/agent/ws)")
 	statePath := flag.String("state", "/var/lib/castor-agent/identity.json", "private identity state file")
 	caFile := flag.String("ca", "", "additional CA PEM for private/self-signed Castor TLS")
 	flag.Parse()
+	if *showVersion {
+		fmt.Printf("castor-agent %s\n", agent.Version)
+		return
+	}
 	if *serverURL == "" || *serverURL != strings.TrimSpace(*serverURL) {
 		fmt.Fprintln(os.Stderr, "castor-agent: -server is required")
 		os.Exit(2)
@@ -28,7 +34,9 @@ func main() {
 	// Read the one-time credential only from an interactive terminal so it is
 	// not present in process arguments, shell history, or environment dumps.
 	var token string
-	if f, err := os.OpenFile("/dev/tty", os.O_RDWR, 0); err == nil {
+	if *serviceMode {
+		token = ""
+	} else if f, err := os.OpenFile("/dev/tty", os.O_RDWR, 0); err == nil {
 		defer f.Close()
 		fmt.Fprint(f, "Enrollment token (leave empty to reconnect): ")
 		line, readErr := term.ReadPassword(int(f.Fd()))
@@ -47,6 +55,12 @@ func main() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "castor-agent: invalid configuration")
 		os.Exit(2)
+	}
+	if *serviceMode {
+		if err := client.RequireEnrolled(); err != nil {
+			fmt.Fprintln(os.Stderr, "castor-agent: service mode requires a valid enrolled identity")
+			os.Exit(2)
+		}
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

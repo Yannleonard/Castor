@@ -26,8 +26,8 @@ type User struct {
 	FailedLogins       int    `json:"-"`
 	LockedUntil        *int64 `json:"-"`
 	LastLoginAt        *int64 `json:"lastLoginAt,omitempty"`
-	AuthSource         string `json:"authSource"`           // local|ldap|oidc
-	ExternalID         string `json:"-"`                    // IdP subject (empty for local)
+	AuthSource         string `json:"authSource"`                   // local|ldap|oidc
+	ExternalID         string `json:"-"`                            // IdP subject (empty for local)
 	ExternalProviderID string `json:"externalProviderId,omitempty"` // -> auth_providers.id
 	CreatedAt          int64  `json:"createdAt"`
 	UpdatedAt          int64  `json:"updatedAt"`
@@ -99,14 +99,15 @@ type AuditEntry struct {
 
 // Host is a row of the registered_hosts table.
 type Host struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Kind       string `json:"kind"`
-	Connection string `json:"connection"`
-	Endpoint   string `json:"endpoint"`
-	Status     string `json:"status"`
-	LastSeenAt *int64 `json:"lastSeenAt,omitempty"`
-	CreatedAt  int64  `json:"createdAt"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Kind         string `json:"kind"`
+	Connection   string `json:"connection"`
+	Endpoint     string `json:"endpoint"`
+	Status       string `json:"status"`
+	AgentVersion string `json:"agentVersion,omitempty"`
+	LastSeenAt   *int64 `json:"lastSeenAt,omitempty"`
+	CreatedAt    int64  `json:"createdAt"`
 }
 
 // Backup is a row of the backups table: a volume tar archive produced by

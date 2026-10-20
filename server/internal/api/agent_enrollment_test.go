@@ -13,7 +13,38 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gtek-it/castor/server/internal/authz"
 	"github.com/gtek-it/castor/server/internal/store"
+	buildversion "github.com/gtek-it/castor/server/internal/version"
 )
+
+func TestAgentVersionValidationAndUpdateAdvisory(t *testing.T) {
+	for _, value := range []string{"", "dev", "v1.4.0", "v1.4.0-rc.1", "1.4.0+build.2"} {
+		if !validAgentVersion(value) {
+			t.Errorf("validAgentVersion(%q)=false", value)
+		}
+	}
+	for _, value := range []string{strings.Repeat("a", 65), "v1.0.0\n", "v1.0.0/evil"} {
+		if validAgentVersion(value) {
+			t.Errorf("validAgentVersion(%q)=true", value)
+		}
+	}
+
+	previous := buildversion.Version
+	t.Cleanup(func() { buildversion.Version = previous })
+	buildversion.Version = "v1.5.0"
+	for _, tc := range []struct {
+		reported string
+		want     bool
+	}{
+		{reported: "v1.4.0", want: true},
+		{reported: "v1.5.0", want: false},
+		{reported: "v1.6.0", want: false},
+		{reported: "dev", want: false},
+	} {
+		if got := agentUpdateAvailable(tc.reported); got != tc.want {
+			t.Errorf("agentUpdateAvailable(%q)=%t, want %t", tc.reported, got, tc.want)
+		}
+	}
+}
 
 func TestAgentHostEnrollmentIssuesDigestBackedSingleUseCredential(t *testing.T) {
 	e := newTestEnv(t)

@@ -27,9 +27,10 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write  # create GitHub release and upload standalone agent assets
   packages: write   # push to GHCR
   id-token: write   # provenance/attestations
+  attestations: write
 
 env:
   REGISTRY: ghcr.io
@@ -46,11 +47,18 @@ jobs:
 
       - name: Resolve version
         id: ver
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
-            VER="${{ inputs.version }}"
-          else
-            VER="${GITHUB_REF_NAME}"   # the tag, e.g. v0.1.0
+          VER="${GITHUB_REF_NAME}"   # release workflows must run from the version tag
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "$REQUESTED_VERSION" ] && [ "$REQUESTED_VERSION" != "$VER" ]; then
+            echo "Requested version must match the selected Git ref ($VER)." >&2
+            exit 1
+          fi
+          if ! echo "$VER" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-].*)?$'; then
+            echo "Release workflow must run from a v-prefixed version tag, got: $VER" >&2
+            exit 1
           fi
           echo "version=${VER}" >> "$GITHUB_OUTPUT"
           echo "commit=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
@@ -60,6 +68,27 @@ jobs:
           else
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.8"
+
+      - name: Build standalone Linux agent assets
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          mkdir -p dist
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath \
+              -ldflags="-s -w -X github.com/gtek-it/castor/server/internal/agent.Version=${VERSION}" \
+              -o "dist/castor-agent-linux-${arch}" ./server/cmd/castor-agent
+          done
+
+      - name: Attest agent binaries
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/castor-agent-linux-*
 
       - name: Set up QEMU (arm64 emulation)
         uses: docker/setup-qemu-action@v3
@@ -122,3 +151,16 @@ jobs:
             echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.ver.outputs.version }}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish signed agent assets on the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release upload "$VERSION" dist/castor-agent-linux-amd64 dist/castor-agent-linux-arm64 \
+              server/cmd/castor-agent/castor-agent.service --clobber
+          else
+            gh release create "$VERSION" dist/castor-agent-linux-amd64 dist/castor-agent-linux-arm64 \
+              server/cmd/castor-agent/castor-agent.service --verify-tag --title "Castor $VERSION" --generate-notes
+          fi

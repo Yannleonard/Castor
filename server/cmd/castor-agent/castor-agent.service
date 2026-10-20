@@ -1,0 +1,23 @@
+[Unit]
+Description=Castor remote Docker host agent
+Documentation=https://github.com/Yannleonard/Castor
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/bin/castor-agent -service -server wss://castor.example.com/api/v1/agent/ws -state /var/lib/castor-agent/identity.json
+Restart=always
+RestartSec=5s
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/castor-agent
+
+[Install]
+WantedBy=multi-user.target

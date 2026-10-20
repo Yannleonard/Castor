@@ -10,21 +10,40 @@ import (
 
 var ErrLocalHost = errors.New("store: the local host cannot be revoked")
 
-const hostCols = `id, name, kind, connection, endpoint, status, last_seen_at, created_at`
+const hostCols = `id, name, kind, connection, endpoint, status, agent_version, last_seen_at, created_at`
 
 func scanHost(row interface{ Scan(...any) error }) (*Host, error) {
 	var h Host
 	var endpoint sql.NullString
+	var agentVersion sql.NullString
 	var lastSeen sql.NullInt64
-	if err := row.Scan(&h.ID, &h.Name, &h.Kind, &h.Connection, &endpoint, &h.Status, &lastSeen, &h.CreatedAt); err != nil {
+	if err := row.Scan(&h.ID, &h.Name, &h.Kind, &h.Connection, &endpoint, &h.Status, &agentVersion, &lastSeen, &h.CreatedAt); err != nil {
 		return nil, err
 	}
 	h.Endpoint = endpoint.String
+	h.AgentVersion = agentVersion.String
 	if lastSeen.Valid {
 		v := lastSeen.Int64
 		h.LastSeenAt = &v
 	}
 	return &h, nil
+}
+
+// SetAgentVersion records the version reported over an authenticated agent
+// connection. Empty versions from older agents do not erase known metadata.
+func (s *Store) SetAgentVersion(ctx context.Context, id, agentVersion string) error {
+	if agentVersion == "" {
+		return nil
+	}
+	res, err := s.db.ExecContext(ctx, `UPDATE registered_hosts SET agent_version = ?
+		WHERE id = ? AND connection = 'remote-agent' AND status != 'revoked' AND agent_pubkey IS NOT NULL`, agentVersion, id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // ListHosts returns all registered hosts.

@@ -82,6 +82,28 @@ func TestIdentityStateRejectsInsecurePermissions(t *testing.T) {
 	}
 }
 
+func TestRequireEnrolledAllowsOnlyBoundIdentity(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "identity.json")
+	c, err := New("wss://castor.example", path, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.RequireEnrolled(); err == nil {
+		t.Fatal("service mode accepted an identity without a bound host")
+	}
+	st, _, err := c.loadOrCreateState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.HostID = "host-01"
+	if err := c.saveState(st); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.RequireEnrolled(); err != nil {
+		t.Fatalf("service mode rejected enrolled identity: %v", err)
+	}
+}
+
 func TestChallengeMessageSignatureBindsHostAndNonce(t *testing.T) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {

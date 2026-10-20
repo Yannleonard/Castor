@@ -22,6 +22,7 @@ import (
 
 func TestAgentTLSEnrollmentReconnectAndRevocation(t *testing.T) {
 	e := newTestEnv(t)
+	adminCookies, _ := adminSession(t, e)
 	server := httptest.NewTLSServer(e.mux)
 	defer server.Close()
 	roots := x509.NewCertPool()
@@ -48,6 +49,24 @@ func TestAgentTLSEnrollmentReconnectAndRevocation(t *testing.T) {
 	var status string
 	if err := e.st.DB().QueryRow(`SELECT status FROM registered_hosts WHERE id = ?`, hostID).Scan(&status); err != nil || status != "connected" {
 		t.Fatalf("connected host status=%q err=%v", status, err)
+	}
+	registered, err := e.st.GetHost(t.Context(), hostID)
+	if err != nil || registered.AgentVersion != "v1.4.0" {
+		t.Fatalf("reported agent version=%q err=%v", registered.AgentVersion, err)
+	}
+	hostsResponse := e.do(t, http.MethodGet, "/api/v1/hosts", nil, adminCookies, "")
+	var hostViews []hostView
+	if hostsResponse.Code != http.StatusOK || json.Unmarshal(hostsResponse.Body.Bytes(), &hostViews) != nil {
+		t.Fatalf("hosts response status=%d body=%s", hostsResponse.Code, hostsResponse.Body.String())
+	}
+	foundVersion := false
+	for _, host := range hostViews {
+		if host.ID == hostID {
+			foundVersion = host.AgentVersion == "v1.4.0" && host.CurrentAgentVersion == "dev" && !host.AgentUpdateAvailable
+		}
+	}
+	if !foundVersion {
+		t.Fatal("hosts API did not expose the authenticated agent version and advisory state")
 	}
 	if err := wsjson.Write(t.Context(), conn, agentFrame{Type: "heartbeat"}); err != nil {
 		t.Fatal(err)
@@ -206,7 +225,7 @@ func dialAndAuthenticateAgent(t *testing.T, wsURL string, client *http.Client, h
 	}
 	sig := ed25519.Sign(priv, agent.ChallengeMessage(nonce, hostID))
 	hello := agentFrame{
-		Type: "hello", HostID: hostID, Token: token,
+		Type: "hello", Version: "v1.4.0", HostID: hostID, Token: token,
 		PublicKey: base64.RawURLEncoding.EncodeToString(pub),
 		Signature: base64.RawURLEncoding.EncodeToString(sig),
 	}

@@ -44,6 +44,8 @@ export const hostsDict = defineDict({
     "agent.pendingHost": "Waiting for the agent to connect from the enrolled Linux host.",
     "agent.offlineHost": "Agent is disconnected. It will reconnect automatically when network access is restored.",
     "agent.connectedHost": "Authenticated agent connected.",
+    "agent.version": "Castor agent version: {version}.",
+    "agent.updateAvailable": "Agent update available: Castor server includes {version}. Update the agent using the documented procedure.",
     "agent.error": "Could not complete the agent operation.",
 
     // Empty state
@@ -110,6 +112,8 @@ export const hostsDict = defineDict({
     "agent.pendingHost": "En attente de la connexion de l’agent depuis l’hôte Linux inscrit.",
     "agent.offlineHost": "L’agent est déconnecté. Il se reconnectera automatiquement lorsque le réseau sera rétabli.",
     "agent.connectedHost": "Agent authentifié connecté.",
+    "agent.version": "Version de l’agent Castor : {version}.",
+    "agent.updateAvailable": "Mise à jour de l’agent disponible : le serveur Castor embarque {version}. Mettez l’agent à jour selon la procédure documentée.",
     "agent.error": "Impossible de terminer l’opération sur l’agent.",
 
     // État vide

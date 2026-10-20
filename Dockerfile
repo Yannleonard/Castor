@@ -25,6 +25,8 @@ RUN npm run build \
 # --- Stage 2: Go build (static, CGO-free, embeds the UI) ---------------------
 FROM --platform=$BUILDPLATFORM golang:1.26.8-alpine AS build
 WORKDIR /src
+ARG VERSION=dev
+ARG COMMIT=none
 
 RUN apk add --no-cache git ca-certificates tzdata
 
@@ -38,8 +40,8 @@ COPY server/ ./server/
 # package both supported remote-host architectures into the Castor binary.
 RUN --mount=type=cache,target=/go/pkg/mod \
   --mount=type=cache,target=/root/.cache/go-build \
-  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o server/internal/api/agent-binaries/castor-agent-linux-amd64 ./server/cmd/castor-agent && \
-  CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o server/internal/api/agent-binaries/castor-agent-linux-arm64 ./server/cmd/castor-agent
+  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X github.com/gtek-it/castor/server/internal/agent.Version=${VERSION}" -o server/internal/api/agent-binaries/castor-agent-linux-amd64 ./server/cmd/castor-agent && \
+  CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w -X github.com/gtek-it/castor/server/internal/agent.Version=${VERSION}" -o server/internal/api/agent-binaries/castor-agent-linux-arm64 ./server/cmd/castor-agent
 
 # go:embed (server/web/embed.go) reads server/web/dist; the UI must be in place before go build.
 COPY --from=ui /server/web/dist ./server/web/dist
@@ -61,7 +63,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
-    go build -trimpath -ldflags="-s -w" \
+    go build -trimpath -ldflags="-s -w -X github.com/gtek-it/castor/server/internal/agent.Version=${VERSION}" \
       -o /out/castor-agent ./server/cmd/castor-agent
 
 RUN test -s /out/castor && test -s /out/castor-agent

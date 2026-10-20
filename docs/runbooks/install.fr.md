@@ -93,19 +93,39 @@ Docker distante et n'ouvrez aucun port entrant pour l'agent. Celui-ci accède à
 cette machine. Réservez l'enrôlement et la révocation aux administrateurs.
 
 1. Créez l'hôte dans Castor et choisissez l'architecture Linux cible.
-2. Téléchargez l'agent depuis l'interface Castor authentifiée sur l'hôte géré,
-  via un canal de transfert de confiance. Le SHA-256 affiché par l'interface
-  correspond aux octets téléchargés et détecte une corruption de transfert,
-  mais ne constitue **pas** une signature indépendante ni une preuve contre
-  un serveur Castor ou une chaîne de publication compromis.
-3. Comparez le checksum affiché au fichier transféré, installez-le sous
-  `/usr/local/bin/castor-agent`, puis lancez la commande indiquée depuis un
-  terminal protégé. Le secret d'enrôlement à usage unique est demandé sans
-  écho ; ne le placez ni dans l'historique shell, ni dans une unité systemd,
-  ni dans les arguments d'un processus.
-4. Conservez le fichier d'identité généré, privé et persistant au chemin choisi.
-  Les reconnexions utilisent l'identité Ed25519 ; le secret initial n'est plus
-  nécessaire.
+2. Préférez l'agent Linux versionné joint à la release officielle Castor.
+  Vérifiez l'attestation de provenance GitHub avant l'installation :
+
+   ```bash
+   gh attestation verify ./castor-agent-linux-amd64 --repo Yannleonard/Castor
+   ```
+
+   Utilisez l'asset `arm64` sur un hôte ARM64. L'agent téléchargé depuis
+   l'interface du serveur peut dépanner pour l'enrôlement initial, mais son
+   SHA-256 ne détecte que les corruptions de transfert et ne constitue pas une
+   signature indépendante.
+3. Installez le binaire vérifié sous `/usr/local/bin/castor-agent` puis lancez
+  la commande d'enrôlement depuis l'interface, dans un terminal protégé. Le
+  secret à usage unique est demandé sans écho ; ne le placez ni dans
+  l'historique shell, ni dans une unité systemd, ni dans les arguments d'un
+  processus. Attendez l'état **Connected**, puis arrêtez le processus interactif
+  avec Ctrl+C.
+4. Conservez l'identité Ed25519 privée dans
+  `/var/lib/castor-agent/identity.json`. Téléchargez `castor-agent.service` de
+  la même release, installez-le et remplacez l'URL WSS d'exemple par celle du
+  serveur Castor avant de l'activer :
+
+   ```bash
+   sudo install -o root -g root -m 0600 ./castor-agent.service /etc/systemd/system/castor-agent.service
+   sudoedit /etc/systemd/system/castor-agent.service
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now castor-agent
+   sudo systemctl status castor-agent
+   ```
+
+   Le service s'exécute en root, car le socket Docker donne des privilèges
+   équivalents à root. Il utilise l'identité persistante pour se reconnecter et
+   ne conserve ni ne redemande le secret d'enrôlement.
 5. Vérifiez l'état **Connected** dans Hosts. Révoquez l'hôte avant de supprimer
   ou remplacer l'identité de l'agent. La révocation ferme le tunnel actif et
   supprime son inventaire mis en cache.
@@ -115,9 +135,24 @@ du tableau de bord et déploiements de templates distants utilisent le tunnel de
 l'hôte. Swarm, Kubernetes, Helm, les stacks Compose et la vérification des mises
 à jour d'images restent actuellement locaux. L'interface désactive la
 navigation workloads hors ligne et l'API échoue sans basculer vers Docker local.
-La mise à niveau de l'agent et l'installation automatique d'un service ne sont
-pas encore fournies : remplacez le binaire par une procédure d'administration
-de confiance et redémarrez le service agent.
+Hosts affiche la version de l'agent et signale si le serveur Castor actif
+embarque une version plus récente. Cet avis ne déclenche aucune mise à jour
+automatique. Pour mettre à niveau, récupérez l'asset correspondant de la
+nouvelle release officielle, vérifiez son attestation comme ci-dessus, puis
+remplacez le binaire et redémarrez le service :
+
+```bash
+sudo systemctl stop castor-agent
+sudo install -o root -g root -m 0750 ./castor-agent-linux-amd64 /usr/local/bin/castor-agent
+sudo systemctl start castor-agent
+sudo systemctl status castor-agent
+castor-agent -version
+```
+
+Confirmez **Connected** dans Hosts et conservez l'ancien binaire vérifié pour
+un retour arrière. Ne téléchargez et n'exécutez jamais automatiquement une
+mise à jour depuis le gestionnaire : l'agent possède des privilèges équivalents
+à root via Docker.
 
 ## Mise à jour
 

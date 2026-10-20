@@ -39,6 +39,7 @@ type state struct {
 
 type frame struct {
 	Type      string `json:"type"`
+	Version   string `json:"version,omitempty"`
 	Nonce     string `json:"nonce,omitempty"`
 	HostID    string `json:"hostId,omitempty"`
 	Token     string `json:"token,omitempty"`
@@ -94,6 +95,19 @@ func New(serverURL, statePath, enrollmentToken, caFile string) (*Client, error) 
 // ClearEnrollmentToken drops the in-memory one-time credential after it has
 // been durably bound to the host identity.
 func (c *Client) ClearEnrollmentToken() { c.token = "" }
+
+// RequireEnrolled prevents a non-interactive service process from creating a
+// new identity or retrying forever when its enrollment has not completed.
+func (c *Client) RequireEnrolled() error {
+	st, _, err := c.loadOrCreateState()
+	if err != nil {
+		return err
+	}
+	if st.HostID == "" {
+		return errors.New("agent: service mode requires an enrolled identity")
+	}
+	return nil
+}
 
 // Run keeps one authenticated connection alive and reconnects with bounded
 // exponential backoff. Context cancellation stops retries and active I/O.
@@ -185,7 +199,7 @@ func (c *Client) connectOnce(ctx context.Context) error {
 		enrollmentToken = c.token
 	}
 	hello := frame{
-		Type: "hello", HostID: st.HostID, Token: enrollmentToken,
+		Type: "hello", Version: Version, HostID: st.HostID, Token: enrollmentToken,
 		PublicKey: base64.RawURLEncoding.EncodeToString(pub),
 		Signature: base64.RawURLEncoding.EncodeToString(sig),
 	}

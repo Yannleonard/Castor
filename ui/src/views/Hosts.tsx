@@ -199,6 +199,16 @@ function HostCard({ host, providers, onRevoked, onError }: { host: HostSummaryEn
             {t(host.status === "pending" ? "agent.pendingHost" : host.status === "connected" ? "agent.connectedHost" : "agent.offlineHost")}
           </div>
         ) : null}
+        {host.connection === "remote-agent" && host.agentVersion ? (
+          <div className="text-sm secondary" role="note">
+            {t("agent.version", { version: host.agentVersion })}
+          </div>
+        ) : null}
+        {host.connection === "remote-agent" && host.agentUpdateAvailable ? (
+          <div className="text-sm secondary" role="status">
+            {t("agent.updateAvailable", { version: host.currentAgentVersion || "—" })}
+          </div>
+        ) : null}
         <div className="col" style={{ gap: "var(--sp-2)" }}>
           <span className="text-xs muted">{t("section.orchestrators")}</span>
           <div className="row-wrap">
