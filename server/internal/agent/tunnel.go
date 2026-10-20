@@ -227,7 +227,6 @@ type TunnelConn struct {
 	remoteFIN     bool
 	readDeadline  time.Time
 	writeDeadline time.Time
-	readClosed    bool
 }
 
 func newTunnelConn(t *Tunnel, id uint32) *TunnelConn {
@@ -404,12 +403,12 @@ func (timeoutError) Temporary() bool { return true }
 // RelayAgentOpen connects an accepted stream exclusively to the configured
 // local Docker Unix socket and relays both directions with bounded buffers.
 func RelayAgentOpen(conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	sock, err := net.DialTimeout("unix", DockerSocketPath, 5*time.Second)
 	if err != nil {
 		return
 	}
-	defer sock.Close()
+	defer func() { _ = sock.Close() }()
 	docker, ok := sock.(*net.UnixConn)
 	if !ok {
 		return

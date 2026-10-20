@@ -37,10 +37,16 @@ func main() {
 	if *serviceMode {
 		token = ""
 	} else if f, err := os.OpenFile("/dev/tty", os.O_RDWR, 0); err == nil {
-		defer f.Close()
-		fmt.Fprint(f, "Enrollment token (leave empty to reconnect): ")
+		defer func() { _ = f.Close() }()
+		if _, err := fmt.Fprint(f, "Enrollment token (leave empty to reconnect): "); err != nil {
+			fmt.Fprintln(os.Stderr, "castor-agent: could not prompt for enrollment token")
+			os.Exit(2)
+		}
 		line, readErr := term.ReadPassword(int(f.Fd()))
-		fmt.Fprintln(f)
+		if _, err := fmt.Fprintln(f); err != nil {
+			fmt.Fprintln(os.Stderr, "castor-agent: could not finish enrollment prompt")
+			os.Exit(2)
+		}
 		if readErr != nil {
 			fmt.Fprintln(os.Stderr, "castor-agent: could not read enrollment token")
 			os.Exit(2)

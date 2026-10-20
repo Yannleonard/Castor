@@ -96,7 +96,7 @@ func fetchActivationIdentityWithClient(ctx context.Context, endpoint,key,instanc
 	req,err:=http.NewRequestWithContext(ctx,http.MethodPost,endpoint,bytes.NewReader(body));if err!=nil{return err}
 	req.Header.Set("Content-Type","application/json")
 	resp,err:=client.Do(req);if err!=nil{return fmt.Errorf("%w: %v",errActivationUnavailable,err)}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode==http.StatusForbidden || resp.StatusCode==http.StatusConflict { return authz.ErrForbidden }
 	if resp.StatusCode!=http.StatusOK { return errActivationUnavailable }
 	limited, err := io.ReadAll(io.LimitReader(resp.Body, (16<<10)+1))

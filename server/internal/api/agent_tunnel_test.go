@@ -37,7 +37,7 @@ func TestAgentTunnelRejectsAgentInitiatedStreamsAndBadFrames(t *testing.T) {
 		t.Fatal(err)
 	}
 	conn := dialAndAuthenticateAgent(t, wsURL, client, "", token, pub, priv, hostID)
-	defer conn.CloseNow()
+	defer func() { _ = conn.CloseNow() }()
 	openFrame := make([]byte, 5)
 	openFrame[0] = 1
 	const maliciousID = uint32(0xfedcba98)

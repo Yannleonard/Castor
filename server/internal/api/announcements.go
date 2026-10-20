@@ -54,7 +54,7 @@ func proxyCurrentAnnouncement(w http.ResponseWriter, r *http.Request, baseURL st
 		http.Error(w, "announcement service unavailable", http.StatusBadGateway)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotFound {
 		w.WriteHeader(http.StatusNoContent)
 		return

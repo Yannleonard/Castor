@@ -27,9 +27,9 @@ func TestTunnelMultiplexesBoundedBidirectionalStreams(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer clientConn.CloseNow()
+	defer func() { _ = clientConn.CloseNow() }()
 	remoteConn := <-serverConn
-	defer remoteConn.CloseNow()
+	defer func() { _ = remoteConn.CloseNow() }()
 
 	serverTunnel := NewTunnel(context.Background(), remoteConn)
 	clientTunnel := NewTunnel(context.Background(), clientConn)
@@ -50,7 +50,7 @@ func TestTunnelMultiplexesBoundedBidirectionalStreams(t *testing.T) {
 		}
 	}
 	go serveFrames(clientConn, clientTunnel, func(stream net.Conn) {
-		defer stream.Close()
+		defer func() { _ = stream.Close() }()
 		if _, err := io.Copy(stream, stream); err != nil && err != io.EOF {
 			t.Errorf("echo stream: %v", err)
 		}
@@ -66,7 +66,7 @@ func TestTunnelMultiplexesBoundedBidirectionalStreams(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	payload := []byte("remote docker engine stream")
 	if _, err := stream.Write(payload); err != nil {
 		t.Fatal(err)

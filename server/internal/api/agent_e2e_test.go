@@ -33,7 +33,7 @@ func TestAuthenticatedAgentTunnelCarriesDockerSDKAndHijackedStreams(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 	go serveFakeDocker(t, listener)
 
 	e := newTestEnv(t)
@@ -54,7 +54,7 @@ func TestAuthenticatedAgentTunnelCarriesDockerSDKAndHijackedStreams(t *testing.T
 		t.Fatal(err)
 	}
 	conn := dialAndAuthenticateAgent(t, wsURL, client, "", token, pub, priv, hostID)
-	defer conn.CloseNow()
+	defer func() { _ = conn.CloseNow() }()
 	conn.SetReadLimit(agentMaxFrame + 5 + 32<<10)
 	go runFakeAgentTunnel(t, conn, socketPath)
 
@@ -186,7 +186,7 @@ func serveFakeDocker(t *testing.T, listener net.Listener) {
 			return
 		}
 		go func() {
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 			reader := bufio.NewReader(conn)
 			for {
 				req, err := http.ReadRequest(reader)

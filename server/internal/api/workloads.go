@@ -296,23 +296,23 @@ func (s *Server) UpdateWorkloadPorts(w http.ResponseWriter, r *http.Request) {
 
 func validateWorkloadPorts(ports []provider.Port) error {
 	if ports == nil {
-		return fmt.Errorf("The ports field is required; use an empty array to remove all port mappings.")
+		return fmt.Errorf("the ports field is required; use an empty array to remove all port mappings")
 	}
 	if len(ports) > 128 {
-		return fmt.Errorf("At most 128 port mappings can be configured.")
+		return fmt.Errorf("at most 128 port mappings can be configured")
 	}
 	seen := make(map[string]struct{}, len(ports))
 	for _, port := range ports {
 		proto := strings.ToLower(strings.TrimSpace(port.Protocol))
 		if port.Private == 0 || (proto != "tcp" && proto != "udp" && proto != "sctp") {
-			return fmt.Errorf("Each mapping needs a container port from 1 to 65535 and protocol tcp, udp, or sctp.")
+			return fmt.Errorf("each mapping needs a container port from 1 to 65535 and protocol tcp, udp, or sctp")
 		}
 		if ip := strings.TrimSpace(port.HostIP); ip != "" && net.ParseIP(ip) == nil {
-			return fmt.Errorf("Host binding addresses must be valid IP addresses.")
+			return fmt.Errorf("host binding addresses must be valid IP addresses")
 		}
 		key := fmt.Sprintf("%d/%s@%s:%d", port.Private, proto, strings.TrimSpace(port.HostIP), port.Public)
 		if _, exists := seen[key]; exists {
-			return fmt.Errorf("Duplicate port mappings are not allowed.")
+			return fmt.Errorf("duplicate port mappings are not allowed")
 		}
 		seen[key] = struct{}{}
 	}

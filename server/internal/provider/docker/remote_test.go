@@ -22,7 +22,7 @@ func TestRemoteProviderUsesOnlyBoundDockerTransport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	requests := make(chan string, 4)
 	go func() {
@@ -32,7 +32,7 @@ func TestRemoteProviderUsesOnlyBoundDockerTransport(t *testing.T) {
 				return
 			}
 			go func() {
-				defer conn.Close()
+				defer func() { _ = conn.Close() }()
 				req, err := http.ReadRequest(bufio.NewReader(conn))
 				if err != nil {
 					return
@@ -64,7 +64,7 @@ func TestRemoteProviderUsesOnlyBoundDockerTransport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer p.Close()
+	defer func() { _ = p.Close() }()
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 	workloads, err := p.ListWorkloads(ctx, provider.ListOptions{All: true})

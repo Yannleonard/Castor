@@ -301,7 +301,7 @@ func (c *Client) loadOrCreateState() (state, ed25519.PrivateKey, error) {
 	var st state
 	f, err := os.Open(c.statePath)
 	if err == nil {
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		info, statErr := f.Stat()
 		if statErr != nil || !info.Mode().IsRegular() {
 			return st, nil, errors.New("agent: identity state must be a regular file")
