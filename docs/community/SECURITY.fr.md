@@ -34,10 +34,11 @@ délai de 72 heures.
 ## Hygiène des dépendances
 
 Nous maintenons la chaîne d'outils Go et les dépendances à jour afin d'absorber les
-correctifs amont. À la date de la dernière version, cela inclut Go 1.26.8 (correctifs
-de CVE de la bibliothèque standard), Helm v3.18.5, containerd v1.7.29 et
-moby/spdystream v0.5.1 — résolvant collectivement chaque résultat actionnable de
-`govulncheck`.
+correctifs amont. La compilation actuelle utilise Go 1.26.9 (correctifs de sécurité
+de la bibliothèque standard), `golang.org/x/net` v0.60.0 et Azure NTLMSSP v0.1.1
+pour traiter les avis atteignables signalés par `govulncheck`. Nous continuons à
+examiner les dépendances transitives et à distinguer les avis atteignables de ceux
+qui ne s'appliquent pas à Castor.
 
 ## Avis évalués comme non applicables (liste d'autorisation govulncheck)
 

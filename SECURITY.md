@@ -29,9 +29,10 @@ public issue. We aim to acknowledge reports within 72 hours.
 ## Dependency hygiene
 
 We keep the Go toolchain and dependencies current to absorb upstream fixes.
-As of the latest release this includes Go 1.26.8 (standard-library CVE fixes),
-Helm v3.18.5, containerd v1.7.29, and moby/spdystream v0.5.1 — collectively
-resolving every actionable `govulncheck` finding.
+The current build uses Go 1.26.9 (including standard-library security fixes),
+`golang.org/x/net` v0.60.0, and Azure NTLMSSP v0.1.1 to address the reachable
+advisories reported by `govulncheck`. We continue to review transitive dependencies
+and distinguish reachable findings from advisories that do not apply to Castor.
 
 ## Assessed-not-applicable advisories (govulncheck allow-list)
 
