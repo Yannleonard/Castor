@@ -1,19 +1,14 @@
 <div align="center">
 
-<table>
-  <tr>
-    <td width="180" valign="top"><img src="docs/brand/castor-logo.webp" alt="Castor beaver mascot" width="170" /></td>
-    <td valign="top"><img src="docs/screenshots/dashboard.png" alt="Castor dashboard — container management, metrics and orchestrators" width="100%" /></td>
-  </tr>
-</table>
+<img src="docs/brand/castor-logo.webp" alt="Castor beaver mascot" width="88" />
 
 # Castor
 
-**Gérer · Déployer · Orchestrer**
+**Gérer · Déployer · Orchestrer** — open-source, self-hosted container orchestration under one modern UI
 
-Open-source, self-hosted container orchestration platform — **Docker · Docker Swarm · Kubernetes** under one modern UI.
+<img src="docs/screenshots/dashboard.png" alt="Castor dashboard — container management, metrics and orchestrators" width="100%" />
 
-By **IT Leonard** (LEONARD-IT / GTEK-IT) · Apache-2.0 · ships as a single small Docker image (amd64 + arm64).
+**Docker · Docker Swarm · Kubernetes** · by **IT Leonard** (LEONARD-IT / GTEK-IT) · Apache-2.0 · single small Docker image (amd64 + arm64)
 
 🇬🇧 **English** · <a href="README.fr.md">🇫🇷 Français</a>
 
